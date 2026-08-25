@@ -5,115 +5,91 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>仓库管理系统 · 多端实时同步版</title>
 
-    <!-- Firebase SDK (compat) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
-        :root {
-            --bg: #f0f2f5;
-            --card-bg: #fff;
-            --primary: #1a73e8;
-            --primary-hover: #1557b0;
-            --success: #34a853;
-            --danger: #ea4335;
-            --warning: #fbbc04;
-            --text: #202124;
-            --text-secondary: #5f6368;
-            --border: #dadce0;
-            --shadow: 0 1px 3px rgba(0,0,0,.1);
-            --shadow-lg: 0 10px 40px rgba(0,0,0,.15);
-            --radius: 12px;
-            --radius-sm: 8px;
-            --transition: .25s;
-            --status-normal: #e8f5e9;
-            --status-normal-border: #4caf50;
-            --status-unavailable: #ffebee;
-            --status-unavailable-border: #ef5350;
-            --cell-size: 60px;
-            --cell-gap: 6px;
-            --row-label-width: 52px;
-        }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; -webkit-tap-highlight-color:transparent; }
-        .header { background:var(--card-bg); border-bottom:1px solid var(--border); padding:0 16px; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:var(--shadow); gap:8px; }
-        .header-left { display:flex; align-items:center; gap:8px; min-width:0; }
-        .logo-icon { width:32px; height:32px; background:var(--primary); border-radius:8px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:bold; flex-shrink:0; }
-        .header h1 { font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .header-stats { display:flex; gap:4px; align-items:center; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
-        .stat-chip { display:flex; align-items:center; gap:3px; font-size:10px; color:var(--text-secondary); background:#f8f9fa; padding:3px 8px; border-radius:12px; border:1px solid var(--border); white-space:nowrap; }
-        .dot-green { background:var(--success); } .dot-red { background:var(--danger); } .dot-blue { background:var(--primary); }
-        .sync-badge { font-size:10px; padding:3px 8px; border-radius:12px; background:#fff8e1; color:#f57c00; }
-        .sync-badge.online { background:#e8f5e9; color:#2e7d32; }
-        .sync-badge.offline { background:#ffebee; color:#c62828; }
+        :root { --bg:#f0f2f5; --card-bg:#fff; --primary:#1a73e8; --primary-hover:#1557b0; --success:#34a853; --danger:#ea4335; --warning:#fbbc04; --text:#202124; --text-secondary:#5f6368; --border:#dadce0; --shadow:0 1px 3px rgba(0,0,0,.1); --shadow-lg:0 10px 40px rgba(0,0,0,.15); --radius:12px; --radius-sm:8px; --transition:.25s; --status-normal:#e8f5e9; --status-normal-border:#4caf50; --status-unavailable:#ffebee; --status-unavailable-border:#ef5350; --cell-size:60px; --cell-gap:6px; --row-label-width:52px; }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+        .header{background:var(--card-bg);border-bottom:1px solid var(--border);padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);gap:8px}
+        .header-left{display:flex;align-items:center;gap:8px;min-width:0}
+        .logo-icon{width:32px;height:32px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700;flex-shrink:0}
+        .header h1{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .header-stats{display:flex;gap:4px;align-items:center;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+        .stat-chip{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text-secondary);background:#f8f9fa;padding:3px 8px;border-radius:12px;border:1px solid var(--border);white-space:nowrap}
+        .dot-green{background:var(--success)}.dot-red{background:var(--danger)}.dot-blue{background:var(--primary)}
+        .sync-badge{font-size:10px;padding:3px 8px;border-radius:12px;background:#fff8e1;color:#f57c00}
+        .sync-badge.online{background:#e8f5e9;color:#2e7d32}
+        .sync-badge.offline{background:#ffebee;color:#c62828}
 
-        .main-container { display:flex; flex-direction:column; height:calc(100vh - 56px); overflow:hidden; }
-        .left-panel { background:var(--card-bg); border-bottom:1px solid var(--border); padding:10px 12px; overflow-x:auto; overflow-y:hidden; flex-shrink:0; display:flex; flex-direction:row; gap:6px; align-items:center; }
-        .panel-title { font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; }
-        .zone-list { display:flex; gap:6px; flex-direction:row; flex-wrap:nowrap; overflow-x:auto; }
-        .zone-item { padding:8px 12px; border-radius:var(--radius-sm); border:2px solid var(--border); cursor:pointer; background:#fafafa; white-space:nowrap; font-size:12px; display:flex; align-items:center; gap:4px; }
-        .zone-item.active { border-color:var(--primary); background:#e8f0fe; }
-        .zone-name { font-weight:600; }
-        .badge-base { background:var(--primary); color:#fff; font-size:9px; padding:1px 5px; border-radius:8px; }
-        .badge-custom { background:#6c757d; color:#fff; font-size:9px; padding:1px 5px; border-radius:8px; }
-        .zone-delete-btn { width:20px; height:20px; border-radius:50%; border:none; background:#f1f3f4; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:12px; color:var(--danger); flex-shrink:0; margin-left:2px; }
-        .add-zone-btn { padding:8px 14px; border:2px dashed var(--border); border-radius:var(--radius-sm); background:transparent; cursor:pointer; font-size:12px; white-space:nowrap; }
+        .main-container{display:flex;flex-direction:column;height:calc(100vh - 56px);overflow:hidden}
+        .left-panel{background:var(--card-bg);border-bottom:1px solid var(--border);padding:10px 12px;overflow-x:auto;overflow-y:hidden;flex-shrink:0;display:flex;flex-direction:row;gap:6px;align-items:center}
+        .panel-title{font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;white-space:nowrap}
+        .zone-list{display:flex;gap:6px;flex-direction:row;flex-wrap:nowrap;overflow-x:auto}
+        .zone-item{padding:8px 12px;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;background:#fafafa;white-space:nowrap;font-size:12px;display:flex;align-items:center;gap:4px}
+        .zone-item.active{border-color:var(--primary);background:#e8f0fe}
+        .zone-name{font-weight:600}
+        .badge-base{background:var(--primary);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px}
+        .badge-custom{background:#6c757d;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px}
+        .zone-delete-btn{width:20px;height:20px;border-radius:50%;border:none;background:#f1f3f4;cursor:pointer;display:inline-flex!important;align-items:center;justify-content:center;font-size:12px;color:var(--danger);flex-shrink:0;margin-left:2px}
+        .add-zone-btn{padding:8px 14px;border:2px dashed var(--border);border-radius:var(--radius-sm);background:transparent;cursor:pointer;font-size:12px;white-space:nowrap}
 
-        .center-panel { flex:1; overflow-y:auto; background:var(--bg); padding:12px; }
-        .center-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
-        .legend { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; font-size:10px; }
-        .grid-container { background:var(--card-bg); border-radius:var(--radius); padding:8px; box-shadow:var(--shadow); overflow-x:auto; }
-        .grid-side-by-side { display:flex; gap:16px; flex-wrap:nowrap; overflow-x:auto; }
-        .grid-table { display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
-        .grid-col-label-row { display:flex; align-items:center; gap:var(--cell-gap); margin-bottom:2px; padding-left:calc(var(--row-label-width) + var(--cell-gap)); }
-        .grid-col-label { width:var(--cell-size); text-align:center; font-size:10px; font-weight:600; color:var(--text-secondary); }
-        .grid-row { display:flex; align-items:center; gap:var(--cell-gap); }
-        .grid-row-label { width:var(--row-label-width); font-size:10px; font-weight:600; color:var(--text-secondary); text-align:right; }
-        .cell { width:var(--cell-size); height:48px; border-radius:4px; border:2px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:9px; text-align:center; position:relative; flex-shrink:0; user-select:none; overflow:hidden; }
-        .cell.status-normal { background:var(--status-normal); border-color:var(--status-normal-border); color:#2e7d32; }
-        .cell.status-unavailable { background:var(--status-unavailable); border-color:var(--status-unavailable-border); color:#c62828; opacity:.8; }
-        .cell.status-used { color:#fff; border-color:#333; }
-        .cell .cell-label { font-weight:600; font-size:8px; line-height:1.1; }
-        .cell .cell-batch { font-size:7px; position:absolute; bottom:1px; left:2px; right:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .cell .cell-qty { font-size:8px; font-weight:700; position:absolute; top:1px; right:2px; background:rgba(255,255,255,.85); border-radius:3px; padding:0 2px; color:#000; }
-        .cell .fifo-rank { position:absolute; top:1px; left:2px; background:rgba(0,0,0,.5); color:#fff; font-size:7px; border-radius:3px; }
+        .center-panel{flex:1;overflow-y:auto;background:var(--bg);padding:12px}
+        .center-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px}
+        .legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:10px}
+        .grid-container{background:var(--card-bg);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);overflow-x:auto}
+        .grid-side-by-side{display:flex;gap:16px;flex-wrap:nowrap;overflow-x:auto}
+        .grid-table{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+        .grid-col-label-row{display:flex;align-items:center;gap:var(--cell-gap);margin-bottom:2px;padding-left:calc(var(--row-label-width) + var(--cell-gap))}
+        .grid-col-label{width:var(--cell-size);text-align:center;font-size:10px;font-weight:600;color:var(--text-secondary)}
+        .grid-row{display:flex;align-items:center;gap:var(--cell-gap)}
+        .grid-row-label{width:var(--row-label-width);font-size:10px;font-weight:600;color:var(--text-secondary);text-align:right}
+        .cell{width:var(--cell-size);height:48px;border-radius:4px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;text-align:center;position:relative;flex-shrink:0;user-select:none;overflow:hidden}
+        .cell.status-normal{background:var(--status-normal);border-color:var(--status-normal-border);color:#2e7d32}
+        .cell.status-unavailable{background:var(--status-unavailable);border-color:var(--status-unavailable-border);color:#c62828;opacity:.8}
+        .cell.status-used{color:#fff;border-color:#333}
+        .cell .cell-label{font-weight:600;font-size:8px;line-height:1.1}
+        .cell .cell-batch{font-size:7px;position:absolute;bottom:1px;left:2px;right:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .cell .cell-qty{font-size:8px;font-weight:700;position:absolute;top:1px;right:2px;background:rgba(255,255,255,.85);border-radius:3px;padding:0 2px;color:#000}
+        .cell .fifo-rank{position:absolute;top:1px;left:2px;background:rgba(0,0,0,.5);color:#fff;font-size:7px;border-radius:3px}
 
-        .right-panel { background:var(--card-bg); border-top:1px solid var(--border); padding:10px 12px; flex-shrink:0; display:flex; gap:8px; overflow-x:auto; }
-        .right-section { background:#f8f9fa; border-radius:var(--radius-sm); padding:10px; border:1px solid var(--border); min-width:180px; max-width:280px; display:flex; flex-direction:column; gap:6px; }
-        .product-list { display:flex; flex-direction:column; gap:4px; max-height:130px; overflow-y:auto; }
-        .product-item { padding:6px 8px; background:#fff; border-radius:4px; border:1px solid var(--border); font-size:11px; display:flex; gap:4px; align-items:center; cursor:pointer; }
-        .product-item.selected { background:#e8f0fe; border-color:var(--primary); }
-        .product-checkbox { margin-right:4px; }
-        .batch-toolbar { display:none; gap:4px; margin-top:4px; flex-wrap:wrap; }
-        .batch-toolbar.active { display:flex; }
-        .btn { padding:7px 14px; border-radius:6px; border:none; cursor:pointer; font-size:12px; font-weight:500; transition:var(--transition); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
-        .btn-primary { background:var(--primary); color:#fff; }
-        .btn-outline { background:transparent; color:var(--primary); border:1.5px solid var(--primary); }
-        .btn-danger { background:var(--danger); color:#fff; }
-        .btn-success { background:var(--success); color:#fff; }
-        .btn-warning { background:var(--warning); color:#333; }
-        .btn-sm { padding:4px 8px; font-size:10px; }
-        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.5); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px; }
-        .modal { background:#fff; border-radius:var(--radius); padding:20px; width:100%; max-width:500px; max-height:85vh; overflow-y:auto; }
-        .form-group { margin-bottom:12px; }
-        .form-group label { display:block; font-size:12px; font-weight:500; margin-bottom:4px; color:var(--text-secondary); }
-        .form-group input, .form-group select, .form-group textarea { width:100%; padding:8px 10px; border:1.5px solid var(--border); border-radius:6px; font-size:14px; }
-        .toast-container { position:fixed; top:60px; right:12px; z-index:2000; display:flex; flex-direction:column; gap:6px; }
-        .toast { padding:10px 14px; border-radius:8px; color:#fff; font-size:12px; cursor:pointer; }
-        .toast-success { background:var(--success); } .toast-error { background:var(--danger); } .toast-info { background:var(--primary); }
-        .fifo-table, .stats-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:12px; }
-        .fifo-table th, .fifo-table td, .stats-table th, .stats-table td { padding:6px 4px; text-align:left; border-bottom:1px solid var(--border); }
-        .modal-product-list { max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; padding:4px; margin-bottom:10px; }
-        .modal-product-item { display:flex; align-items:center; gap:6px; padding:6px 8px; border-bottom:1px solid #eee; font-size:12px; }
+        .right-panel{background:var(--card-bg);border-top:1px solid var(--border);padding:10px 12px;flex-shrink:0;display:flex;gap:8px;overflow-x:auto}
+        .right-section{background:#f8f9fa;border-radius:var(--radius-sm);padding:10px;border:1px solid var(--border);min-width:180px;max-width:280px;display:flex;flex-direction:column;gap:6px}
+        .product-list{display:flex;flex-direction:column;gap:4px;max-height:130px;overflow-y:auto}
+        .product-item{padding:6px 8px;background:#fff;border-radius:4px;border:1px solid var(--border);font-size:11px;display:flex;gap:4px;align-items:center;cursor:pointer}
+        .product-item.selected{background:#e8f0fe;border-color:var(--primary)}
+        .product-checkbox{margin-right:4px}
+        .batch-toolbar{display:none;gap:4px;margin-top:4px;flex-wrap:wrap}
+        .batch-toolbar.active{display:flex}
+        .btn{padding:7px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:500;transition:var(--transition);display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+        .btn-primary{background:var(--primary);color:#fff}
+        .btn-outline{background:transparent;color:var(--primary);border:1.5px solid var(--primary)}
+        .btn-danger{background:var(--danger);color:#fff}
+        .btn-success{background:var(--success);color:#fff}
+        .btn-warning{background:var(--warning);color:#333}
+        .btn-sm{padding:4px 8px;font-size:10px}
+        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+        .modal{background:#fff;border-radius:var(--radius);padding:20px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto}
+        .form-group{margin-bottom:12px}
+        .form-group label{display:block;font-size:12px;font-weight:500;margin-bottom:4px;color:var(--text-secondary)}
+        .form-group input,.form-group select,.form-group textarea{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:14px}
+        .toast-container{position:fixed;top:60px;right:12px;z-index:2000;display:flex;flex-direction:column;gap:6px}
+        .toast{padding:10px 14px;border-radius:8px;color:#fff;font-size:12px;cursor:pointer}
+        .toast-success{background:var(--success)}.toast-error{background:var(--danger)}.toast-info{background:var(--primary)}
+        .fifo-table,.stats-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+        .fifo-table th,.fifo-table td,.stats-table th,.stats-table td{padding:6px 4px;text-align:left;border-bottom:1px solid var(--border)}
+        .modal-product-list{max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px;margin-bottom:10px}
+        .modal-product-item{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid #eee;font-size:12px}
 
-        @media (min-width:768px) {
-            .main-container { flex-direction:row; }
-            .left-panel { width:220px; height:auto; flex-direction:column; border-right:1px solid var(--border); border-bottom:none; overflow-y:auto; }
-            .zone-list { flex-direction:column; }
-            .right-panel { width:300px; flex-direction:column; border-left:1px solid var(--border); border-top:none; overflow-y:auto; }
-            .center-panel { padding:20px 24px; }
-            .cell { width:68px; height:56px; }
-            .grid-col-label { width:68px; }
+        @media(min-width:768px){
+            .main-container{flex-direction:row}
+            .left-panel{width:220px;height:auto;flex-direction:column;border-right:1px solid var(--border);border-bottom:none;overflow-y:auto}
+            .zone-list{flex-direction:column}
+            .right-panel{width:300px;flex-direction:column;border-left:1px solid var(--border);border-top:none;overflow-y:auto}
+            .center-panel{padding:20px 24px}
+            .cell{width:68px;height:56px}
+            .grid-col-label{width:68px}
         }
     </style>
 </head>
@@ -161,7 +137,7 @@
         <aside class="right-panel">
             <div class="right-section">
                 <h3>📦 产品列表</h3>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
                     <button class="btn btn-outline btn-sm" id="btnToggleBatch">批量操作</button>
                     <button class="btn btn-primary btn-sm" id="btnAddProduct">+ 新建</button>
                 </div>
@@ -200,12 +176,12 @@
                     <li>点击仓位：入库/出库</li>
                     <li>右键：标记不可用</li>
                     <li>基础仓位不可删除</li>
-                    <li>批次号只需日期</li>
-                    <li>入库可选单位或件数</li>
+                    <li>入库可选单位、总件数、自定义件数</li>
+                    <li>自定义件数独立计入总库存</li>
                     <li>产品含备注</li>
                     <li>默认单位“件”</li>
                     <li>批量修改单位</li>
-                    <li>多端实时同步（Firebase）</li>
+                    <li>多端实时同步</li>
                 </ul>
             </div>
         </aside>
@@ -215,7 +191,6 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
-        // ========== Firebase 配置 ==========
         const firebaseConfig = {
             apiKey: "AIzaSyDu1NYuTLUxIMkkaXdJGFgE0GXGW0hwXto",
             authDomain: "warehouse-manager-4eec5.firebaseapp.com",
@@ -242,7 +217,7 @@
             d.nextZoneId = 2;
             for (let r = 1; r <= 34; r++) {
                 for (let c = 1; c <= 5; c++) {
-                    d.locations.push({ id: d.nextLocationId++, zoneId: 1, rowNum: r, colNum: c, status: 'normal', productId: null, batchNo: null, quantity: 0, updatedAt: null });
+                    d.locations.push({ id: d.nextLocationId++, zoneId: 1, rowNum: r, colNum: c, status: 'normal', productId: null, batchNo: null, quantity: 0, customPieces: 0, remark: '', updatedAt: null });
                 }
             }
             return d;
@@ -257,6 +232,7 @@
             if (!data.nextLocationId) data.nextLocationId = 1;
             if (!data.nextProductId) data.nextProductId = 1;
             data.products.forEach(p => { if (!p.unit) p.unit = '件'; if (!p.remark) p.remark = ''; });
+            data.locations.forEach(l => { if (!l.remark) l.remark = ''; if (l.customPieces === undefined) l.customPieces = 0; });
             return data;
         }
 
@@ -313,12 +289,12 @@
         }
 
         function getProductDisplayInfo(productId) {
-            if (!db || !Array.isArray(db.products)) return { units: 0, pieces: 0, unit: '件', unitQuantity: 1, remark: '' };
+            if (!db || !Array.isArray(db.products)) return { pieces: 0, unit: '件', unitQuantity: 1, remark: '' };
             const product = db.products.find(p => p.id === productId);
-            if (!product) return { units: 0, pieces: 0, unit: '件', unitQuantity: 1, remark: '' };
-            const units = db.locations.filter(l => l.productId === productId && l.status === 'used').reduce((sum, l) => sum + (l.quantity || 0), 0);
-            const pieces = units * (product.unitQuantity || 1);
-            return { units, pieces, unit: product.unit || '件', unitQuantity: product.unitQuantity || 1, remark: product.remark || '' };
+            if (!product) return { pieces: 0, unit: '件', unitQuantity: 1, remark: '' };
+            const regularPieces = db.locations.filter(l => l.productId === productId && l.status === 'used').reduce((sum, l) => sum + (l.quantity || 0) * (product.unitQuantity || 1), 0);
+            const customPieces = db.locations.filter(l => l.productId === productId && l.status === 'used').reduce((sum, l) => sum + (l.customPieces || 0), 0);
+            return { pieces: regularPieces + customPieces, unit: product.unit || '件', unitQuantity: product.unitQuantity || 1, remark: product.remark || '' };
         }
 
         function getRowDisplayLabel(zone, rowNum) {
@@ -364,21 +340,15 @@
                 item.className = `zone-item ${zone.id === currentZoneId ? 'active' : ''}`;
                 const locCount = db.locations.filter(l => l.zoneId === zone.id).length;
                 const usedCount = db.locations.filter(l => l.zoneId === zone.id && l.status === 'used').length;
-                
                 const nameSpan = document.createElement('span');
                 nameSpan.className = 'zone-name';
                 nameSpan.innerHTML = `${zone.isBase ? '🏭' : '📁'} ${zone.name}`;
-                
                 const badge = document.createElement('span');
                 badge.className = zone.isBase ? 'badge-base' : 'badge-custom';
                 badge.textContent = zone.isBase ? '基础' : '自定义';
-                
                 const infoSpan = document.createElement('span');
-                infoSpan.style.fontSize = '9px';
-                infoSpan.style.color = '#999';
-                infoSpan.style.marginLeft = '2px';
+                infoSpan.style.cssText = 'font-size:9px;color:#999;margin-left:2px;';
                 infoSpan.textContent = `(${usedCount}/${locCount})`;
-                
                 item.appendChild(nameSpan);
                 item.appendChild(badge);
                 if (!zone.isBase) {
@@ -386,18 +356,11 @@
                     deleteBtn.className = 'zone-delete-btn';
                     deleteBtn.textContent = '×';
                     deleteBtn.title = '删除区域';
-                    deleteBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        deleteZone(zone.id);
-                    });
+                    deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteZone(zone.id); });
                     item.appendChild(deleteBtn);
                 }
                 item.appendChild(infoSpan);
-                
-                item.addEventListener('click', () => {
-                    currentZoneId = zone.id;
-                    renderAll();
-                });
+                item.addEventListener('click', () => { currentZoneId = zone.id; renderAll(); });
                 list.appendChild(item);
             });
         }
@@ -433,7 +396,7 @@
             const zone = { id: newDb.nextZoneId++, name, rows, cols, isBase:false, createdAt: new Date().toISOString() };
             newDb.zones.push(zone);
             for (let r=1; r<=rows; r++) for (let c=1; c<=cols; c++) {
-                newDb.locations.push({ id: newDb.nextLocationId++, zoneId: zone.id, rowNum:r, colNum:c, status:'normal', productId:null, batchNo:null, quantity:0, updatedAt:null });
+                newDb.locations.push({ id: newDb.nextLocationId++, zoneId: zone.id, rowNum:r, colNum:c, status:'normal', productId:null, batchNo:null, quantity:0, customPieces:0, remark:'', updatedAt:null });
             }
             currentZoneId = zone.id;
             saveDB(newDb); closeModal(); showToast('已添加','success');
@@ -482,7 +445,11 @@
                             const product = db.products.find(p => p.id === loc.productId);
                             label = product ? product.name : '?';
                             batchInfo = loc.batchNo || '';
-                            qtyInfo = loc.quantity > 0 ? `${loc.quantity}${product?.unit || '件'}` : '';
+                            if (loc.customPieces > 0) {
+                                qtyInfo = `${loc.customPieces}件`;
+                            } else {
+                                qtyInfo = loc.quantity > 0 ? `${loc.quantity}${product?.unit || '件'}` : '';
+                            }
                         } else if (loc.status === 'unavailable') label = '🚫';
                         else label = `${getRowDisplayLabel(zone, r)}-${idx+1}`;
                         html += `<div class="cell status-${loc.status}" style="${style}" onclick="handleCellClick(${loc.id})" oncontextmenu="handleCellRightClick(${loc.id});return false;">${rankBadge}<span class="cell-label">${label}</span>${qtyInfo?`<span class="cell-qty">${qtyInfo}</span>`:''}${batchInfo?`<span class="cell-batch">📅${batchInfo}</span>`:''}</div>`;
@@ -633,12 +600,11 @@
             const normalCount = locs.filter(l => l.status === 'normal').length;
             const unavailCount = locs.filter(l => l.status === 'unavailable').length;
             const usedCount = locs.filter(l => l.status === 'used').length;
-            const totalUnits = locs.filter(l => l.status === 'used').reduce((sum, l) => sum + (l.quantity || 0), 0);
             const totalPieces = locs.filter(l => l.status === 'used').reduce((sum, l) => {
                 const product = db.products.find(p => p.id === l.productId);
-                return sum + (l.quantity || 0) * (product?.unitQuantity || 1);
+                return sum + (l.quantity || 0) * (product?.unitQuantity || 1) + (l.customPieces || 0);
             }, 0);
-            container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;"><div>正常: <b>${normalCount}</b></div><div>不可用: <b>${unavailCount}</b></div><div>已用: <b>${usedCount}</b></div><div>单位总数: <b>${totalUnits}</b></div><div>总件数: <b>${totalPieces}</b></div></div>`;
+            container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;"><div>正常: <b>${normalCount}</b></div><div>不可用: <b>${unavailCount}</b></div><div>已用: <b>${usedCount}</b></div><div>总件数: <b>${totalPieces}</b></div></div>`;
         }
 
         function updateHeaderStats() {
@@ -666,13 +632,10 @@
                 const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
                 return `<tr><td>${name}</td><td>${specs}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
             }).join('');
-
             const modelMap = new Map();
             db.products.forEach(p => {
                 const key = p.model || '无型号';
-                if (!modelMap.has(key)) {
-                    modelMap.set(key, { pieces: 0, units: new Set(), names: new Set(), productNames: [] });
-                }
+                if (!modelMap.has(key)) modelMap.set(key, { pieces: 0, units: new Set(), names: new Set(), productNames: [] });
                 const e = modelMap.get(key);
                 const info = getProductDisplayInfo(p.id);
                 e.pieces += info.pieces;
@@ -683,33 +646,9 @@
             let modelRows = [...modelMap.entries()].map(([model, data]) => {
                 const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
                 const namesStr = data.productNames.join('、');
-                return `<tr>
-                    <td>${namesStr}</td>
-                    <td>${model}</td>
-                    <td>${data.names.size}</td>
-                    <td>${data.pieces}</td>
-                    <td>${unitStr}</td>
-                </tr>`;
+                return `<tr><td>${namesStr}</td><td>${model}</td><td>${data.names.size}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
             }).join('');
-
-            openModal(`
-                <h2>📈 库存统计</h2>
-                <div style="margin-bottom:20px;">
-                    <h3>按名称统计（显示规格）</h3>
-                    <table class="stats-table">
-                        <thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead>
-                        <tbody>${nameRows}</tbody>
-                    </table>
-                </div>
-                <div>
-                    <h3>按型号统计</h3>
-                    <table class="stats-table">
-                        <thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead>
-                        <tbody>${modelRows}</tbody>
-                    </table>
-                </div>
-                <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>
-            `);
+            openModal(`<h2>📈 库存统计</h2><div style="margin-bottom:20px;"><h3>按名称统计（显示规格）</h3><table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>${nameRows}</tbody></table></div><div><h3>按型号统计</h3><table class="stats-table"><thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>${modelRows}</tbody></table></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
         }
 
         function getFifoRankMap(zoneId) {
@@ -765,8 +704,14 @@
                 let rows = locs.map((loc, index) => {
                     const rowLabel = getRowDisplayLabel(zone, loc.rowNum);
                     const displayCol = getDisplayColNumber(zone, loc.colNum);
-                    const pieces = loc.quantity * (product?.unitQuantity || 1);
-                    return `<tr><td>${index + 1}</td><td>${loc.batchNo}</td><td>${rowLabel}排${displayCol}托</td><td>${loc.quantity}${product?.unit || ''} (${pieces}件)</td></tr>`;
+                    let qtyStr;
+                    if (loc.customPieces > 0) {
+                        qtyStr = `${loc.customPieces}件`;
+                    } else {
+                        const pieces = loc.quantity * (product?.unitQuantity || 1);
+                        qtyStr = `${loc.quantity}${product?.unit || ''} (${pieces.toFixed(2)}件)`;
+                    }
+                    return `<tr><td>${index + 1}</td><td>${loc.batchNo}</td><td>${rowLabel}排${displayCol}托</td><td>${qtyStr}</td></tr>`;
                 }).join('');
                 content += `<div style="margin-bottom:16px;"><h3 style="font-size:13px;font-weight:600;margin-bottom:4px;">📦 ${name} (${product?.model || '无型号'})</h3><table class="fifo-table"><thead><tr><th>产品内优先级</th><th>批次日期</th><th>仓位</th><th>数量</th></tr></thead><tbody>${rows}</tbody></table></div>`;
             });
@@ -808,11 +753,14 @@
                 <div class="form-group"><label>产品 *</label><select id="stockInProduct">${options}</select></div>
                 <div class="form-group"><label>入库方式</label><select id="stockInType" onchange="toggleStockInType()">
                     <option value="unit">按单位数量（箱）</option>
-                    <option value="piece">按总件数</option>
+                    <option value="piece">按总件数（换算成单位数）</option>
+                    <option value="custom">自定义件数（独立计入）</option>
                 </select></div>
-                <div class="form-group" id="unitQtyGroup"><label>单位数量 *</label><input type="number" id="stockInQty" min="1" value="1" required></div>
-                <div class="form-group" id="pieceQtyGroup" style="display:none;"><label>总件数 *</label><input type="number" id="stockInPieces" min="1" value="1" required></div>
+                <div class="form-group" id="unitQtyGroup"><label>单位数量 *</label><input type="number" id="stockInQty" min="0.01" step="any" value="1" required></div>
+                <div class="form-group" id="pieceQtyGroup" style="display:none;"><label>总件数 *（整数）</label><input type="number" id="stockInPieces" min="1" step="1" value="1" required></div>
+                <div class="form-group" id="customPiecesGroup" style="display:none;"><label>自定义件数 *（整数）</label><input type="number" id="stockInCustomPieces" min="1" step="1" value="1" required></div>
                 <div class="form-group"><label>批次日期</label><input type="date" id="stockInBatch" value="${today}" required></div>
+                <div class="form-group"><label>备注</label><textarea id="stockInRemark" rows="2"></textarea></div>
                 <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-success" onclick="stockIn(${loc.id})">确认入库</button></div>`);
         }
 
@@ -820,6 +768,7 @@
             const type = document.getElementById('stockInType').value;
             document.getElementById('unitQtyGroup').style.display = type === 'unit' ? 'block' : 'none';
             document.getElementById('pieceQtyGroup').style.display = type === 'piece' ? 'block' : 'none';
+            document.getElementById('customPiecesGroup').style.display = type === 'custom' ? 'block' : 'none';
         }
 
         function stockIn(locationId) {
@@ -828,33 +777,37 @@
             if (!loc || loc.status !== 'normal') { showToast('状态异常', 'error'); closeModal(); return; }
             const productId = parseInt(document.getElementById('stockInProduct').value);
             const batchNo = document.getElementById('stockInBatch').value;
+            const remark = document.getElementById('stockInRemark').value.trim();
             if (!productId || !batchNo) { showToast('信息不完整', 'error'); return; }
             const product = db.products.find(p => p.id === productId);
             if (!product) { showToast('产品不存在', 'error'); return; }
 
-            let quantity;
             const type = document.getElementById('stockInType').value;
-            if (type === 'unit') {
-                quantity = parseInt(document.getElementById('stockInQty').value);
-                if (!quantity || quantity < 1) { showToast('请输入有效的单位数量', 'error'); return; }
-            } else {
-                const pieces = parseInt(document.getElementById('stockInPieces').value);
-                if (!pieces || pieces < 1) { showToast('请输入有效的总件数', 'error'); return; }
-                const unitQuantity = product.unitQuantity || 1;
-                if (pieces % unitQuantity !== 0) {
-                    showToast(`总件数必须是单位数量(${unitQuantity})的整数倍`, 'error');
-                    return;
-                }
-                quantity = pieces / unitQuantity;
-            }
-
             const newDb = JSON.parse(JSON.stringify(db));
             const nl = newDb.locations.find(l => l.id === locationId);
             nl.status = 'used';
             nl.productId = productId;
             nl.batchNo = batchNo;
-            nl.quantity = quantity;
+            nl.remark = remark;
             nl.updatedAt = new Date().toISOString();
+
+            if (type === 'unit') {
+                const qty = parseFloat(document.getElementById('stockInQty').value);
+                if (!qty || qty <= 0) { showToast('请输入有效的单位数量', 'error'); return; }
+                nl.quantity = qty;
+                nl.customPieces = 0;
+            } else if (type === 'piece') {
+                const pieces = parseInt(document.getElementById('stockInPieces').value);
+                if (!Number.isInteger(pieces) || pieces < 1) { showToast('总件数必须是正整数', 'error'); return; }
+                const unitQuantity = product.unitQuantity || 1;
+                nl.quantity = pieces / unitQuantity;
+                nl.customPieces = 0;
+            } else {
+                const customPieces = parseInt(document.getElementById('stockInCustomPieces').value);
+                if (!Number.isInteger(customPieces) || customPieces < 1) { showToast('自定义件数必须是正整数', 'error'); return; }
+                nl.quantity = 0;
+                nl.customPieces = customPieces;
+            }
             saveDB(newDb);
             closeModal();
             showToast('入库成功', 'success');
@@ -865,19 +818,36 @@
             const product = db.products.find(p => p.id === loc.productId);
             const rowLabel = getRowDisplayLabel(zone, loc.rowNum);
             const displayCol = getDisplayColNumber(zone, loc.colNum);
-            const pieces = loc.quantity * (product?.unitQuantity || 1);
-            openModal(`<h2>📤 出库 / 详情</h2><p style="font-size:12px;margin-bottom:8px;">仓位: <b>${zone?.name} - ${rowLabel}排${displayCol}托</b></p><div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px;font-size:12px;"><p>产品: ${product?.name || '?'}</p><p>型号: ${product?.model || '无'}</p><p>批次: ${loc.batchNo || '无'}</p><p>单位数量: ${loc.quantity}${product?.unit || ''} (${pieces}件)</p></div><div class="form-group"><label>出库单位数量(最大${loc.quantity})</label><input type="number" id="stockOutQty" min="1" max="${loc.quantity}" value="${loc.quantity}" required></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-danger" onclick="stockOut(${loc.id})">确认出库</button></div>`);
+            const isCustom = loc.customPieces > 0;
+            const regularPieces = loc.quantity * (product?.unitQuantity || 1);
+            const displayQty = isCustom ? `${loc.customPieces}件` : `${loc.quantity}${product?.unit || ''} (${regularPieces.toFixed(2)}件)`;
+            openModal(`<h2>📤 出库 / 详情</h2><p style="font-size:12px;margin-bottom:8px;">仓位: <b>${zone?.name} - ${rowLabel}排${displayCol}托</b></p>
+                <div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px;font-size:12px;">
+                    <p>产品: ${product?.name || '?'}</p><p>型号: ${product?.model || '无'}</p><p>批次: ${loc.batchNo || '无'}</p>
+                    <p>数量: ${displayQty}</p><p>备注: ${loc.remark || '无'}</p>
+                </div>
+                ${isCustom ? `<div class="form-group"><label>出库件数(最大${loc.customPieces})</label><input type="number" id="stockOutQty" min="1" max="${loc.customPieces}" step="1" value="${loc.customPieces}" required></div>` : `<div class="form-group"><label>出库单位数量(最大${loc.quantity})</label><input type="number" id="stockOutQty" min="0.01" max="${loc.quantity}" step="any" value="${loc.quantity}" required></div>`}
+                <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-danger" onclick="stockOut(${loc.id})">确认出库</button></div>`);
         }
         function stockOut(locationId) {
             if (!db || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc || loc.status !== 'used') { showToast('状态异常', 'error'); closeModal(); return; }
-            const outQty = parseInt(document.getElementById('stockOutQty').value);
-            if (!outQty || outQty < 1 || outQty > loc.quantity) { showToast('数量无效', 'error'); return; }
             const newDb = JSON.parse(JSON.stringify(db));
             const nl = newDb.locations.find(l => l.id === locationId);
-            const remaining = nl.quantity - outQty;
-            if (remaining > 0) { nl.quantity = remaining; } else { nl.status = 'normal'; nl.productId = null; nl.batchNo = null; nl.quantity = 0; }
+            if (nl.customPieces > 0) {
+                const outPieces = parseInt(document.getElementById('stockOutQty').value);
+                if (!Number.isInteger(outPieces) || outPieces < 1 || outPieces > nl.customPieces) { showToast('数量无效', 'error'); return; }
+                const remaining = nl.customPieces - outPieces;
+                if (remaining > 0) { nl.customPieces = remaining; }
+                else { nl.status = 'normal'; nl.productId = null; nl.batchNo = null; nl.quantity = 0; nl.customPieces = 0; nl.remark = ''; }
+            } else {
+                const outQty = parseFloat(document.getElementById('stockOutQty').value);
+                if (!outQty || outQty <= 0 || outQty > nl.quantity) { showToast('数量无效', 'error'); return; }
+                const remaining = nl.quantity - outQty;
+                if (remaining > 0) { nl.quantity = remaining; }
+                else { nl.status = 'normal'; nl.productId = null; nl.batchNo = null; nl.quantity = 0; nl.customPieces = 0; nl.remark = ''; }
+            }
             saveDB(newDb);
             closeModal();
             showToast('出库成功', 'success');
