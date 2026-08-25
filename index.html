@@ -1007,7 +1007,7 @@
 };
 
         // 初始化 Firebase
-        firebase.initializeApp('https://warehouse-manager-4eec5-default-rtdb.firebaseio.com/');
+        firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         const dbRef = database.ref('warehouse/data');
 
