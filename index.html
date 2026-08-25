@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>仓库管理系统 · 多端实时同步版</title>
 
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
-        /* 样式保持不变（略，同上次完整版） */
         :root {
             --bg: #f0f2f5;
             --card-bg: #ffffff;
@@ -47,7 +45,8 @@
         .stat-chip { display:flex; align-items:center; gap:3px; font-size:10px; color:var(--text-secondary); background:#f8f9fa; padding:3px 8px; border-radius:12px; border:1px solid var(--border); white-space:nowrap; }
         .stat-chip .dot { width:6px; height:6px; border-radius:50%; }
         .dot-green { background:var(--success); } .dot-red { background:var(--danger); } .dot-blue { background:var(--primary); }
-        .sync-badge { font-size:10px; padding:3px 8px; border-radius:12px; background:#e8f5e9; color:#2e7d32; white-space:nowrap; display:flex; align-items:center; gap:3px; }
+        .sync-badge { font-size:10px; padding:3px 8px; border-radius:12px; background:#fff8e1; color:#f57c00; white-space:nowrap; display:flex; align-items:center; gap:3px; }
+        .sync-badge.online { background:#e8f5e9; color:#2e7d32; }
         .sync-badge.offline { background:#ffebee; color:#c62828; }
 
         .main-container { display:flex; flex-direction:column; height:calc(100vh - 56px); overflow:hidden; }
@@ -273,41 +272,41 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
-        // ========== Firebase 配置 ==========
+        // ========== Firebase 配置（已使用您提供的配置） ==========
         const firebaseConfig = {
-  apiKey: "AIzaSyDu1NYuTLUxIMkkaXdJGFgE0GXGW0hwXto",
-  authDomain: "warehouse-manager-4eec5.firebaseapp.com",
-  databaseURL: "https://warehouse-manager-4eec5-default-rtdb.firebaseio.com",
-  projectId: "warehouse-manager-4eec5",
-  storageBucket: "warehouse-manager-4eec5.firebasestorage.app",
-  messagingSenderId: "504489473795",
-  appId: "1:504489473795:web:4bfac7455150709994db36"
-};
+            apiKey: "AIzaSyDu1NYuTLUxIMkkaXdJGFgE0GXGW0hwXto",
+            authDomain: "warehouse-manager-4eec5.firebaseapp.com",
+            databaseURL: "https://warehouse-manager-4eec5-default-rtdb.firebaseio.com",
+            projectId: "warehouse-manager-4eec5",
+            storageBucket: "warehouse-manager-4eec5.firebasestorage.app",
+            messagingSenderId: "504489473795",
+            appId: "1:504489473795:web:4bfac7455150709994db36"
+        };
 
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         const dbRef = database.ref('warehouse/data');
 
         // ========== 全局状态 ==========
-        let db = null;
-        let isDBReady = false; // 新增：标记数据是否已就绪
+        // 关键修复：db 初始化为安全空结构，而不是 null
+        let db = { zones: [], locations: [], products: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1 };
         let currentZoneId = 1;
         let batchMode = false;
         let selectedProducts = new Set();
+        let isDBLoaded = false;
 
         // ========== 创建默认数据库 ==========
         function createDefaultDB() {
-            const db = { zones: [], locations: [], products: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1 };
+            const defaultDB = { zones: [], locations: [], products: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1 };
             const baseZone = { id: 1, name: '成品区', rows: 34, cols: 5, isBase: true, createdAt: new Date().toISOString() };
-            db.zones.push(baseZone);
-            db.nextZoneId = 2;
+            defaultDB.zones.push(baseZone);
+            defaultDB.nextZoneId = 2;
             for (let r = 1; r <= 34; r++) {
                 for (let c = 1; c <= 5; c++) {
-                    db.locations.push({ id: db.nextLocationId++, zoneId: 1, rowNum: r, colNum: c, status: 'normal',
-                        productId: null, batchNo: null, quantity: 0, updatedAt: null });
+                    defaultDB.locations.push({ id: defaultDB.nextLocationId++, zoneId: 1, rowNum: r, colNum: c, status: 'normal', productId: null, batchNo: null, quantity: 0, updatedAt: null });
                 }
             }
-            return db;
+            return defaultDB;
         }
 
         // ========== 数据加载与监听 ==========
@@ -320,15 +319,14 @@
                     db = createDefaultDB();
                     dbRef.set(db);
                 }
-                isDBReady = true;
+                isDBLoaded = true;
                 renderAll();
                 startRealtimeListener();
                 updateSyncBadge(true);
             }).catch((error) => {
                 console.error('Firebase 连接失败:', error);
-                // 降级：使用本地默认数据，但标记为离线
                 db = createDefaultDB();
-                isDBReady = true;
+                isDBLoaded = true;
                 renderAll();
                 updateSyncBadge(false);
                 showToast('无法连接云端，使用本地临时数据', 'error');
@@ -357,7 +355,7 @@
             const badge = document.getElementById('syncBadge');
             if (online) {
                 badge.textContent = '🟢 已同步';
-                badge.className = 'sync-badge';
+                badge.className = 'sync-badge online';
             } else {
                 badge.textContent = '🔴 离线';
                 badge.className = 'sync-badge offline';
@@ -373,14 +371,14 @@
 
         // ========== 辅助函数 ==========
         function getProductTotalUnits(productId) {
-            if (!db) return 0;
+            if (!db || !db.locations) return 0;
             return db.locations
                 .filter(l => l.productId === productId && l.status === 'used')
                 .reduce((sum, l) => sum + (l.quantity || 0), 0);
         }
 
         function getProductDisplayInfo(productId) {
-            if (!db) return { units: 0, pieces: 0, unit: '', unitQuantity: 1 };
+            if (!db || !db.products) return { units: 0, pieces: 0, unit: '', unitQuantity: 1 };
             const product = db.products.find(p => p.id === productId);
             if (!product) return { units: 0, pieces: 0, unit: '', unitQuantity: 1 };
             const units = getProductTotalUnits(productId);
@@ -430,7 +428,7 @@
 
         // ========== 渲染所有 ==========
         function renderAll() {
-            if (!db) return;
+            if (!db || !db.zones || !db.locations || !db.products) return;
             renderZoneList();
             renderGrid();
             renderProductList();
@@ -441,7 +439,7 @@
         // ========== 渲染区域列表 ==========
         function renderZoneList() {
             const list = document.getElementById('zoneList');
-            if (!list || !db) return;
+            if (!list || !db || !db.zones) return;
             list.innerHTML = '';
             db.zones.forEach(zone => {
                 const item = document.createElement('div');
@@ -461,7 +459,7 @@
         }
 
         function deleteZone(zoneId) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.zones) { showToast('数据尚未加载', 'info'); return; }
             const zone = db.zones.find(z => z.id === zoneId);
             if (!zone) return;
             if (zone.isBase) { showToast('基础仓位不能删除！', 'error'); return; }
@@ -476,7 +474,7 @@
         }
 
         function showAddZoneModal() {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.zones) { showToast('数据尚未加载', 'info'); return; }
             openModal(`
                 <h2>➕ 添加区域</h2>
                 <div class="form-group"><label>名称</label><input type="text" id="newZoneName" required></div>
@@ -487,7 +485,7 @@
         }
 
         function addZone() {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.zones) { showToast('数据尚未加载', 'info'); return; }
             const name = document.getElementById('newZoneName').value.trim();
             const rows = parseInt(document.getElementById('newZoneRows').value);
             const cols = parseInt(document.getElementById('newZoneCols').value);
@@ -508,6 +506,7 @@
 
         // ========== FIFO ==========
         function getFifoRankMap(zoneId) {
+            if (!db || !db.locations) return {};
             const usedLocs = db.locations.filter(l => l.zoneId === zoneId && l.status === 'used' && l.batchNo);
             const productGroups = {};
             usedLocs.forEach(loc => {
@@ -542,7 +541,7 @@
         // ========== 渲染网格 ==========
         function renderGrid() {
             const container = document.getElementById('gridContainer');
-            if (!container || !db) return;
+            if (!container || !db || !db.zones || !db.locations) return;
             const zone = db.zones.find(z => z.id === currentZoneId);
             if (!zone) { container.innerHTML = '<div class="empty-state">请选择区域</div>'; return; }
             const locations = db.locations.filter(l => l.zoneId === zone.id);
@@ -608,25 +607,25 @@
         // ========== 仓位统计 ==========
         function renderZoneStats() {
             const container = document.getElementById('zoneStats');
-            if (!container || !db) return;
+            if (!container || !db || !db.zones || !db.locations) return;
             const zone = db.zones.find(z => z.id === currentZoneId);
             if (!zone) { container.textContent = '请选择区域'; return; }
             const locs = db.locations.filter(l => l.zoneId === zone.id);
-            const n = locs.filter(l => l.status === 'normal').length;
-            const u = locs.filter(l => l.status === 'unavailable').length;
-            const s = locs.filter(l => l.status === 'used').length;
+            const normalCount = locs.filter(l => l.status === 'normal').length;
+            const unavailCount = locs.filter(l => l.status === 'unavailable').length;
+            const usedCount = locs.filter(l => l.status === 'used').length;
             const totalUnits = locs.filter(l => l.status === 'used').reduce((sum, l) => sum + (l.quantity || 0), 0);
             const totalPieces = locs.filter(l => l.status === 'used').reduce((sum, l) => {
                 const product = db.products.find(p => p.id === l.productId);
                 return sum + (l.quantity || 0) * (product?.unitQuantity || 1);
             }, 0);
-            container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;"><div>正常: <b>${n}</b></div><div>不可用: <b>${u}</b></div><div>已用: <b>${s}</b></div><div>单位总数: <b>${totalUnits}</b></div><div>总件数: <b>${totalPieces}</b></div></div>`;
+            container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;"><div>正常: <b>${normalCount}</b></div><div>不可用: <b>${unavailCount}</b></div><div>已用: <b>${usedCount}</b></div><div>单位总数: <b>${totalUnits}</b></div><div>总件数: <b>${totalPieces}</b></div></div>`;
         }
 
         // ========== 产品渲染 ==========
         function renderProductList() {
             const list = document.getElementById('productList');
-            if (!list || !db) return;
+            if (!list || !db || !db.products) return;
             if (db.products.length === 0) { list.innerHTML = '<div style="font-size:11px;color:#999;">暂无产品</div>'; return; }
             list.innerHTML = '';
             db.products.forEach(p => {
@@ -684,7 +683,7 @@
         }
 
         function batchUpdateUnitQuantity() {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
             openModal(`
                 <h2>📦 批量修改单位数量</h2>
                 <p style="font-size:12px;margin-bottom:8px;">请在下方勾选要修改的产品，然后输入新的单位数量</p>
@@ -719,7 +718,7 @@
         }
 
         function confirmModalBatchUpdate() {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
             const newVal = parseInt(document.getElementById('batchUnitQuantityInput').value);
             if (!newVal || newVal < 1) { showToast('请输入有效的单位数量', 'error'); return; }
             const checkboxes = document.querySelectorAll('.modal-product-checkbox:checked');
@@ -736,7 +735,7 @@
         }
 
         function batchDeleteProducts() {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
             if (selectedProducts.size === 0) { showToast('请先在右侧勾选产品', 'error'); return; }
             const occupied = [];
             selectedProducts.forEach(pid => {
@@ -761,7 +760,7 @@
 
         // ========== 产品操作 ==========
         function showAddProductModal() {
-            if (!db) { showToast('数据尚未加载，请稍候', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载，请稍候', 'info'); return; }
             let existingOptions = '<option value="">-- 从已有产品复制(可选) --</option>';
             db.products.forEach(p => { existingOptions += `<option value="${p.id}">${p.name} (${p.model || '无型号'})</option>`; });
             openModal(`
@@ -776,7 +775,7 @@
         }
 
         function fillProductFields(productId) {
-            if (!productId || !db) return;
+            if (!productId || !db || !db.products) return;
             const p = db.products.find(x => x.id == productId);
             if (p) {
                 document.getElementById('pName').value = p.name;
@@ -787,7 +786,7 @@
         }
 
         function addProduct() {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
             const name = document.getElementById('pName').value.trim();
             const model = document.getElementById('pModel').value.trim();
             const unit = document.getElementById('pUnit').value.trim();
@@ -802,7 +801,7 @@
         }
 
         function showProductDetail(productId) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
             const p = db.products.find(x => x.id === productId);
             if (!p) return;
             const info = getProductDisplayInfo(productId);
@@ -825,7 +824,7 @@
         }
 
         function showEditProductModal(productId) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
             const p = db.products.find(x => x.id === productId);
             if (!p) return;
             openModal(`
@@ -839,7 +838,7 @@
         }
 
         function updateProduct(productId) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
             const newDb = JSON.parse(JSON.stringify(db));
             const np = newDb.products.find(x => x.id === productId);
             np.name = document.getElementById('editName').value.trim();
@@ -853,7 +852,7 @@
         }
 
         function deleteProduct(productId) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
             const p = db.products.find(x => x.id === productId);
             if (!p) return;
             if (db.locations.some(l => l.productId === productId && l.status === 'used')) { showToast('已存储，请先出库', 'error'); return; }
@@ -866,7 +865,7 @@
 
         // ========== 统计 ==========
         function showStatistics() {
-            if (!db || db.products.length === 0) { showToast('暂无产品', 'info'); return; }
+            if (!db || !db.products || db.products.length === 0) { showToast('暂无产品', 'info'); return; }
             const nameMap = new Map();
             db.products.forEach(p => {
                 if (!nameMap.has(p.name)) nameMap.set(p.name, { pieces: 0, units: new Set(), models: new Set() });
@@ -900,7 +899,7 @@
 
         // ========== 仓位操作 ==========
         function handleCellClick(locationId) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.locations) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc) return;
             const zone = db.zones.find(z => z.id === loc.zoneId);
@@ -910,7 +909,7 @@
         }
 
         function handleCellRightClick(locationId) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.locations) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc) return;
             if (loc.status === 'used') { showToast('请先出库', 'error'); return; }
@@ -923,7 +922,7 @@
         }
 
         function showStockInModal(loc, zone) {
-            if (!db || db.products.length === 0) { showToast('请先创建产品', 'error'); return; }
+            if (!db || !db.products || db.products.length === 0) { showToast('请先创建产品', 'error'); return; }
             const today = new Date().toISOString().slice(0, 10);
             const rowLabel = getRowDisplayLabel(zone, loc.rowNum);
             const displayCol = getDisplayColNumber(zone, loc.colNum);
@@ -935,7 +934,7 @@
         }
 
         function stockIn(locationId) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.locations) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc || loc.status !== 'normal') { showToast('状态异常', 'error'); closeModal(); return; }
             const productId = parseInt(document.getElementById('stockInProduct').value);
@@ -951,7 +950,7 @@
         }
 
         function showUsedLocationModal(loc, zone) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
             const product = db.products.find(p => p.id === loc.productId);
             const rowLabel = getRowDisplayLabel(zone, loc.rowNum);
             const displayCol = getDisplayColNumber(zone, loc.colNum);
@@ -960,7 +959,7 @@
         }
 
         function stockOut(locationId) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.locations) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc || loc.status !== 'used') { showToast('状态异常', 'error'); closeModal(); return; }
             const outQty = parseInt(document.getElementById('stockOutQty').value);
@@ -976,7 +975,7 @@
 
         // ========== FIFO视图 ==========
         function showFifoOrder() {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.zones || !db.locations) { showToast('数据尚未加载', 'info'); return; }
             const zone = db.zones.find(z => z.id === currentZoneId);
             if (!zone) { showToast('请选择区域', 'error'); return; }
             const usedLocs = db.locations.filter(l => l.zoneId === zone.id && l.status === 'used' && l.batchNo);
@@ -1007,7 +1006,7 @@
 
         // ========== 导出导入 ==========
         function exportData() {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.zones) { showToast('数据尚未加载', 'info'); return; }
             const json = JSON.stringify(db, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1020,7 +1019,7 @@
         }
 
         function exportProductsData() {
-            if (!db || db.products.length === 0) { showToast('无产品', 'info'); return; }
+            if (!db || !db.products || db.products.length === 0) { showToast('无产品', 'info'); return; }
             const json = JSON.stringify(db.products, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1033,7 +1032,7 @@
         }
 
         function importData(file) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.zones) { showToast('数据尚未加载', 'info'); return; }
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -1050,7 +1049,7 @@
         }
 
         function importProductsData(file) {
-            if (!db) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -1073,12 +1072,12 @@
 
         // ========== 顶栏统计 ==========
         function updateHeaderStats() {
-            if (!db) return;
+            if (!db || !db.locations) return;
             const all = db.locations;
             document.getElementById('statNormal').textContent = all.filter(l => l.status === 'normal').length;
             document.getElementById('statUnavailable').textContent = all.filter(l => l.status === 'unavailable').length;
             document.getElementById('statUsed').textContent = all.filter(l => l.status === 'used').length;
-            document.getElementById('statProducts').textContent = db.products.length;
+            document.getElementById('statProducts').textContent = db.products ? db.products.length : 0;
         }
 
         // ========== 初始化 ==========
