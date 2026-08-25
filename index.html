@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>仓库管理系统 · 多端实时同步版</title>
 
-    <!-- Firebase SDK (compat 版，方便与现有代码集成) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js">
-    </script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
+        /* 样式保持不变（略，同上次完整版） */
         :root {
             --bg: #f0f2f5;
             --card-bg: #ffffff;
@@ -23,11 +22,11 @@
             --text: #202124;
             --text-secondary: #5f6368;
             --border: #dadce0;
-            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.15);
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 40px rgba(0,0,0,0.15);
             --radius: 12px;
             --radius-sm: 8px;
-            --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
             --status-normal: #e8f5e9;
             --status-normal-border: #4caf50;
             --status-unavailable: #ffebee;
@@ -37,863 +36,144 @@
             --row-label-width: 52px;
             --col-label-height: 22px;
         }
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            overflow-x: hidden;
-            -webkit-tap-highlight-color: transparent;
-            font-size: 14px;
-        }
-        .header {
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--border);
-            padding: 0 16px;
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: var(--shadow);
-            gap: 8px;
-        }
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            min-width: 0;
-        }
-        .logo-icon {
-            width: 32px;
-            height: 32px;
-            background: var(--primary);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            flex-shrink: 0;
-        }
-        .header h1 {
-            font-size: 15px;
-            font-weight: 600;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .header-stats {
-            display: flex;
-            gap: 4px;
-            align-items: center;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        .header-stats::-webkit-scrollbar {
-            display: none;
-        }
-        .stat-chip {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            font-size: 10px;
-            color: var(--text-secondary);
-            background: #f8f9fa;
-            padding: 3px 8px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            white-space: nowrap;
-        }
-        .stat-chip .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-        }
-        .dot-green {
-            background: var(--success);
-        }
-        .dot-red {
-            background: var(--danger);
-        }
-        .dot-blue {
-            background: var(--primary);
-        }
-        .sync-badge {
-            font-size: 10px;
-            padding: 3px 8px;
-            border-radius: 12px;
-            background: #e8f5e9;
-            color: #2e7d32;
-            white-space: nowrap;
-            display: flex;
-            align-items: center;
-            gap: 3px;
-        }
-        .sync-badge.offline {
-            background: #ffebee;
-            color: #c62828;
-        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI','PingFang SC','Microsoft YaHei','Helvetica Neue',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; -webkit-tap-highlight-color:transparent; font-size:14px; }
+        .header { background:var(--card-bg); border-bottom:1px solid var(--border); padding:0 16px; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:var(--shadow); gap:8px; }
+        .header-left { display:flex; align-items:center; gap:8px; min-width:0; }
+        .logo-icon { width:32px; height:32px; background:var(--primary); border-radius:8px; display:flex; align-items:center; justify-content:center; color:white; font-size:16px; font-weight:bold; flex-shrink:0; }
+        .header h1 { font-size:15px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .header-stats { display:flex; gap:4px; align-items:center; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; }
+        .header-stats::-webkit-scrollbar { display:none; }
+        .stat-chip { display:flex; align-items:center; gap:3px; font-size:10px; color:var(--text-secondary); background:#f8f9fa; padding:3px 8px; border-radius:12px; border:1px solid var(--border); white-space:nowrap; }
+        .stat-chip .dot { width:6px; height:6px; border-radius:50%; }
+        .dot-green { background:var(--success); } .dot-red { background:var(--danger); } .dot-blue { background:var(--primary); }
+        .sync-badge { font-size:10px; padding:3px 8px; border-radius:12px; background:#e8f5e9; color:#2e7d32; white-space:nowrap; display:flex; align-items:center; gap:3px; }
+        .sync-badge.offline { background:#ffebee; color:#c62828; }
 
-        .main-container {
-            display: flex;
-            flex-direction: column;
-            height: calc(100vh - 56px);
-            overflow: hidden;
-        }
-        .left-panel {
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--border);
-            padding: 10px 12px;
-            overflow-x: auto;
-            overflow-y: hidden;
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: row;
-            gap: 6px;
-            align-items: center;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-        .left-panel::-webkit-scrollbar {
-            display: none;
-        }
-        .panel-title {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        .zone-list {
-            display: flex;
-            gap: 6px;
-            flex-direction: row;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            scrollbar-width: none;
-        }
-        .zone-list::-webkit-scrollbar {
-            display: none;
-        }
-        .zone-item {
-            padding: 8px 12px;
-            border-radius: var(--radius-sm);
-            border: 2px solid var(--border);
-            cursor: pointer;
-            transition: var(--transition);
-            background: #fafafa;
-            position: relative;
-            user-select: none;
-            white-space: nowrap;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 12px;
-        }
-        .zone-item:hover {
-            border-color: var(--primary);
-            background: #f0f7ff;
-        }
-        .zone-item.active {
-            border-color: var(--primary);
-            background: #e8f0fe;
-            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.15);
-        }
-        .zone-item .zone-name {
-            font-weight: 600;
-            font-size: 12px;
-        }
-        .badge-base {
-            background: var(--primary);
-            color: white;
-            font-size: 9px;
-            padding: 1px 5px;
-            border-radius: 8px;
-        }
-        .badge-custom {
-            background: #6c757d;
-            color: white;
-            font-size: 9px;
-            padding: 1px 5px;
-            border-radius: 8px;
-        }
-        .zone-delete-btn {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            border: none;
-            background: #f1f3f4;
-            cursor: pointer;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            color: var(--danger);
-            flex-shrink: 0;
-            margin-left: 2px;
-        }
-        .zone-item:hover .zone-delete-btn {
-            display: flex;
-        }
-        .add-zone-btn {
-            padding: 8px 14px;
-            border: 2px dashed var(--border);
-            border-radius: var(--radius-sm);
-            background: transparent;
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-size: 12px;
-            transition: var(--transition);
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        .add-zone-btn:hover {
-            border-color: var(--primary);
-            color: var(--primary);
-            background: #f0f7ff;
-        }
+        .main-container { display:flex; flex-direction:column; height:calc(100vh - 56px); overflow:hidden; }
+        .left-panel { background:var(--card-bg); border-bottom:1px solid var(--border); padding:10px 12px; overflow-x:auto; overflow-y:hidden; flex-shrink:0; display:flex; flex-direction:row; gap:6px; align-items:center; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+        .left-panel::-webkit-scrollbar { display:none; }
+        .panel-title { font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; flex-shrink:0; }
+        .zone-list { display:flex; gap:6px; flex-direction:row; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
+        .zone-list::-webkit-scrollbar { display:none; }
+        .zone-item { padding:8px 12px; border-radius:var(--radius-sm); border:2px solid var(--border); cursor:pointer; transition:var(--transition); background:#fafafa; position:relative; user-select:none; white-space:nowrap; flex-shrink:0; display:flex; align-items:center; gap:4px; font-size:12px; }
+        .zone-item:hover { border-color:var(--primary); background:#f0f7ff; }
+        .zone-item.active { border-color:var(--primary); background:#e8f0fe; box-shadow:0 0 0 2px rgba(26,115,232,0.15); }
+        .zone-item .zone-name { font-weight:600; font-size:12px; }
+        .badge-base { background:var(--primary); color:white; font-size:9px; padding:1px 5px; border-radius:8px; }
+        .badge-custom { background:#6c757d; color:white; font-size:9px; padding:1px 5px; border-radius:8px; }
+        .zone-delete-btn { width:18px; height:18px; border-radius:50%; border:none; background:#f1f3f4; cursor:pointer; display:none; align-items:center; justify-content:center; font-size:10px; color:var(--danger); flex-shrink:0; margin-left:2px; }
+        .zone-item:hover .zone-delete-btn { display:flex; }
+        .add-zone-btn { padding:8px 14px; border:2px dashed var(--border); border-radius:var(--radius-sm); background:transparent; cursor:pointer; color:var(--text-secondary); font-size:12px; transition:var(--transition); white-space:nowrap; flex-shrink:0; }
+        .add-zone-btn:hover { border-color:var(--primary); color:var(--primary); background:#f0f7ff; }
 
-        .center-panel {
-            flex: 1;
-            overflow-y: auto;
-            overflow-x: hidden;
-            background: var(--bg);
-            padding: 12px;
-            -webkit-overflow-scrolling: touch;
-        }
-        .center-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .center-header h2 {
-            font-size: 16px;
-            font-weight: 600;
-        }
-        .zone-info {
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-        .legend {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 8px;
-            align-items: center;
-            font-size: 10px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            color: var(--text-secondary);
-            font-size: 10px;
-        }
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-            border: 2px solid;
-        }
-        .fifo-legend {
-            background: #f8f9fa;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 10px;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-            border-left: 3px solid var(--primary);
-        }
-        .grid-container {
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            padding: 8px;
-            box-shadow: var(--shadow);
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        .grid-side-by-side {
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 4px;
-        }
-        .grid-table {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            flex-shrink: 0;
-        }
-        .grid-col-label-row {
-            display: flex;
-            align-items: center;
-            gap: var(--cell-gap);
-            margin-bottom: 2px;
-            padding-left: calc(var(--row-label-width) + var(--cell-gap));
-        }
-        .grid-col-label {
-            width: var(--cell-size);
-            text-align: center;
-            font-size: 10px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            flex-shrink: 0;
-            height: var(--col-label-height);
-            line-height: var(--col-label-height);
-        }
-        .grid-row {
-            display: flex;
-            align-items: center;
-            gap: var(--cell-gap);
-        }
-        .grid-row-label {
-            width: var(--row-label-width);
-            font-size: 10px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-align: right;
-            flex-shrink: 0;
-        }
-        .cell {
-            width: var(--cell-size);
-            height: 48px;
-            border-radius: 4px;
-            border: 2px solid var(--border);
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 9px;
-            text-align: center;
-            position: relative;
-            flex-shrink: 0;
-            user-select: none;
-            overflow: hidden;
-            padding: 1px;
-            touch-action: manipulation;
-        }
-        .cell:active {
-            transform: scale(0.95);
-        }
-        .cell.status-normal {
-            background: var(--status-normal);
-            border-color: var(--status-normal-border);
-            color: #2e7d32;
-        }
-        .cell.status-unavailable {
-            background: var(--status-unavailable);
-            border-color: var(--status-unavailable-border);
-            color: #c62828;
-            cursor: not-allowed;
-            opacity: 0.8;
-        }
-        .cell.status-used {
-            color: #fff;
-            border-color: #333;
-        }
-        .cell .cell-label {
-            font-weight: 600;
-            font-size: 8px;
-            line-height: 1.1;
-            word-break: break-all;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        .cell .cell-batch {
-            font-size: 7px;
-            opacity: 0.9;
-            position: absolute;
-            bottom: 1px;
-            left: 2px;
-            right: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .cell .cell-qty {
-            font-size: 8px;
-            font-weight: 700;
-            position: absolute;
-            top: 1px;
-            right: 2px;
-            background: rgba(255, 255, 255, 0.85);
-            border-radius: 3px;
-            padding: 0 2px;
-            color: #000;
-        }
-        .cell .fifo-rank {
-            position: absolute;
-            top: 1px;
-            left: 2px;
-            background: rgba(0, 0, 0, 0.5);
-            color: white;
-            font-size: 7px;
-            padding: 0 2px;
-            border-radius: 3px;
-        }
+        .center-panel { flex:1; overflow-y:auto; overflow-x:hidden; background:var(--bg); padding:12px; -webkit-overflow-scrolling:touch; }
+        .center-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
+        .center-header h2 { font-size:16px; font-weight:600; }
+        .zone-info { font-size:12px; color:var(--text-secondary); }
+        .legend { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; align-items:center; font-size:10px; }
+        .legend-item { display:flex; align-items:center; gap:3px; color:var(--text-secondary); font-size:10px; }
+        .legend-color { width:12px; height:12px; border-radius:3px; border:2px solid; }
+        .fifo-legend { background:#f8f9fa; padding:6px 10px; border-radius:6px; font-size:10px; color:var(--text-secondary); margin-bottom:8px; border-left:3px solid var(--primary); }
+        .grid-container { background:var(--card-bg); border-radius:var(--radius); padding:8px; box-shadow:var(--shadow); overflow-x:auto; -webkit-overflow-scrolling:touch; }
+        .grid-side-by-side { display:flex; gap:16px; align-items:flex-start; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
+        .grid-table { display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
+        .grid-col-label-row { display:flex; align-items:center; gap:var(--cell-gap); margin-bottom:2px; padding-left:calc(var(--row-label-width) + var(--cell-gap)); }
+        .grid-col-label { width:var(--cell-size); text-align:center; font-size:10px; font-weight:600; color:var(--text-secondary); flex-shrink:0; height:var(--col-label-height); line-height:var(--col-label-height); }
+        .grid-row { display:flex; align-items:center; gap:var(--cell-gap); }
+        .grid-row-label { width:var(--row-label-width); font-size:10px; font-weight:600; color:var(--text-secondary); text-align:right; flex-shrink:0; }
+        .cell { width:var(--cell-size); height:48px; border-radius:4px; border:2px solid var(--border); cursor:pointer; transition:var(--transition); display:flex; align-items:center; justify-content:center; font-size:9px; text-align:center; position:relative; flex-shrink:0; user-select:none; overflow:hidden; padding:1px; touch-action:manipulation; }
+        .cell:active { transform:scale(0.95); }
+        .cell.status-normal { background:var(--status-normal); border-color:var(--status-normal-border); color:#2e7d32; }
+        .cell.status-unavailable { background:var(--status-unavailable); border-color:var(--status-unavailable-border); color:#c62828; cursor:not-allowed; opacity:0.8; }
+        .cell.status-used { color:#fff; border-color:#333; }
+        .cell .cell-label { font-weight:600; font-size:8px; line-height:1.1; word-break:break-all; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .cell .cell-batch { font-size:7px; opacity:0.9; position:absolute; bottom:1px; left:2px; right:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .cell .cell-qty { font-size:8px; font-weight:700; position:absolute; top:1px; right:2px; background:rgba(255,255,255,0.85); border-radius:3px; padding:0 2px; color:#000; }
+        .cell .fifo-rank { position:absolute; top:1px; left:2px; background:rgba(0,0,0,0.5); color:white; font-size:7px; padding:0 2px; border-radius:3px; }
 
-        .right-panel {
-            background: var(--card-bg);
-            border-top: 1px solid var(--border);
-            padding: 10px 12px;
-            flex-shrink: 0;
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-            flex-direction: row;
-            max-height: 220px;
-        }
-        .right-panel::-webkit-scrollbar {
-            display: none;
-        }
-        .right-section {
-            background: #f8f9fa;
-            border-radius: var(--radius-sm);
-            padding: 10px;
-            border: 1px solid var(--border);
-            flex-shrink: 0;
-            min-width: 180px;
-            max-width: 280px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .right-section h3 {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            white-space: nowrap;
-        }
-        .product-list {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            max-height: 130px;
-            overflow-y: auto;
-            min-width: 160px;
-        }
-        .product-item {
-            padding: 6px 8px;
-            background: white;
-            border-radius: 4px;
-            border: 1px solid var(--border);
-            font-size: 11px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            white-space: nowrap;
-            gap: 4px;
-            transition: var(--transition);
-        }
-        .product-item:hover {
-            border-color: var(--primary);
-        }
-        .product-item.selected {
-            background: #e8f0fe;
-            border-color: var(--primary);
-        }
-        .product-item .p-name {
-            font-weight: 600;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 70px;
-        }
-        .product-item .p-info {
-            color: var(--text-secondary);
-            font-size: 10px;
-        }
-        .product-item .p-qty {
-            font-weight: 700;
-            color: var(--primary);
-            flex-shrink: 0;
-        }
-        .product-checkbox {
-            margin-right: 4px;
-            cursor: pointer;
-        }
-        .batch-toolbar {
-            display: none;
-            gap: 4px;
-            margin-top: 4px;
-            flex-wrap: wrap;
-        }
-        .batch-toolbar.active {
-            display: flex;
-        }
+        .right-panel { background:var(--card-bg); border-top:1px solid var(--border); padding:10px 12px; flex-shrink:0; display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; flex-direction:row; max-height:220px; }
+        .right-panel::-webkit-scrollbar { display:none; }
+        .right-section { background:#f8f9fa; border-radius:var(--radius-sm); padding:10px; border:1px solid var(--border); flex-shrink:0; min-width:180px; max-width:280px; display:flex; flex-direction:column; gap:6px; }
+        .right-section h3 { font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.3px; white-space:nowrap; }
+        .product-list { display:flex; flex-direction:column; gap:4px; max-height:130px; overflow-y:auto; min-width:160px; }
+        .product-item { padding:6px 8px; background:white; border-radius:4px; border:1px solid var(--border); font-size:11px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; white-space:nowrap; gap:4px; transition:var(--transition); }
+        .product-item:hover { border-color:var(--primary); }
+        .product-item.selected { background:#e8f0fe; border-color:var(--primary); }
+        .product-item .p-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; max-width:70px; }
+        .product-item .p-info { color:var(--text-secondary); font-size:10px; }
+        .product-item .p-qty { font-weight:700; color:var(--primary); flex-shrink:0; }
+        .product-checkbox { margin-right:4px; cursor:pointer; }
+        .batch-toolbar { display:none; gap:4px; margin-top:4px; flex-wrap:wrap; }
+        .batch-toolbar.active { display:flex; }
 
-        .modal-product-list {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 4px;
-            margin-bottom: 10px;
-        }
-        .modal-product-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 8px;
-            border-bottom: 1px solid #f0f0f0;
-            font-size: 12px;
-        }
-        .modal-product-item:last-child {
-            border-bottom: none;
-        }
-        .modal-product-item label {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
-        }
+        .modal-product-list { max-height: 200px; overflow-y: auto; border:1px solid var(--border); border-radius:6px; padding:4px; margin-bottom:10px; }
+        .modal-product-item { display:flex; align-items:center; gap:6px; padding:6px 8px; border-bottom:1px solid #f0f0f0; font-size:12px; }
+        .modal-product-item:last-child { border-bottom:none; }
+        .modal-product-item label { flex:1; display:flex; align-items:center; gap:6px; cursor:pointer; }
 
-        .btn {
-            padding: 7px 14px;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 500;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            white-space: nowrap;
-            touch-action: manipulation;
-            min-height: 32px;
-            justify-content: center;
-        }
-        .btn:active {
-            transform: scale(0.95);
-        }
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-        .btn-outline {
-            background: transparent;
-            color: var(--primary);
-            border: 1.5px solid var(--primary);
-        }
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-        .btn-warning {
-            background: var(--warning);
-            color: #333;
-        }
-        .btn-sm {
-            padding: 4px 8px;
-            font-size: 10px;
-            border-radius: 4px;
-            min-height: 26px;
-        }
+        .btn { padding:7px 14px; border-radius:6px; border:none; cursor:pointer; font-size:12px; font-weight:500; transition:var(--transition); display:inline-flex; align-items:center; gap:4px; white-space:nowrap; touch-action:manipulation; min-height:32px; justify-content:center; }
+        .btn:active { transform:scale(0.95); }
+        .btn-primary { background:var(--primary); color:white; }
+        .btn-outline { background:transparent; color:var(--primary); border:1.5px solid var(--primary); }
+        .btn-danger { background:var(--danger); color:white; }
+        .btn-success { background:var(--success); color:white; }
+        .btn-warning { background:var(--warning); color:#333; }
+        .btn-sm { padding:4px 8px; font-size:10px; border-radius:4px; min-height:26px; }
 
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: fadeIn 0.2s ease;
-            padding: 16px;
-        }
-        .modal {
-            background: white;
-            border-radius: var(--radius);
-            padding: 20px;
-            width: 100%;
-            max-width: 500px;
-            box-shadow: var(--shadow-lg);
-            animation: slideUp 0.3s ease;
-            max-height: 85vh;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        .modal h2 {
-            font-size: 16px;
-            margin-bottom: 14px;
-            font-weight: 600;
-        }
-        .form-group {
-            margin-bottom: 12px;
-        }
-        .form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 500;
-            margin-bottom: 4px;
-            color: var(--text-secondary);
-        }
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 8px 10px;
-            border: 1.5px solid var(--border);
-            border-radius: 6px;
-            font-size: 14px;
-            transition: var(--transition);
-            outline: none;
-            background: white;
-            min-height: 38px;
-        }
-        .form-group input:focus,
-        .form-group select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
-        }
-        .form-actions {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-            margin-top: 14px;
-            flex-wrap: wrap;
-        }
+        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; display:flex; align-items:center; justify-content:center; animation:fadeIn 0.2s ease; padding:16px; }
+        .modal { background:white; border-radius:var(--radius); padding:20px; width:100%; max-width:500px; box-shadow:var(--shadow-lg); animation:slideUp 0.3s ease; max-height:85vh; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+        .modal h2 { font-size:16px; margin-bottom:14px; font-weight:600; }
+        .form-group { margin-bottom:12px; }
+        .form-group label { display:block; font-size:12px; font-weight:500; margin-bottom:4px; color:var(--text-secondary); }
+        .form-group input, .form-group select { width:100%; padding:8px 10px; border:1.5px solid var(--border); border-radius:6px; font-size:14px; transition:var(--transition); outline:none; background:white; min-height:38px; }
+        .form-group input:focus, .form-group select:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(26,115,232,0.1); }
+        .form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap; }
 
-        .toast-container {
-            position: fixed;
-            top: 60px;
-            right: 12px;
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            max-width: 280px;
-        }
-        .toast {
-            padding: 10px 14px;
-            border-radius: 8px;
-            color: white;
-            font-size: 12px;
-            font-weight: 500;
-            box-shadow: var(--shadow-lg);
-            animation: slideInRight 0.3s ease;
-            cursor: pointer;
-            word-break: break-all;
-        }
-        .toast-success {
-            background: var(--success);
-        }
-        .toast-error {
-            background: var(--danger);
-        }
-        .toast-info {
-            background: var(--primary);
-        }
+        .toast-container { position:fixed; top:60px; right:12px; z-index:2000; display:flex; flex-direction:column; gap:6px; max-width:280px; }
+        .toast { padding:10px 14px; border-radius:8px; color:white; font-size:12px; font-weight:500; box-shadow:var(--shadow-lg); animation:slideInRight 0.3s ease; cursor:pointer; word-break:break-all; }
+        .toast-success { background:var(--success); } .toast-error { background:var(--danger); } .toast-info { background:var(--primary); }
 
-        .fifo-table,
-        .stats-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 8px;
-            font-size: 12px;
-        }
-        .fifo-table th,
-        .fifo-table td,
-        .stats-table th,
-        .stats-table td {
-            padding: 6px 4px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-        .fifo-table th,
-        .stats-table th {
-            background: #f1f3f4;
-            font-weight: 600;
-            color: var(--text-secondary);
-            font-size: 11px;
-        }
+        .fifo-table, .stats-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:12px; }
+        .fifo-table th, .fifo-table td, .stats-table th, .stats-table td { padding:6px 4px; text-align:left; border-bottom:1px solid var(--border); }
+        .fifo-table th, .stats-table th { background:#f1f3f4; font-weight:600; color:var(--text-secondary); font-size:11px; }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
-        }
-        @keyframes slideUp {
-            from {
-                transform: translateY(20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+        @keyframes slideInRight { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
 
         @media (min-width:768px) {
-            .main-container {
-                flex-direction: row;
-                height: calc(100vh - 56px);
-            }
-            .left-panel {
-                width: 220px;
-                height: auto;
-                flex-direction: column;
-                border-right: 1px solid var(--border);
-                border-bottom: none;
-                overflow-y: auto;
-                overflow-x: hidden;
-                padding: 16px;
-                gap: 12px;
-            }
-            .zone-list {
-                flex-direction: column;
-                gap: 6px;
-                overflow-x: visible;
-                overflow-y: auto;
-            }
-            .zone-item {
-                white-space: normal;
-                flex-shrink: 0;
-            }
-            .zone-item .zone-detail {
-                display: block;
-                font-size: 10px;
-                color: var(--text-secondary);
-                margin-top: 2px;
-            }
-            .panel-title {
-                font-size: 12px;
-            }
-            .center-panel {
-                padding: 20px 24px;
-            }
-            .center-header h2 {
-                font-size: 20px;
-            }
-            .zone-info {
-                font-size: 13px;
-            }
-            .legend-item,
-            .fifo-legend {
-                font-size: 12px;
-            }
-            .cell {
-                width: 68px;
-                height: 56px;
-                font-size: 10px;
-            }
-            .cell .cell-label {
-                font-size: 9px;
-            }
-            .cell .cell-batch {
-                font-size: 8px;
-            }
-            .cell .cell-qty {
-                font-size: 9px;
-            }
-            .cell .fifo-rank {
-                font-size: 8px;
-            }
-            .grid-col-label {
-                width: 68px;
-                font-size: 11px;
-            }
-            .grid-row-label {
-                font-size: 11px;
-                width: 56px;
-            }
-            .grid-col-label-row {
-                padding-left: 62px;
-            }
-            .right-panel {
-                width: 300px;
-                flex-direction: column;
-                border-left: 1px solid var(--border);
-                border-top: none;
-                overflow-y: auto;
-                overflow-x: hidden;
-                max-height: none;
-                padding: 16px;
-                gap: 12px;
-            }
-            .right-section {
-                min-width: auto;
-                max-width: none;
-            }
-            .product-item .p-name {
-                max-width: 100px;
-            }
-            .header h1 {
-                font-size: 18px;
-            }
-            .stat-chip {
-                font-size: 12px;
-                padding: 5px 10px;
-            }
-            .btn {
-                font-size: 13px;
-            }
-            .btn-sm {
-                font-size: 11px;
-            }
+            .main-container { flex-direction:row; height:calc(100vh - 56px); }
+            .left-panel { width:220px; height:auto; flex-direction:column; border-right:1px solid var(--border); border-bottom:none; overflow-y:auto; overflow-x:hidden; padding:16px; gap:12px; }
+            .zone-list { flex-direction:column; gap:6px; overflow-x:visible; overflow-y:auto; }
+            .zone-item { white-space:normal; flex-shrink:0; }
+            .zone-item .zone-detail { display:block; font-size:10px; color:var(--text-secondary); margin-top:2px; }
+            .panel-title { font-size:12px; }
+            .center-panel { padding:20px 24px; }
+            .center-header h2 { font-size:20px; }
+            .zone-info { font-size:13px; }
+            .legend-item, .fifo-legend { font-size:12px; }
+            .cell { width:68px; height:56px; font-size:10px; }
+            .cell .cell-label { font-size:9px; }
+            .cell .cell-batch { font-size:8px; }
+            .cell .cell-qty { font-size:9px; }
+            .cell .fifo-rank { font-size:8px; }
+            .grid-col-label { width:68px; font-size:11px; }
+            .grid-row-label { font-size:11px; width:56px; }
+            .grid-col-label-row { padding-left:62px; }
+            .right-panel { width:300px; flex-direction:column; border-left:1px solid var(--border); border-top:none; overflow-y:auto; overflow-x:hidden; max-height:none; padding:16px; gap:12px; }
+            .right-section { min-width:auto; max-width:none; }
+            .product-item .p-name { max-width:100px; }
+            .header h1 { font-size:18px; }
+            .stat-chip { font-size:12px; padding:5px 10px; }
+            .btn { font-size:13px; }
+            .btn-sm { font-size:11px; }
         }
         @media (min-width:1200px) {
-            .left-panel {
-                width: 260px;
-            }
-            .right-panel {
-                width: 340px;
-            }
-            .cell {
-                width: 72px;
-                height: 60px;
-            }
-            .grid-col-label {
-                width: 72px;
-            }
+            .left-panel { width:260px; }
+            .right-panel { width:340px; }
+            .cell { width:72px; height:60px; }
+            .grid-col-label { width:72px; }
         }
     </style>
 </head>
@@ -905,7 +185,7 @@
             <h1>仓库管理系统</h1>
         </div>
         <div class="header-stats" id="headerStats">
-            <span class="sync-badge" id="syncBadge">🟢 已同步</span>
+            <span class="sync-badge" id="syncBadge">🟡 连接中...</span>
             <span class="stat-chip"><span class="dot dot-green"></span>正常 <b id="statNormal">0</b></span>
             <span class="stat-chip"><span class="dot dot-red"></span>不可用 <b id="statUnavailable">0</b></span>
             <span class="stat-chip"><span class="dot dot-blue"></span>已用 <b id="statUsed">0</b></span>
@@ -993,9 +273,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
-        // ============================================
-        // 🔥 Firebase 配置 —— 请替换为你的配置
-        // ============================================
+        // ========== Firebase 配置 ==========
         const firebaseConfig = {
   apiKey: "AIzaSyDu1NYuTLUxIMkkaXdJGFgE0GXGW0hwXto",
   authDomain: "warehouse-manager-4eec5.firebaseapp.com",
@@ -1006,17 +284,16 @@
   appId: "1:504489473795:web:4bfac7455150709994db36"
 };
 
-        // 初始化 Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         const dbRef = database.ref('warehouse/data');
 
         // ========== 全局状态 ==========
-        let db = null; // 云端数据
+        let db = null;
+        let isDBReady = false; // 新增：标记数据是否已就绪
         let currentZoneId = 1;
         let batchMode = false;
         let selectedProducts = new Set();
-        let isOnline = true; // 同步状态标记
 
         // ========== 创建默认数据库 ==========
         function createDefaultDB() {
@@ -1033,7 +310,7 @@
             return db;
         }
 
-        // ========== 数据加载与实时监听 ==========
+        // ========== 数据加载与监听 ==========
         function initFromFirebase() {
             dbRef.once('value', (snapshot) => {
                 const data = snapshot.val();
@@ -1043,18 +320,18 @@
                     db = createDefaultDB();
                     dbRef.set(db);
                 }
+                isDBReady = true;
                 renderAll();
                 startRealtimeListener();
                 updateSyncBadge(true);
             }).catch((error) => {
                 console.error('Firebase 连接失败:', error);
-                // 降级到本地存储（仅应急）
-                if (!db) {
-                    db = createDefaultDB();
-                    renderAll();
-                }
+                // 降级：使用本地默认数据，但标记为离线
+                db = createDefaultDB();
+                isDBReady = true;
+                renderAll();
                 updateSyncBadge(false);
-                showToast('无法连接云端，使用本地数据', 'error');
+                showToast('无法连接云端，使用本地临时数据', 'error');
             });
         }
 
@@ -1067,7 +344,6 @@
                     updateSyncBadge(true);
                 }
             });
-            // 连接状态监听
             database.ref('.info/connected').on('value', (snap) => {
                 if (snap.val() === true) {
                     updateSyncBadge(true);
@@ -1097,13 +373,14 @@
 
         // ========== 辅助函数 ==========
         function getProductTotalUnits(productId) {
-            const totalUnits = db.locations
+            if (!db) return 0;
+            return db.locations
                 .filter(l => l.productId === productId && l.status === 'used')
                 .reduce((sum, l) => sum + (l.quantity || 0), 0);
-            return totalUnits;
         }
 
         function getProductDisplayInfo(productId) {
+            if (!db) return { units: 0, pieces: 0, unit: '', unitQuantity: 1 };
             const product = db.products.find(p => p.id === productId);
             if (!product) return { units: 0, pieces: 0, unit: '', unitQuantity: 1 };
             const units = getProductTotalUnits(productId);
@@ -1121,7 +398,7 @@
 
         function getDisplayColArray(zone) {
             if (zone.id === 1 && zone.cols === 5) {
-                return [3, 2, 4, 1, 5]; // 中间、左、右、最左、最右
+                return [3, 2, 4, 1, 5];
             }
             return Array.from({ length: zone.cols }, (_, i) => i + 1);
         }
@@ -1140,16 +417,13 @@
             toast.textContent = msg;
             toast.addEventListener('click', () => toast.remove());
             container.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.3s';
-                setTimeout(() => toast.remove(), 300); }, 2500);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 2500);
         }
 
         function openModal(html) {
             const container = document.getElementById('modalContainer');
             container.innerHTML = `<div class="modal-overlay" id="modalOverlay"><div class="modal">${html}</div></div>`;
-            document.getElementById('modalOverlay').addEventListener('click', (e) => { if (e.target === e
-                    .currentTarget) closeModal(); });
+            document.getElementById('modalOverlay').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeModal(); });
         }
 
         function closeModal() { document.getElementById('modalContainer').innerHTML = ''; }
@@ -1167,33 +441,31 @@
         // ========== 渲染区域列表 ==========
         function renderZoneList() {
             const list = document.getElementById('zoneList');
-            if (!list) return;
+            if (!list || !db) return;
             list.innerHTML = '';
             db.zones.forEach(zone => {
                 const item = document.createElement('div');
                 item.className = `zone-item ${zone.id === currentZoneId ? 'active' : ''}`;
                 const locCount = db.locations.filter(l => l.zoneId === zone.id).length;
                 const usedCount = db.locations.filter(l => l.zoneId === zone.id && l.status === 'used').length;
-                const unavailCount = db.locations.filter(l => l.zoneId === zone.id && l.status === 'unavailable')
-                    .length;
+                const unavailCount = db.locations.filter(l => l.zoneId === zone.id && l.status === 'unavailable').length;
                 item.innerHTML = `
                     <span class="zone-name">${zone.isBase ? '🏭' : '📁'} ${zone.name}</span>
                     <span class="${zone.isBase ? 'badge-base' : 'badge-custom'}">${zone.isBase ? '基础' : '自定义'}</span>
                     ${!zone.isBase ? `<button class="zone-delete-btn" onclick="deleteZone(${zone.id})">×</button>` : ''}
                     <span style="font-size:9px;color:#999;margin-left:2px;">(${usedCount}/${locCount})</span>
                 `;
-                item.addEventListener('click', () => { currentZoneId = zone.id;
-                    renderAll(); });
+                item.addEventListener('click', () => { currentZoneId = zone.id; renderAll(); });
                 list.appendChild(item);
             });
         }
 
         function deleteZone(zoneId) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const zone = db.zones.find(z => z.id === zoneId);
             if (!zone) return;
             if (zone.isBase) { showToast('基础仓位不能删除！', 'error'); return; }
-            if (db.locations.some(l => l.zoneId === zoneId && l.status === 'used')) { showToast('有已用仓位，请先清空！',
-                    'error'); return; }
+            if (db.locations.some(l => l.zoneId === zoneId && l.status === 'used')) { showToast('有已用仓位，请先清空！', 'error'); return; }
             if (!confirm(`确定删除「${zone.name}」？`)) return;
             const newDb = JSON.parse(JSON.stringify(db));
             newDb.locations = newDb.locations.filter(l => l.zoneId !== zoneId);
@@ -1204,6 +476,7 @@
         }
 
         function showAddZoneModal() {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             openModal(`
                 <h2>➕ 添加区域</h2>
                 <div class="form-group"><label>名称</label><input type="text" id="newZoneName" required></div>
@@ -1214,6 +487,7 @@
         }
 
         function addZone() {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const name = document.getElementById('newZoneName').value.trim();
             const rows = parseInt(document.getElementById('newZoneRows').value);
             const cols = parseInt(document.getElementById('newZoneCols').value);
@@ -1224,8 +498,7 @@
             newDb.zones.push(zone);
             for (let r = 1; r <= rows; r++)
                 for (let c = 1; c <= cols; c++) {
-                    newDb.locations.push({ id: newDb.nextLocationId++, zoneId: zone.id, rowNum: r, colNum: c,
-                        status: 'normal', productId: null, batchNo: null, quantity: 0, updatedAt: null });
+                    newDb.locations.push({ id: newDb.nextLocationId++, zoneId: zone.id, rowNum: r, colNum: c, status: 'normal', productId: null, batchNo: null, quantity: 0, updatedAt: null });
                 }
             currentZoneId = zone.id;
             saveDB(newDb);
@@ -1274,15 +547,13 @@
             if (!zone) { container.innerHTML = '<div class="empty-state">请选择区域</div>'; return; }
             const locations = db.locations.filter(l => l.zoneId === zone.id);
             document.getElementById('currentZoneTitle').textContent = zone.name;
-            document.getElementById('currentZoneInfo').textContent = zone.isBase ? 'A侧17排 + B侧17排 × 5托' :
-                `${zone.rows}排 × ${zone.cols}托`;
+            document.getElementById('currentZoneInfo').textContent = zone.isBase ? 'A侧17排 + B侧17排 × 5托' : `${zone.rows}排 × ${zone.cols}托`;
             const rankMap = getFifoRankMap(zone.id);
 
             if (zone.isBase && zone.id === 1) {
                 const aLocs = locations.filter(l => l.rowNum <= 17);
                 const bLocs = locations.filter(l => l.rowNum > 17);
-                container.innerHTML =
-                    `<div class="grid-side-by-side">${renderGridTable(aLocs, zone, rankMap)}${renderGridTable(bLocs, zone, rankMap)}</div>`;
+                container.innerHTML = `<div class="grid-side-by-side">${renderGridTable(aLocs, zone, rankMap)}${renderGridTable(bLocs, zone, rankMap)}</div>`;
             } else {
                 container.innerHTML = renderGridTable(locations, zone, rankMap);
             }
@@ -1293,8 +564,7 @@
             const displayCols = getDisplayColArray(zone);
             const rows = [...new Set(locs.map(l => l.rowNum))].sort((a, b) => a - b);
             let html = '<div class="grid-table">';
-            html += '<div class="grid-col-label-row"><div style="width:' + (getComputedStyle(document.documentElement)
-                .getPropertyValue('--row-label-width') || '52px') + ';"></div>';
+            html += '<div class="grid-col-label-row"><div style="width:' + (getComputedStyle(document.documentElement).getPropertyValue('--row-label-width') || '52px') + ';"></div>';
             displayCols.forEach((_, idx) => { html += `<div class="grid-col-label">托${idx + 1}</div>`; });
             html += '</div>';
             rows.forEach(r => {
@@ -1309,28 +579,22 @@
                         if (loc.status === 'used') {
                             const info = rankMap[loc.id];
                             if (info) {
-                                style =
-                                    `background-color:${getFifoColor(info.rank, info.total)};border-color:${getFifoBorderColor(info.rank, info.total)};`;
+                                style = `background-color:${getFifoColor(info.rank, info.total)};border-color:${getFifoBorderColor(info.rank, info.total)};`;
                                 rankBadge = `<span class="fifo-rank">#${info.rank + 1}/${info.total}</span>`;
                             } else {
                                 style = 'background-color:#1e88e5;border-color:#0d47a1;';
                             }
                         }
-                        let label = '',
-                            batchInfo = '',
-                            qtyInfo = '';
+                        let label = '', batchInfo = '', qtyInfo = '';
                         const displayColNum = idx + 1;
                         if (loc.status === 'used' && loc.productId) {
                             const product = db.products.find(p => p.id === loc.productId);
                             label = product ? product.name : '?';
                             batchInfo = loc.batchNo || '';
                             qtyInfo = loc.quantity > 0 ? `${loc.quantity}${product?.unit || ''}` : '';
-                        } else if (loc.status === 'unavailable') { label = '🚫'; } else { label =
-                            `${rowLabel}-${displayColNum}`; }
-                        const title =
-                            `${rowLabel}排${displayColNum}托 | ${loc.status}${loc.productId ? ' | ' + (db.products.find(p => p.id === loc.productId)?.name || '') : ''}${loc.batchNo ? ' | ' + loc.batchNo : ''}${loc.quantity ? ' | ' + loc.quantity + '单位' : ''}`;
-                        html +=
-                            `<div class="cell status-${loc.status}" style="${style}" title="${title}" onclick="handleCellClick(${loc.id})" oncontextmenu="handleCellRightClick(${loc.id});return false;">${rankBadge}<span class="cell-label">${label}</span>${qtyInfo ? `<span class="cell-qty">${qtyInfo}</span>` : ''}${batchInfo ? `<span class="cell-batch">📅${batchInfo}</span>` : ''}</div>`;
+                        } else if (loc.status === 'unavailable') { label = '🚫'; } else { label = `${rowLabel}-${displayColNum}`; }
+                        const title = `${rowLabel}排${displayColNum}托 | ${loc.status}${loc.productId ? ' | ' + (db.products.find(p => p.id === loc.productId)?.name || '') : ''}${loc.batchNo ? ' | ' + loc.batchNo : ''}${loc.quantity ? ' | ' + loc.quantity + '单位' : ''}`;
+                        html += `<div class="cell status-${loc.status}" style="${style}" title="${title}" onclick="handleCellClick(${loc.id})" oncontextmenu="handleCellRightClick(${loc.id});return false;">${rankBadge}<span class="cell-label">${label}</span>${qtyInfo ? `<span class="cell-qty">${qtyInfo}</span>` : ''}${batchInfo ? `<span class="cell-batch">📅${batchInfo}</span>` : ''}</div>`;
                     } else {
                         html += `<div class="cell" style="border-style:dashed;opacity:0.3;">-</div>`;
                     }
@@ -1356,8 +620,7 @@
                 const product = db.products.find(p => p.id === l.productId);
                 return sum + (l.quantity || 0) * (product?.unitQuantity || 1);
             }, 0);
-            container.innerHTML =
-                `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;"><div>正常: <b>${n}</b></div><div>不可用: <b>${u}</b></div><div>已用: <b>${s}</b></div><div>单位总数: <b>${totalUnits}</b></div><div>总件数: <b>${totalPieces}</b></div></div>`;
+            container.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px;"><div>正常: <b>${n}</b></div><div>不可用: <b>${u}</b></div><div>已用: <b>${s}</b></div><div>单位总数: <b>${totalUnits}</b></div><div>总件数: <b>${totalPieces}</b></div></div>`;
         }
 
         // ========== 产品渲染 ==========
@@ -1372,8 +635,7 @@
                 item.className = `product-item ${selectedProducts.has(p.id) ? 'selected' : ''}`;
                 let checkboxHtml = '';
                 if (batchMode) {
-                    checkboxHtml =
-                        `<input type="checkbox" class="product-checkbox" ${selectedProducts.has(p.id) ? 'checked' : ''} onclick="toggleSelectProduct(${p.id}, event)">`;
+                    checkboxHtml = `<input type="checkbox" class="product-checkbox" ${selectedProducts.has(p.id) ? 'checked' : ''} onclick="toggleSelectProduct(${p.id}, event)">`;
                 }
                 item.innerHTML = `
                     ${checkboxHtml}
@@ -1422,6 +684,7 @@
         }
 
         function batchUpdateUnitQuantity() {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             openModal(`
                 <h2>📦 批量修改单位数量</h2>
                 <p style="font-size:12px;margin-bottom:8px;">请在下方勾选要修改的产品，然后输入新的单位数量</p>
@@ -1456,6 +719,7 @@
         }
 
         function confirmModalBatchUpdate() {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const newVal = parseInt(document.getElementById('batchUnitQuantityInput').value);
             if (!newVal || newVal < 1) { showToast('请输入有效的单位数量', 'error'); return; }
             const checkboxes = document.querySelectorAll('.modal-product-checkbox:checked');
@@ -1472,6 +736,7 @@
         }
 
         function batchDeleteProducts() {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             if (selectedProducts.size === 0) { showToast('请先在右侧勾选产品', 'error'); return; }
             const occupied = [];
             selectedProducts.forEach(pid => {
@@ -1496,9 +761,9 @@
 
         // ========== 产品操作 ==========
         function showAddProductModal() {
+            if (!db) { showToast('数据尚未加载，请稍候', 'info'); return; }
             let existingOptions = '<option value="">-- 从已有产品复制(可选) --</option>';
-            db.products.forEach(p => { existingOptions +=
-                    `<option value="${p.id}">${p.name} (${p.model || '无型号'})</option>`; });
+            db.products.forEach(p => { existingOptions += `<option value="${p.id}">${p.name} (${p.model || '无型号'})</option>`; });
             openModal(`
                 <h2>📦 新建产品</h2>
                 ${db.products.length > 0 ? `<div class="form-group"><label>从已有产品复制</label><select id="existingProductSelect" onchange="fillProductFields(this.value)">${existingOptions}</select></div>` : ''}
@@ -1511,7 +776,7 @@
         }
 
         function fillProductFields(productId) {
-            if (!productId) return;
+            if (!productId || !db) return;
             const p = db.products.find(x => x.id == productId);
             if (p) {
                 document.getElementById('pName').value = p.name;
@@ -1522,14 +787,14 @@
         }
 
         function addProduct() {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const name = document.getElementById('pName').value.trim();
             const model = document.getElementById('pModel').value.trim();
             const unit = document.getElementById('pUnit').value.trim();
             const unitQuantity = parseInt(document.getElementById('pUnitQuantity').value) || 1;
             if (!name || !unit) { showToast('请填写名称和单位', 'error'); return; }
             const newDb = JSON.parse(JSON.stringify(db));
-            const product = { id: newDb.nextProductId++, name, model, unit, unitQuantity, createdAt: new Date()
-                    .toISOString() };
+            const product = { id: newDb.nextProductId++, name, model, unit, unitQuantity, createdAt: new Date().toISOString() };
             newDb.products.push(product);
             saveDB(newDb);
             closeModal();
@@ -1537,6 +802,7 @@
         }
 
         function showProductDetail(productId) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const p = db.products.find(x => x.id === productId);
             if (!p) return;
             const info = getProductDisplayInfo(productId);
@@ -1559,6 +825,7 @@
         }
 
         function showEditProductModal(productId) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const p = db.products.find(x => x.id === productId);
             if (!p) return;
             openModal(`
@@ -1572,8 +839,7 @@
         }
 
         function updateProduct(productId) {
-            const p = db.products.find(x => x.id === productId);
-            if (!p) return;
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const newDb = JSON.parse(JSON.stringify(db));
             const np = newDb.products.find(x => x.id === productId);
             np.name = document.getElementById('editName').value.trim();
@@ -1587,10 +853,10 @@
         }
 
         function deleteProduct(productId) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const p = db.products.find(x => x.id === productId);
             if (!p) return;
-            if (db.locations.some(l => l.productId === productId && l.status === 'used')) { showToast('已存储，请先出库',
-                    'error'); return; }
+            if (db.locations.some(l => l.productId === productId && l.status === 'used')) { showToast('已存储，请先出库', 'error'); return; }
             if (!confirm(`删除「${p.name}」？`)) return;
             const newDb = JSON.parse(JSON.stringify(db));
             newDb.products = newDb.products.filter(x => x.id !== productId);
@@ -1629,13 +895,12 @@
                 const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
                 return `<tr><td>${model}</td><td>${data.names.size}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
             }).join('');
-            openModal(
-                `<h2>📈 库存统计</h2><div style="margin-bottom:20px;"><h3 style="font-size:14px;margin-bottom:8px;">按名称统计（显示规格）</h3><table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>${nameRows}</tbody></table></div><div><h3 style="font-size:14px;margin-bottom:8px;">按型号统计</h3><table class="stats-table"><thead><tr><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>${modelRows}</tbody></table></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`
-                );
+            openModal(`<h2>📈 库存统计</h2><div style="margin-bottom:20px;"><h3 style="font-size:14px;margin-bottom:8px;">按名称统计（显示规格）</h3><table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>${nameRows}</tbody></table></div><div><h3 style="font-size:14px;margin-bottom:8px;">按型号统计</h3><table class="stats-table"><thead><tr><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>${modelRows}</tbody></table></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
         }
 
         // ========== 仓位操作 ==========
         function handleCellClick(locationId) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc) return;
             const zone = db.zones.find(z => z.id === loc.zoneId);
@@ -1645,14 +910,13 @@
         }
 
         function handleCellRightClick(locationId) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc) return;
             if (loc.status === 'used') { showToast('请先出库', 'error'); return; }
             const newDb = JSON.parse(JSON.stringify(db));
             const nl = newDb.locations.find(l => l.id === locationId);
-            if (nl.status === 'unavailable') { nl.status = 'normal';
-                saveDB(newDb);
-                showToast('恢复为正常', 'success'); return; }
+            if (nl.status === 'unavailable') { nl.status = 'normal'; saveDB(newDb); showToast('恢复为正常', 'success'); return; }
             nl.status = 'unavailable';
             saveDB(newDb);
             showToast('标记为不可用', 'info');
@@ -1667,54 +931,44 @@
                 const info = getProductDisplayInfo(p.id);
                 return `<option value="${p.id}">${p.name} (${p.model || '无型号'}) - 现有${info.pieces}件</option>`;
             }).join('');
-            openModal(
-                `<h2>📥 入库（录入单位数量）</h2><p style="font-size:12px;margin-bottom:8px;">仓位: <b>${zone?.name} - ${rowLabel}排${displayCol}托</b></p><div class="form-group"><label>产品 *</label><select id="stockInProduct">${options}</select></div><div class="form-group"><label>入库单位数量（如箱数）*</label><input type="number" id="stockInQty" min="1" value="1" required></div><div class="form-group"><label>批次日期</label><input type="date" id="stockInBatch" value="${today}" required></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-success" onclick="stockIn(${loc.id})">确认入库</button></div>`
-                );
+            openModal(`<h2>📥 入库（录入单位数量）</h2><p style="font-size:12px;margin-bottom:8px;">仓位: <b>${zone?.name} - ${rowLabel}排${displayCol}托</b></p><div class="form-group"><label>产品 *</label><select id="stockInProduct">${options}</select></div><div class="form-group"><label>入库单位数量（如箱数）*</label><input type="number" id="stockInQty" min="1" value="1" required></div><div class="form-group"><label>批次日期</label><input type="date" id="stockInBatch" value="${today}" required></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-success" onclick="stockIn(${loc.id})">确认入库</button></div>`);
         }
 
         function stockIn(locationId) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
-            if (!loc || loc.status !== 'normal') { showToast('状态异常', 'error');
-                closeModal(); return; }
+            if (!loc || loc.status !== 'normal') { showToast('状态异常', 'error'); closeModal(); return; }
             const productId = parseInt(document.getElementById('stockInProduct').value);
             const qty = parseInt(document.getElementById('stockInQty').value);
             const batchNo = document.getElementById('stockInBatch').value;
             if (!productId || !qty || !batchNo) { showToast('信息不完整', 'error'); return; }
             const newDb = JSON.parse(JSON.stringify(db));
             const nl = newDb.locations.find(l => l.id === locationId);
-            nl.status = 'used';
-            nl.productId = productId;
-            nl.batchNo = batchNo;
-            nl.quantity = qty;
-            nl.updatedAt = new Date().toISOString();
+            nl.status = 'used'; nl.productId = productId; nl.batchNo = batchNo; nl.quantity = qty; nl.updatedAt = new Date().toISOString();
             saveDB(newDb);
             closeModal();
             showToast('入库成功', 'success');
         }
 
         function showUsedLocationModal(loc, zone) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const product = db.products.find(p => p.id === loc.productId);
             const rowLabel = getRowDisplayLabel(zone, loc.rowNum);
             const displayCol = getDisplayColNumber(zone, loc.colNum);
             const pieces = loc.quantity * (product?.unitQuantity || 1);
-            openModal(
-                `<h2>📤 出库 / 详情</h2><p style="font-size:12px;margin-bottom:8px;">仓位: <b>${zone?.name} - ${rowLabel}排${displayCol}托</b></p><div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px;font-size:12px;"><p>产品: ${product?.name || '?'}</p><p>型号: ${product?.model || '无'}</p><p>批次: ${loc.batchNo || '无'}</p><p>单位数量: ${loc.quantity}${product?.unit || ''} (${pieces}件)</p></div><div class="form-group"><label>出库单位数量(最大${loc.quantity})</label><input type="number" id="stockOutQty" min="1" max="${loc.quantity}" value="${loc.quantity}" required></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-danger" onclick="stockOut(${loc.id})">确认出库</button></div>`
-                );
+            openModal(`<h2>📤 出库 / 详情</h2><p style="font-size:12px;margin-bottom:8px;">仓位: <b>${zone?.name} - ${rowLabel}排${displayCol}托</b></p><div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px;font-size:12px;"><p>产品: ${product?.name || '?'}</p><p>型号: ${product?.model || '无'}</p><p>批次: ${loc.batchNo || '无'}</p><p>单位数量: ${loc.quantity}${product?.unit || ''} (${pieces}件)</p></div><div class="form-group"><label>出库单位数量(最大${loc.quantity})</label><input type="number" id="stockOutQty" min="1" max="${loc.quantity}" value="${loc.quantity}" required></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-danger" onclick="stockOut(${loc.id})">确认出库</button></div>`);
         }
 
         function stockOut(locationId) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
-            if (!loc || loc.status !== 'used') { showToast('状态异常', 'error');
-                closeModal(); return; }
+            if (!loc || loc.status !== 'used') { showToast('状态异常', 'error'); closeModal(); return; }
             const outQty = parseInt(document.getElementById('stockOutQty').value);
             if (!outQty || outQty < 1 || outQty > loc.quantity) { showToast('数量无效', 'error'); return; }
             const newDb = JSON.parse(JSON.stringify(db));
             const nl = newDb.locations.find(l => l.id === locationId);
             const remaining = nl.quantity - outQty;
-            if (remaining > 0) { nl.quantity = remaining; } else { nl.status = 'normal';
-                nl.productId = null;
-                nl.batchNo = null;
-                nl.quantity = 0; }
+            if (remaining > 0) { nl.quantity = remaining; } else { nl.status = 'normal'; nl.productId = null; nl.batchNo = null; nl.quantity = 0; }
             saveDB(newDb);
             closeModal();
             showToast('出库成功', 'success');
@@ -1722,6 +976,7 @@
 
         // ========== FIFO视图 ==========
         function showFifoOrder() {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const zone = db.zones.find(z => z.id === currentZoneId);
             if (!zone) { showToast('请选择区域', 'error'); return; }
             const usedLocs = db.locations.filter(l => l.zoneId === zone.id && l.status === 'used' && l.batchNo);
@@ -1745,16 +1000,14 @@
                     const pieces = loc.quantity * (product?.unitQuantity || 1);
                     return `<tr><td>${index + 1}</td><td>${loc.batchNo}</td><td>${rowLabel}排${displayCol}托</td><td>${loc.quantity}${product?.unit || ''} (${pieces}件)</td></tr>`;
                 }).join('');
-                content +=
-                    `<div style="margin-bottom:16px;"><h3 style="font-size:13px;font-weight:600;margin-bottom:4px;">📦 ${name} (${product?.model || '无型号'})</h3><table class="fifo-table"><thead><tr><th>产品内优先级</th><th>批次日期</th><th>仓位</th><th>数量</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+                content += `<div style="margin-bottom:16px;"><h3 style="font-size:13px;font-weight:600;margin-bottom:4px;">📦 ${name} (${product?.model || '无型号'})</h3><table class="fifo-table"><thead><tr><th>产品内优先级</th><th>批次日期</th><th>仓位</th><th>数量</th></tr></thead><tbody>${rows}</tbody></table></div>`;
             });
-            openModal(
-                `<h2>⏱️ FIFO 批次排序（${zone.name}）</h2><p style="font-size:11px;color:#666;margin-bottom:8px;">已按产品名称分组，每组内按批次日期升序</p>${content}<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`
-                );
+            openModal(`<h2>⏱️ FIFO 批次排序（${zone.name}）</h2><p style="font-size:11px;color:#666;margin-bottom:8px;">已按产品名称分组，每组内按批次日期升序</p>${content}<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
         }
 
         // ========== 导出导入 ==========
         function exportData() {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const json = JSON.stringify(db, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1780,16 +1033,15 @@
         }
 
         function importData(file) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const imported = JSON.parse(e.target.result);
-                    if (!imported.zones || !imported.locations || !imported.products) { showToast('格式错误',
-                            'error'); return; }
+                    if (!imported.zones || !imported.locations || !imported.products) { showToast('格式错误', 'error'); return; }
                     if (!confirm('导入将覆盖当前数据，确定？')) return;
                     saveDB(imported);
-                    if (!imported.zones.some(z => z.id === currentZoneId)) currentZoneId = imported.zones[0]
-                        ?.id || null;
+                    if (!imported.zones.some(z => z.id === currentZoneId)) currentZoneId = imported.zones[0]?.id || null;
                     renderAll();
                     showToast('导入成功', 'success');
                 } catch (err) { showToast('解析失败', 'error'); }
@@ -1798,6 +1050,7 @@
         }
 
         function importProductsData(file) {
+            if (!db) { showToast('数据尚未加载', 'info'); return; }
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -1807,11 +1060,8 @@
                     let added = 0;
                     products.forEach(item => {
                         if (!item.name || !item.unit) return;
-                        if (newDb.products.some(p => p.name === item.name && (p.model || '') === (item
-                                .model || ''))) return;
-                        newDb.products.push({ id: newDb.nextProductId++, name: item.name, model: item.model ||
-                                '', unit: item.unit, unitQuantity: item.unitQuantity || 1, createdAt: new Date()
-                                    .toISOString() });
+                        if (newDb.products.some(p => p.name === item.name && (p.model || '') === (item.model || ''))) return;
+                        newDb.products.push({ id: newDb.nextProductId++, name: item.name, model: item.model || '', unit: item.unit, unitQuantity: item.unitQuantity || 1, createdAt: new Date().toISOString() });
                         added++;
                     });
                     saveDB(newDb);
@@ -1826,8 +1076,7 @@
             if (!db) return;
             const all = db.locations;
             document.getElementById('statNormal').textContent = all.filter(l => l.status === 'normal').length;
-            document.getElementById('statUnavailable').textContent = all.filter(l => l.status === 'unavailable')
-                .length;
+            document.getElementById('statUnavailable').textContent = all.filter(l => l.status === 'unavailable').length;
             document.getElementById('statUsed').textContent = all.filter(l => l.status === 'used').length;
             document.getElementById('statProducts').textContent = db.products.length;
         }
@@ -1856,7 +1105,7 @@
                 input.click();
             });
             document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
-            // 从 Firebase 初始化
+            // 启动 Firebase 初始化
             initFromFirebase();
         }
         init();
