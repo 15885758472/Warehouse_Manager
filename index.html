@@ -5,11 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>仓库管理系统 · 多端实时同步版</title>
 
+    <!-- Firebase SDK (compat) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
-        :root { --bg: #f0f2f5; --card-bg: #fff; --primary: #1a73e8; --primary-hover: #1557b0; --success: #34a853; --danger: #ea4335; --warning: #fbbc04; --text: #202124; --text-secondary: #5f6368; --border: #dadce0; --shadow: 0 1px 3px rgba(0,0,0,.1); --shadow-lg: 0 10px 40px rgba(0,0,0,.15); --radius: 12px; --radius-sm: 8px; --transition: .25s; --status-normal: #e8f5e9; --status-normal-border: #4caf50; --status-unavailable: #ffebee; --status-unavailable-border: #ef5350; --cell-size: 60px; --cell-gap: 6px; --row-label-width: 52px; }
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #fff;
+            --primary: #1a73e8;
+            --primary-hover: #1557b0;
+            --success: #34a853;
+            --danger: #ea4335;
+            --warning: #fbbc04;
+            --text: #202124;
+            --text-secondary: #5f6368;
+            --border: #dadce0;
+            --shadow: 0 1px 3px rgba(0,0,0,.1);
+            --shadow-lg: 0 10px 40px rgba(0,0,0,.15);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: .25s;
+            --status-normal: #e8f5e9;
+            --status-normal-border: #4caf50;
+            --status-unavailable: #ffebee;
+            --status-unavailable-border: #ef5350;
+            --cell-size: 60px;
+            --cell-gap: 6px;
+            --row-label-width: 52px;
+        }
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; -webkit-tap-highlight-color:transparent; }
         .header { background:var(--card-bg); border-bottom:1px solid var(--border); padding:0 16px; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:var(--shadow); gap:8px; }
@@ -27,10 +51,13 @@
         .left-panel { background:var(--card-bg); border-bottom:1px solid var(--border); padding:10px 12px; overflow-x:auto; overflow-y:hidden; flex-shrink:0; display:flex; flex-direction:row; gap:6px; align-items:center; }
         .panel-title { font-size:11px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; }
         .zone-list { display:flex; gap:6px; flex-direction:row; flex-wrap:nowrap; overflow-x:auto; }
-        .zone-item { padding:8px 12px; border-radius:var(--radius-sm); border:2px solid var(--border); cursor:pointer; background:#fafafa; white-space:nowrap; font-size:12px; }
+        .zone-item { padding:8px 12px; border-radius:var(--radius-sm); border:2px solid var(--border); cursor:pointer; background:#fafafa; white-space:nowrap; font-size:12px; display:flex; align-items:center; gap:4px; }
         .zone-item.active { border-color:var(--primary); background:#e8f0fe; }
+        .zone-name { font-weight:600; }
         .badge-base { background:var(--primary); color:#fff; font-size:9px; padding:1px 5px; border-radius:8px; }
-        .add-zone-btn { padding:8px 14px; border:2px dashed var(--border); border-radius:var(--radius-sm); background:transparent; cursor:pointer; font-size:12px; }
+        .badge-custom { background:#6c757d; color:#fff; font-size:9px; padding:1px 5px; border-radius:8px; }
+        .zone-delete-btn { width:20px; height:20px; border-radius:50%; border:none; background:#f1f3f4; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:12px; color:var(--danger); flex-shrink:0; margin-left:2px; }
+        .add-zone-btn { padding:8px 14px; border:2px dashed var(--border); border-radius:var(--radius-sm); background:transparent; cursor:pointer; font-size:12px; white-space:nowrap; }
 
         .center-panel { flex:1; overflow-y:auto; background:var(--bg); padding:12px; }
         .center-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
@@ -174,7 +201,7 @@
                     <li>右键：标记不可用</li>
                     <li>基础仓位不可删除</li>
                     <li>批次号只需日期</li>
-                    <li>托位从中间向两侧编号</li>
+                    <li>入库可选单位或件数</li>
                     <li>产品含备注</li>
                     <li>默认单位“件”</li>
                     <li>批量修改单位</li>
@@ -202,25 +229,23 @@
         const database = firebase.database();
         const dbRef = database.ref('warehouse/data');
 
-        // ========== 全局状态 ==========
         let db = { zones: [], locations: [], products: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1 };
         let currentZoneId = 1;
         let batchMode = false;
         let selectedProducts = new Set();
         let isDBLoaded = false;
 
-        // ========== 创建默认数据库 ==========
         function createDefaultDB() {
-            const defaultDB = { zones: [], locations: [], products: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1 };
+            const d = { zones: [], locations: [], products: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1 };
             const baseZone = { id: 1, name: '成品区', rows: 34, cols: 5, isBase: true, createdAt: new Date().toISOString() };
-            defaultDB.zones.push(baseZone);
-            defaultDB.nextZoneId = 2;
+            d.zones.push(baseZone);
+            d.nextZoneId = 2;
             for (let r = 1; r <= 34; r++) {
                 for (let c = 1; c <= 5; c++) {
-                    defaultDB.locations.push({ id: defaultDB.nextLocationId++, zoneId: 1, rowNum: r, colNum: c, status: 'normal', productId: null, batchNo: null, quantity: 0, updatedAt: null });
+                    d.locations.push({ id: d.nextLocationId++, zoneId: 1, rowNum: r, colNum: c, status: 'normal', productId: null, batchNo: null, quantity: 0, updatedAt: null });
                 }
             }
-            return defaultDB;
+            return d;
         }
 
         function ensureCompleteDB(data) {
@@ -236,7 +261,17 @@
         }
 
         function initFromFirebase() {
+            const timeout = setTimeout(() => {
+                if (!isDBLoaded) {
+                    db = createDefaultDB();
+                    isDBLoaded = true;
+                    renderAll();
+                    updateSyncBadge(false);
+                    showToast('Firebase连接超时，使用本地临时数据', 'error');
+                }
+            }, 8000);
             dbRef.once('value', (snapshot) => {
+                clearTimeout(timeout);
                 const rawData = snapshot.val();
                 db = ensureCompleteDB(rawData || null);
                 if (!rawData) dbRef.set(db);
@@ -245,6 +280,7 @@
                 startRealtimeListener();
                 updateSyncBadge(true);
             }).catch(() => {
+                clearTimeout(timeout);
                 db = createDefaultDB();
                 isDBLoaded = true;
                 renderAll();
@@ -276,7 +312,6 @@
             dbRef.set(db).catch(err => showToast('保存失败：' + err.message, 'error'));
         }
 
-        // ========== 辅助函数 ==========
         function getProductDisplayInfo(productId) {
             if (!db || !Array.isArray(db.products)) return { units: 0, pieces: 0, unit: '件', unitQuantity: 1, remark: '' };
             const product = db.products.find(p => p.id === productId);
@@ -320,7 +355,6 @@
             renderZoneList(); renderGrid(); renderProductList(); renderZoneStats(); updateHeaderStats();
         }
 
-        // ========== 区域列表 ==========
         function renderZoneList() {
             const list = document.getElementById('zoneList');
             if (!list || !db) return;
@@ -330,8 +364,40 @@
                 item.className = `zone-item ${zone.id === currentZoneId ? 'active' : ''}`;
                 const locCount = db.locations.filter(l => l.zoneId === zone.id).length;
                 const usedCount = db.locations.filter(l => l.zoneId === zone.id && l.status === 'used').length;
-                item.innerHTML = `<span>${zone.isBase ? '🏭' : '📁'} ${zone.name}</span> <span class="${zone.isBase ? 'badge-base' : 'badge-custom'}">${zone.isBase ? '基础' : '自定义'}</span> (${usedCount}/${locCount})`;
-                item.addEventListener('click', () => { currentZoneId = zone.id; renderAll(); });
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'zone-name';
+                nameSpan.innerHTML = `${zone.isBase ? '🏭' : '📁'} ${zone.name}`;
+                
+                const badge = document.createElement('span');
+                badge.className = zone.isBase ? 'badge-base' : 'badge-custom';
+                badge.textContent = zone.isBase ? '基础' : '自定义';
+                
+                const infoSpan = document.createElement('span');
+                infoSpan.style.fontSize = '9px';
+                infoSpan.style.color = '#999';
+                infoSpan.style.marginLeft = '2px';
+                infoSpan.textContent = `(${usedCount}/${locCount})`;
+                
+                item.appendChild(nameSpan);
+                item.appendChild(badge);
+                if (!zone.isBase) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'zone-delete-btn';
+                    deleteBtn.textContent = '×';
+                    deleteBtn.title = '删除区域';
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteZone(zone.id);
+                    });
+                    item.appendChild(deleteBtn);
+                }
+                item.appendChild(infoSpan);
+                
+                item.addEventListener('click', () => {
+                    currentZoneId = zone.id;
+                    renderAll();
+                });
                 list.appendChild(item);
             });
         }
@@ -373,7 +439,6 @@
             saveDB(newDb); closeModal(); showToast('已添加','success');
         }
 
-        // ========== 网格渲染 ==========
         function renderGrid() {
             const container = document.getElementById('gridContainer');
             if (!container || !db) return;
@@ -397,7 +462,7 @@
             const displayCols = getDisplayColArray(zone);
             const rows = [...new Set(locs.map(l => l.rowNum))].sort((a,b)=>a-b);
             let html = '<div class="grid-table">';
-            html += '<div class="grid-col-label-row"><div style="width:var(--row-label-width);"></div>';
+            html += '<div class="grid-col-label-row"><div style="width:52px;"></div>';
             displayCols.forEach((_, idx) => { html += `<div class="grid-col-label">托${idx+1}</div>`; });
             html += '</div>';
             rows.forEach(r => {
@@ -431,7 +496,6 @@
             return html;
         }
 
-        // ========== 产品列表 ==========
         function renderProductList() {
             const list = document.getElementById('productList');
             if (!list || !db || !Array.isArray(db.products)) return;
@@ -447,7 +511,6 @@
             });
         }
 
-        // ========== 批量操作 ==========
         function toggleBatchMode() {
             batchMode = !batchMode;
             if (!batchMode) { selectedProducts.clear(); document.getElementById('batchToolbar').classList.remove('active'); }
@@ -496,7 +559,6 @@
             saveDB(newDb); clearSelectionAndExit(); showToast('已删除','success');
         }
 
-        // ========== 产品 CRUD ==========
         function showAddProductModal() {
             if (!db || !Array.isArray(db.products)) { showToast('数据未加载','info'); return; }
             let existingOptions = '<option value="">-- 从已有产品复制 --</option>';
@@ -562,7 +624,6 @@
             saveDB(newDb); showToast('已删除','success');
         }
 
-        // ========== 仓位统计 ==========
         function renderZoneStats() {
             const container = document.getElementById('zoneStats');
             if (!container || !db || !Array.isArray(db.zones) || !Array.isArray(db.locations)) return;
@@ -589,7 +650,6 @@
             document.getElementById('statProducts').textContent = Array.isArray(db.products) ? db.products.length : 0;
         }
 
-        // ========== 统计视图 ==========
         function showStatistics() {
             if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品', 'info'); return; }
             const nameMap = new Map();
@@ -606,24 +666,52 @@
                 const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
                 return `<tr><td>${name}</td><td>${specs}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
             }).join('');
+
             const modelMap = new Map();
             db.products.forEach(p => {
                 const key = p.model || '无型号';
-                if (!modelMap.has(key)) modelMap.set(key, { pieces: 0, units: new Set(), names: new Set() });
+                if (!modelMap.has(key)) {
+                    modelMap.set(key, { pieces: 0, units: new Set(), names: new Set(), productNames: [] });
+                }
                 const e = modelMap.get(key);
                 const info = getProductDisplayInfo(p.id);
                 e.pieces += info.pieces;
                 e.units.add(p.unit);
                 e.names.add(p.name);
+                e.productNames.push(p.name);
             });
             let modelRows = [...modelMap.entries()].map(([model, data]) => {
                 const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
-                return `<tr><td>${model}</td><td>${data.names.size}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
+                const namesStr = data.productNames.join('、');
+                return `<tr>
+                    <td>${namesStr}</td>
+                    <td>${model}</td>
+                    <td>${data.names.size}</td>
+                    <td>${data.pieces}</td>
+                    <td>${unitStr}</td>
+                </tr>`;
             }).join('');
-            openModal(`<h2>📈 库存统计</h2><div style="margin-bottom:20px;"><h3>按名称统计（含规格）</h3><table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>${nameRows}</tbody></table></div><div><h3>按型号统计</h3><table class="stats-table"><thead><tr><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>${modelRows}</tbody></table></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
+
+            openModal(`
+                <h2>📈 库存统计</h2>
+                <div style="margin-bottom:20px;">
+                    <h3>按名称统计（显示规格）</h3>
+                    <table class="stats-table">
+                        <thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead>
+                        <tbody>${nameRows}</tbody>
+                    </table>
+                </div>
+                <div>
+                    <h3>按型号统计</h3>
+                    <table class="stats-table">
+                        <thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead>
+                        <tbody>${modelRows}</tbody>
+                    </table>
+                </div>
+                <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>
+            `);
         }
 
-        // ========== FIFO 相关 ==========
         function getFifoRankMap(zoneId) {
             if (!db || !Array.isArray(db.locations)) return {};
             const usedLocs = db.locations.filter(l => l.zoneId === zoneId && l.status === 'used' && l.batchNo);
@@ -685,7 +773,6 @@
             openModal(`<h2>⏱️ FIFO 批次排序（${zone.name}）</h2><p style="font-size:11px;color:#666;margin-bottom:8px;">已按产品名称分组，每组内按批次日期升序</p>${content}<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
         }
 
-        // ========== 仓位操作 ==========
         function handleCellClick(locationId) {
             if (!db || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
@@ -717,19 +804,57 @@
                 const info = getProductDisplayInfo(p.id);
                 return `<option value="${p.id}">${p.name} (${p.model || '无型号'}) - 现有${info.pieces}件</option>`;
             }).join('');
-            openModal(`<h2>📥 入库（录入单位数量）</h2><p style="font-size:12px;margin-bottom:8px;">仓位: <b>${zone?.name} - ${rowLabel}排${displayCol}托</b></p><div class="form-group"><label>产品 *</label><select id="stockInProduct">${options}</select></div><div class="form-group"><label>入库单位数量（如箱数）*</label><input type="number" id="stockInQty" min="1" value="1" required></div><div class="form-group"><label>批次日期</label><input type="date" id="stockInBatch" value="${today}" required></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-success" onclick="stockIn(${loc.id})">确认入库</button></div>`);
+            openModal(`<h2>📥 入库</h2><p style="font-size:12px;margin-bottom:8px;">仓位: <b>${zone?.name} - ${rowLabel}排${displayCol}托</b></p>
+                <div class="form-group"><label>产品 *</label><select id="stockInProduct">${options}</select></div>
+                <div class="form-group"><label>入库方式</label><select id="stockInType" onchange="toggleStockInType()">
+                    <option value="unit">按单位数量（箱）</option>
+                    <option value="piece">按总件数</option>
+                </select></div>
+                <div class="form-group" id="unitQtyGroup"><label>单位数量 *</label><input type="number" id="stockInQty" min="1" value="1" required></div>
+                <div class="form-group" id="pieceQtyGroup" style="display:none;"><label>总件数 *</label><input type="number" id="stockInPieces" min="1" value="1" required></div>
+                <div class="form-group"><label>批次日期</label><input type="date" id="stockInBatch" value="${today}" required></div>
+                <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-success" onclick="stockIn(${loc.id})">确认入库</button></div>`);
         }
+
+        function toggleStockInType() {
+            const type = document.getElementById('stockInType').value;
+            document.getElementById('unitQtyGroup').style.display = type === 'unit' ? 'block' : 'none';
+            document.getElementById('pieceQtyGroup').style.display = type === 'piece' ? 'block' : 'none';
+        }
+
         function stockIn(locationId) {
             if (!db || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc || loc.status !== 'normal') { showToast('状态异常', 'error'); closeModal(); return; }
             const productId = parseInt(document.getElementById('stockInProduct').value);
-            const qty = parseInt(document.getElementById('stockInQty').value);
             const batchNo = document.getElementById('stockInBatch').value;
-            if (!productId || !qty || !batchNo) { showToast('信息不完整', 'error'); return; }
+            if (!productId || !batchNo) { showToast('信息不完整', 'error'); return; }
+            const product = db.products.find(p => p.id === productId);
+            if (!product) { showToast('产品不存在', 'error'); return; }
+
+            let quantity;
+            const type = document.getElementById('stockInType').value;
+            if (type === 'unit') {
+                quantity = parseInt(document.getElementById('stockInQty').value);
+                if (!quantity || quantity < 1) { showToast('请输入有效的单位数量', 'error'); return; }
+            } else {
+                const pieces = parseInt(document.getElementById('stockInPieces').value);
+                if (!pieces || pieces < 1) { showToast('请输入有效的总件数', 'error'); return; }
+                const unitQuantity = product.unitQuantity || 1;
+                if (pieces % unitQuantity !== 0) {
+                    showToast(`总件数必须是单位数量(${unitQuantity})的整数倍`, 'error');
+                    return;
+                }
+                quantity = pieces / unitQuantity;
+            }
+
             const newDb = JSON.parse(JSON.stringify(db));
             const nl = newDb.locations.find(l => l.id === locationId);
-            nl.status = 'used'; nl.productId = productId; nl.batchNo = batchNo; nl.quantity = qty; nl.updatedAt = new Date().toISOString();
+            nl.status = 'used';
+            nl.productId = productId;
+            nl.batchNo = batchNo;
+            nl.quantity = quantity;
+            nl.updatedAt = new Date().toISOString();
             saveDB(newDb);
             closeModal();
             showToast('入库成功', 'success');
@@ -758,7 +883,6 @@
             showToast('出库成功', 'success');
         }
 
-        // ========== 导出导入 ==========
         function exportData() {
             if (!db || !Array.isArray(db.zones)) { showToast('数据尚未加载', 'info'); return; }
             const json = JSON.stringify(db, null, 2);
@@ -824,7 +948,6 @@
             reader.readAsText(file);
         }
 
-        // ========== 初始化 ==========
         function init() {
             document.getElementById('btnAddZone').addEventListener('click', showAddZoneModal);
             document.getElementById('btnAddProduct').addEventListener('click', showAddProductModal);
