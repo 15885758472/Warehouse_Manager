@@ -9,31 +9,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
-        :root {
-            --bg: #f0f2f5;
-            --card-bg: #ffffff;
-            --primary: #1a73e8;
-            --primary-hover: #1557b0;
-            --success: #34a853;
-            --danger: #ea4335;
-            --warning: #fbbc04;
-            --text: #202124;
-            --text-secondary: #5f6368;
-            --border: #dadce0;
-            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-            --shadow-lg: 0 10px 40px rgba(0,0,0,0.15);
-            --radius: 12px;
-            --radius-sm: 8px;
-            --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
-            --status-normal: #e8f5e9;
-            --status-normal-border: #4caf50;
-            --status-unavailable: #ffebee;
-            --status-unavailable-border: #ef5350;
-            --cell-size: 60px;
-            --cell-gap: 6px;
-            --row-label-width: 52px;
-            --col-label-height: 22px;
-        }
+        /* 样式保持不变（与上次相同，略） */
+        :root { --bg: #f0f2f5; --card-bg: #ffffff; --primary: #1a73e8; --primary-hover: #1557b0; --success: #34a853; --danger: #ea4335; --warning: #fbbc04; --text: #202124; --text-secondary: #5f6368; --border: #dadce0; --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06); --shadow-lg: 0 10px 40px rgba(0,0,0,0.15); --radius: 12px; --radius-sm: 8px; --transition: 0.25s cubic-bezier(0.4,0,0.2,1); --status-normal: #e8f5e9; --status-normal-border: #4caf50; --status-unavailable: #ffebee; --status-unavailable-border: #ef5350; --cell-size: 60px; --cell-gap: 6px; --row-label-width: 52px; --col-label-height: 22px; }
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Segoe UI','PingFang SC','Microsoft YaHei','Helvetica Neue',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; -webkit-tap-highlight-color:transparent; font-size:14px; }
         .header { background:var(--card-bg); border-bottom:1px solid var(--border); padding:0 16px; height:56px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; box-shadow:var(--shadow); gap:8px; }
@@ -272,7 +249,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
-        // ========== Firebase 配置（已使用您提供的配置） ==========
+        // ========== Firebase 配置 ==========
         const firebaseConfig = {
             apiKey: "AIzaSyDu1NYuTLUxIMkkaXdJGFgE0GXGW0hwXto",
             authDomain: "warehouse-manager-4eec5.firebaseapp.com",
@@ -288,7 +265,7 @@
         const dbRef = database.ref('warehouse/data');
 
         // ========== 全局状态 ==========
-        // 关键修复：db 初始化为安全空结构，而不是 null
+        // 初始化为完整结构，避免 undefined
         let db = { zones: [], locations: [], products: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1 };
         let currentZoneId = 1;
         let batchMode = false;
@@ -309,14 +286,26 @@
             return defaultDB;
         }
 
+        // ========== 确保数据库结构完整 ==========
+        function ensureCompleteDB(data) {
+            if (!data || typeof data !== 'object') {
+                return createDefaultDB();
+            }
+            if (!Array.isArray(data.zones)) data.zones = [];
+            if (!Array.isArray(data.locations)) data.locations = [];
+            if (!Array.isArray(data.products)) data.products = [];
+            if (!data.nextZoneId || typeof data.nextZoneId !== 'number') data.nextZoneId = 1;
+            if (!data.nextLocationId || typeof data.nextLocationId !== 'number') data.nextLocationId = 1;
+            if (!data.nextProductId || typeof data.nextProductId !== 'number') data.nextProductId = 1;
+            return data;
+        }
+
         // ========== 数据加载与监听 ==========
         function initFromFirebase() {
             dbRef.once('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    db = data;
-                } else {
-                    db = createDefaultDB();
+                const rawData = snapshot.val();
+                db = ensureCompleteDB(rawData || null);
+                if (!rawData) {
                     dbRef.set(db);
                 }
                 isDBLoaded = true;
@@ -335,12 +324,10 @@
 
         function startRealtimeListener() {
             dbRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    db = data;
-                    renderAll();
-                    updateSyncBadge(true);
-                }
+                const data = ensureCompleteDB(snapshot.val() || null);
+                db = data;
+                renderAll();
+                updateSyncBadge(true);
             });
             database.ref('.info/connected').on('value', (snap) => {
                 if (snap.val() === true) {
@@ -363,7 +350,7 @@
         }
 
         function saveDB(newDb) {
-            db = newDb;
+            db = ensureCompleteDB(newDb);
             dbRef.set(db).catch(err => {
                 showToast('保存失败：' + err.message, 'error');
             });
@@ -371,14 +358,14 @@
 
         // ========== 辅助函数 ==========
         function getProductTotalUnits(productId) {
-            if (!db || !db.locations) return 0;
+            if (!db || !Array.isArray(db.locations)) return 0;
             return db.locations
                 .filter(l => l.productId === productId && l.status === 'used')
                 .reduce((sum, l) => sum + (l.quantity || 0), 0);
         }
 
         function getProductDisplayInfo(productId) {
-            if (!db || !db.products) return { units: 0, pieces: 0, unit: '', unitQuantity: 1 };
+            if (!db || !Array.isArray(db.products)) return { units: 0, pieces: 0, unit: '', unitQuantity: 1 };
             const product = db.products.find(p => p.id === productId);
             if (!product) return { units: 0, pieces: 0, unit: '', unitQuantity: 1 };
             const units = getProductTotalUnits(productId);
@@ -428,7 +415,7 @@
 
         // ========== 渲染所有 ==========
         function renderAll() {
-            if (!db || !db.zones || !db.locations || !db.products) return;
+            if (!db || !Array.isArray(db.zones) || !Array.isArray(db.locations) || !Array.isArray(db.products)) return;
             renderZoneList();
             renderGrid();
             renderProductList();
@@ -439,7 +426,7 @@
         // ========== 渲染区域列表 ==========
         function renderZoneList() {
             const list = document.getElementById('zoneList');
-            if (!list || !db || !db.zones) return;
+            if (!list || !db || !Array.isArray(db.zones) || !Array.isArray(db.locations)) return;
             list.innerHTML = '';
             db.zones.forEach(zone => {
                 const item = document.createElement('div');
@@ -459,7 +446,7 @@
         }
 
         function deleteZone(zoneId) {
-            if (!db || !db.zones) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.zones) || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
             const zone = db.zones.find(z => z.id === zoneId);
             if (!zone) return;
             if (zone.isBase) { showToast('基础仓位不能删除！', 'error'); return; }
@@ -474,7 +461,7 @@
         }
 
         function showAddZoneModal() {
-            if (!db || !db.zones) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.zones)) { showToast('数据尚未加载', 'info'); return; }
             openModal(`
                 <h2>➕ 添加区域</h2>
                 <div class="form-group"><label>名称</label><input type="text" id="newZoneName" required></div>
@@ -485,7 +472,7 @@
         }
 
         function addZone() {
-            if (!db || !db.zones) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.zones)) { showToast('数据尚未加载', 'info'); return; }
             const name = document.getElementById('newZoneName').value.trim();
             const rows = parseInt(document.getElementById('newZoneRows').value);
             const cols = parseInt(document.getElementById('newZoneCols').value);
@@ -506,7 +493,7 @@
 
         // ========== FIFO ==========
         function getFifoRankMap(zoneId) {
-            if (!db || !db.locations) return {};
+            if (!db || !Array.isArray(db.locations)) return {};
             const usedLocs = db.locations.filter(l => l.zoneId === zoneId && l.status === 'used' && l.batchNo);
             const productGroups = {};
             usedLocs.forEach(loc => {
@@ -541,7 +528,7 @@
         // ========== 渲染网格 ==========
         function renderGrid() {
             const container = document.getElementById('gridContainer');
-            if (!container || !db || !db.zones || !db.locations) return;
+            if (!container || !db || !Array.isArray(db.zones) || !Array.isArray(db.locations)) return;
             const zone = db.zones.find(z => z.id === currentZoneId);
             if (!zone) { container.innerHTML = '<div class="empty-state">请选择区域</div>'; return; }
             const locations = db.locations.filter(l => l.zoneId === zone.id);
@@ -607,7 +594,7 @@
         // ========== 仓位统计 ==========
         function renderZoneStats() {
             const container = document.getElementById('zoneStats');
-            if (!container || !db || !db.zones || !db.locations) return;
+            if (!container || !db || !Array.isArray(db.zones) || !Array.isArray(db.locations)) return;
             const zone = db.zones.find(z => z.id === currentZoneId);
             if (!zone) { container.textContent = '请选择区域'; return; }
             const locs = db.locations.filter(l => l.zoneId === zone.id);
@@ -625,7 +612,7 @@
         // ========== 产品渲染 ==========
         function renderProductList() {
             const list = document.getElementById('productList');
-            if (!list || !db || !db.products) return;
+            if (!list || !db || !Array.isArray(db.products)) return;
             if (db.products.length === 0) { list.innerHTML = '<div style="font-size:11px;color:#999;">暂无产品</div>'; return; }
             list.innerHTML = '';
             db.products.forEach(p => {
@@ -683,7 +670,7 @@
         }
 
         function batchUpdateUnitQuantity() {
-            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             openModal(`
                 <h2>📦 批量修改单位数量</h2>
                 <p style="font-size:12px;margin-bottom:8px;">请在下方勾选要修改的产品，然后输入新的单位数量</p>
@@ -718,7 +705,7 @@
         }
 
         function confirmModalBatchUpdate() {
-            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             const newVal = parseInt(document.getElementById('batchUnitQuantityInput').value);
             if (!newVal || newVal < 1) { showToast('请输入有效的单位数量', 'error'); return; }
             const checkboxes = document.querySelectorAll('.modal-product-checkbox:checked');
@@ -735,7 +722,7 @@
         }
 
         function batchDeleteProducts() {
-            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             if (selectedProducts.size === 0) { showToast('请先在右侧勾选产品', 'error'); return; }
             const occupied = [];
             selectedProducts.forEach(pid => {
@@ -760,7 +747,7 @@
 
         // ========== 产品操作 ==========
         function showAddProductModal() {
-            if (!db || !db.products) { showToast('数据尚未加载，请稍候', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载，请稍候', 'info'); return; }
             let existingOptions = '<option value="">-- 从已有产品复制(可选) --</option>';
             db.products.forEach(p => { existingOptions += `<option value="${p.id}">${p.name} (${p.model || '无型号'})</option>`; });
             openModal(`
@@ -775,7 +762,7 @@
         }
 
         function fillProductFields(productId) {
-            if (!productId || !db || !db.products) return;
+            if (!productId || !db || !Array.isArray(db.products)) return;
             const p = db.products.find(x => x.id == productId);
             if (p) {
                 document.getElementById('pName').value = p.name;
@@ -786,7 +773,7 @@
         }
 
         function addProduct() {
-            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             const name = document.getElementById('pName').value.trim();
             const model = document.getElementById('pModel').value.trim();
             const unit = document.getElementById('pUnit').value.trim();
@@ -801,7 +788,7 @@
         }
 
         function showProductDetail(productId) {
-            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             const p = db.products.find(x => x.id === productId);
             if (!p) return;
             const info = getProductDisplayInfo(productId);
@@ -824,7 +811,7 @@
         }
 
         function showEditProductModal(productId) {
-            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             const p = db.products.find(x => x.id === productId);
             if (!p) return;
             openModal(`
@@ -838,7 +825,7 @@
         }
 
         function updateProduct(productId) {
-            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             const newDb = JSON.parse(JSON.stringify(db));
             const np = newDb.products.find(x => x.id === productId);
             np.name = document.getElementById('editName').value.trim();
@@ -852,7 +839,7 @@
         }
 
         function deleteProduct(productId) {
-            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             const p = db.products.find(x => x.id === productId);
             if (!p) return;
             if (db.locations.some(l => l.productId === productId && l.status === 'used')) { showToast('已存储，请先出库', 'error'); return; }
@@ -865,7 +852,7 @@
 
         // ========== 统计 ==========
         function showStatistics() {
-            if (!db || !db.products || db.products.length === 0) { showToast('暂无产品', 'info'); return; }
+            if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品', 'info'); return; }
             const nameMap = new Map();
             db.products.forEach(p => {
                 if (!nameMap.has(p.name)) nameMap.set(p.name, { pieces: 0, units: new Set(), models: new Set() });
@@ -899,7 +886,7 @@
 
         // ========== 仓位操作 ==========
         function handleCellClick(locationId) {
-            if (!db || !db.locations) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc) return;
             const zone = db.zones.find(z => z.id === loc.zoneId);
@@ -909,7 +896,7 @@
         }
 
         function handleCellRightClick(locationId) {
-            if (!db || !db.locations) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc) return;
             if (loc.status === 'used') { showToast('请先出库', 'error'); return; }
@@ -922,7 +909,7 @@
         }
 
         function showStockInModal(loc, zone) {
-            if (!db || !db.products || db.products.length === 0) { showToast('请先创建产品', 'error'); return; }
+            if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('请先创建产品', 'error'); return; }
             const today = new Date().toISOString().slice(0, 10);
             const rowLabel = getRowDisplayLabel(zone, loc.rowNum);
             const displayCol = getDisplayColNumber(zone, loc.colNum);
@@ -934,7 +921,7 @@
         }
 
         function stockIn(locationId) {
-            if (!db || !db.locations) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc || loc.status !== 'normal') { showToast('状态异常', 'error'); closeModal(); return; }
             const productId = parseInt(document.getElementById('stockInProduct').value);
@@ -950,7 +937,7 @@
         }
 
         function showUsedLocationModal(loc, zone) {
-            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             const product = db.products.find(p => p.id === loc.productId);
             const rowLabel = getRowDisplayLabel(zone, loc.rowNum);
             const displayCol = getDisplayColNumber(zone, loc.colNum);
@@ -959,7 +946,7 @@
         }
 
         function stockOut(locationId) {
-            if (!db || !db.locations) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc || loc.status !== 'used') { showToast('状态异常', 'error'); closeModal(); return; }
             const outQty = parseInt(document.getElementById('stockOutQty').value);
@@ -975,7 +962,7 @@
 
         // ========== FIFO视图 ==========
         function showFifoOrder() {
-            if (!db || !db.zones || !db.locations) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.zones) || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
             const zone = db.zones.find(z => z.id === currentZoneId);
             if (!zone) { showToast('请选择区域', 'error'); return; }
             const usedLocs = db.locations.filter(l => l.zoneId === zone.id && l.status === 'used' && l.batchNo);
@@ -1006,7 +993,7 @@
 
         // ========== 导出导入 ==========
         function exportData() {
-            if (!db || !db.zones) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.zones)) { showToast('数据尚未加载', 'info'); return; }
             const json = JSON.stringify(db, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1019,7 +1006,7 @@
         }
 
         function exportProductsData() {
-            if (!db || !db.products || db.products.length === 0) { showToast('无产品', 'info'); return; }
+            if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('无产品', 'info'); return; }
             const json = JSON.stringify(db.products, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1032,7 +1019,7 @@
         }
 
         function importData(file) {
-            if (!db || !db.zones) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.zones)) { showToast('数据尚未加载', 'info'); return; }
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -1049,7 +1036,7 @@
         }
 
         function importProductsData(file) {
-            if (!db || !db.products) { showToast('数据尚未加载', 'info'); return; }
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -1072,12 +1059,12 @@
 
         // ========== 顶栏统计 ==========
         function updateHeaderStats() {
-            if (!db || !db.locations) return;
+            if (!db || !Array.isArray(db.locations)) return;
             const all = db.locations;
             document.getElementById('statNormal').textContent = all.filter(l => l.status === 'normal').length;
             document.getElementById('statUnavailable').textContent = all.filter(l => l.status === 'unavailable').length;
             document.getElementById('statUsed').textContent = all.filter(l => l.status === 'used').length;
-            document.getElementById('statProducts').textContent = db.products ? db.products.length : 0;
+            document.getElementById('statProducts').textContent = Array.isArray(db.products) ? db.products.length : 0;
         }
 
         // ========== 初始化 ==========
