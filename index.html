@@ -170,8 +170,7 @@
             </div>
             <div class="right-section" style="background:#e8f5e9;border-color:#81c784;">
                 <h3>📈 统计</h3>
-                <button class="btn btn-outline btn-sm" id="btnStatsByName">按名称统计</button>
-                <button class="btn btn-outline btn-sm" id="btnStatsByModel">按型号统计</button>
+                <button class="btn btn-outline btn-sm" id="btnShowStats">库存统计</button>
             </div>
             <div class="right-section" style="background:#fff0f0;border-color:#f5c6cb;">
                 <h3>📋 记录</h3>
@@ -196,7 +195,7 @@
                     <li>FIFO统计支持按名称/型号分组</li>
                     <li>FIFO统计范围为全部区域</li>
                     <li>出入库记录自动保存</li>
-                    <li>统计可按名称或型号查看</li>
+                    <li>统计可选名称/型号</li>
                     <li>导出Excel支持名称/型号</li>
                     <li>导出/导入产品数据</li>
                 </ul>
@@ -208,7 +207,6 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
-        // ========== Firebase 配置 ==========
         const firebaseConfig = {
             apiKey: "AIzaSyDu1NYuTLUxIMkkaXdJGFgE0GXGW0hwXto",
             authDomain: "warehouse-manager-4eec5.firebaseapp.com",
@@ -230,6 +228,7 @@
         let selectedLocations = new Set();
         let isDBLoaded = false;
         const NEW_DURATION = 24 * 60 * 60 * 1000;
+        let statsGroupBy = 'name';
 
         function createDefaultDB() {
             const d = { zones: [], locations: [], products: [], records: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1, nextRecordId: 1 };
@@ -374,7 +373,6 @@
             renderZoneList(); renderGrid(); renderProductList(); renderZoneStats(); updateHeaderStats();
         }
 
-        // ========== 区域列表 ==========
         function renderZoneList() {
             const list = document.getElementById('zoneList');
             if (!list || !db) return;
@@ -446,7 +444,6 @@
             saveDB(newDb); closeModal(); showToast('已添加','success');
         }
 
-        // ========== 网格渲染 ==========
         function renderGrid() {
             const container = document.getElementById('gridContainer');
             if (!container || !db) return;
@@ -529,7 +526,6 @@
             });
         }
 
-        // ========== 库位批量操作 ==========
         function toggleLocationBatchMode() {
             locationBatchMode = !locationBatchMode;
             if (!locationBatchMode) {
@@ -653,7 +649,6 @@
             showToast('批量清空成功', 'success');
         }
 
-        // ========== 产品批量操作 ==========
         function toggleBatchMode() {
             batchMode = !batchMode;
             if (!batchMode) { selectedProducts.clear(); document.getElementById('batchToolbar').classList.remove('active'); }
@@ -702,7 +697,6 @@
             saveDB(newDb); clearSelectionAndExit(); showToast('已删除','success');
         }
 
-        // ========== 产品 CRUD ==========
         function showAddProductModal() {
             if (!db || !Array.isArray(db.products)) { showToast('数据未加载','info'); return; }
             let existingOptions = '<option value="">-- 从已有产品复制 --</option>';
@@ -768,7 +762,6 @@
             saveDB(newDb); showToast('已删除','success');
         }
 
-        // ========== 仓位统计 ==========
         function renderZoneStats() {
             const container = document.getElementById('zoneStats');
             if (!container || !db || !Array.isArray(db.zones) || !Array.isArray(db.locations)) return;
@@ -794,48 +787,58 @@
             document.getElementById('statProducts').textContent = Array.isArray(db.products) ? db.products.length : 0;
         }
 
-        // ========== 库存统计（按名称/按型号分开） ==========
-        function showStatsByName() {
+        // ========== 库存统计（带分组选择器） ==========
+        function renderStatsModal() {
             if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品', 'info'); return; }
-            const nameMap = new Map();
-            db.products.forEach(p => {
-                if (!nameMap.has(p.name)) nameMap.set(p.name, { pieces: 0, units: new Set(), models: new Set() });
-                const e = nameMap.get(p.name);
-                const info = getProductDisplayInfo(p.id);
-                e.pieces += info.pieces;
-                e.units.add(p.unit);
-                e.models.add(p.model || '无型号');
-            });
-            let nameRows = [...nameMap.entries()].map(([name, data]) => {
-                const specs = [...data.models].join('、');
-                const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
-                return `<tr><td>${name}</td><td>${specs}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
-            }).join('');
-            openModal(`<h2>📈 按名称统计</h2><table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>${nameRows}</tbody></table><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
+            let tableHtml = '';
+            if (statsGroupBy === 'name') {
+                const nameMap = new Map();
+                db.products.forEach(p => {
+                    if (!nameMap.has(p.name)) nameMap.set(p.name, { pieces: 0, units: new Set(), models: new Set() });
+                    const e = nameMap.get(p.name);
+                    const info = getProductDisplayInfo(p.id);
+                    e.pieces += info.pieces;
+                    e.units.add(p.unit);
+                    e.models.add(p.model || '无型号');
+                });
+                let nameRows = [...nameMap.entries()].map(([name, data]) => {
+                    const specs = [...data.models].join('、');
+                    const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
+                    return `<tr><td>${name}</td><td>${specs}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
+                }).join('');
+                tableHtml = `<table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>${nameRows}</tbody></table>`;
+            } else {
+                const modelMap = new Map();
+                db.products.forEach(p => {
+                    const key = p.model || '无型号';
+                    if (!modelMap.has(key)) modelMap.set(key, { pieces: 0, units: new Set(), names: new Set(), productNames: [] });
+                    const e = modelMap.get(key);
+                    const info = getProductDisplayInfo(p.id);
+                    e.pieces += info.pieces;
+                    e.units.add(p.unit);
+                    e.names.add(p.name);
+                    e.productNames.push(p.name);
+                });
+                let modelRows = [...modelMap.entries()].map(([model, data]) => {
+                    const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
+                    const namesStr = data.productNames.join('、');
+                    return `<tr><td>${namesStr}</td><td>${model}</td><td>${data.names.size}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
+                }).join('');
+                tableHtml = `<table class="stats-table"><thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>${modelRows}</tbody></table>`;
+            }
+            openModal(`<h2>📈 库存统计</h2>
+                <div class="form-group"><label>分组方式</label>
+                    <select onchange="statsGroupBy=this.value; renderStatsModal();">
+                        <option value="name" ${statsGroupBy==='name'?'selected':''}>按名称</option>
+                        <option value="model" ${statsGroupBy==='model'?'selected':''}>按型号</option>
+                    </select>
+                </div>
+                ${tableHtml}
+                <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
         }
 
-        function showStatsByModel() {
-            if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品', 'info'); return; }
-            const modelMap = new Map();
-            db.products.forEach(p => {
-                const key = p.model || '无型号';
-                if (!modelMap.has(key)) modelMap.set(key, { pieces: 0, units: new Set(), names: new Set(), productNames: [] });
-                const e = modelMap.get(key);
-                const info = getProductDisplayInfo(p.id);
-                e.pieces += info.pieces;
-                e.units.add(p.unit);
-                e.names.add(p.name);
-                e.productNames.push(p.name);
-            });
-            let modelRows = [...modelMap.entries()].map(([model, data]) => {
-                const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
-                const namesStr = data.productNames.join('、');
-                return `<tr><td>${namesStr}</td><td>${model}</td><td>${data.names.size}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
-            }).join('');
-            openModal(`<h2>📈 按型号统计</h2><table class="stats-table"><thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>${modelRows}</tbody></table><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
-        }
+        function showStats() { renderStatsModal(); }
 
-        // ========== 出入库记录查看 ==========
         function showRecords() {
             if (!db || !Array.isArray(db.records) || db.records.length === 0) { showToast('暂无记录', 'info'); return; }
             const sortedRecords = [...db.records].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -847,7 +850,6 @@
             openModal(`<h2>📋 出入库记录</h2><p style="font-size:11px;color:#666;margin-bottom:8px;">共 ${db.records.length} 条记录</p><table class="records-table"><thead><tr><th>类型</th><th>产品</th><th>型号</th><th>数量</th><th>区域</th><th>仓位</th><th>批次</th><th>备注</th><th>时间</th></tr></thead><tbody>${rows}</tbody></table><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
         }
 
-        // ========== FIFO 相关 ==========
         function getFifoRankMap(zoneId) {
             if (!db || !Array.isArray(db.locations)) return {};
             const usedLocs = db.locations.filter(l => l.zoneId === zoneId && l.status === 'used' && l.batchNo);
@@ -930,7 +932,6 @@
 
         function showFifoOrder() { renderFifoOrderModal(); }
 
-        // ========== 仓位操作 ==========
         function handleCellClick(locationId) {
             if (locationBatchMode) { toggleLocationSelect(locationId, event); return; }
             if (!db || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
@@ -1068,7 +1069,6 @@
             showToast('出库成功', 'success');
         }
 
-        // ========== 导出Excel（包含两个工作表） ==========
         function exportExcel() {
             if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品数据', 'info'); return; }
             const nameMap = new Map();
@@ -1116,7 +1116,6 @@
             showToast('Excel导出成功', 'success');
         }
 
-        // ========== 导出/导入产品 ==========
         function exportProductsData() {
             if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('无产品', 'info'); return; }
             const json = JSON.stringify(db.products, null, 2);
@@ -1152,7 +1151,6 @@
             reader.readAsText(file);
         }
 
-        // ========== 导出/导入备份 ==========
         function exportData() {
             if (!db || !Array.isArray(db.zones)) { showToast('数据尚未加载', 'info'); return; }
             const json = JSON.stringify(db, null, 2);
@@ -1183,14 +1181,12 @@
             reader.readAsText(file);
         }
 
-        // ========== 初始化 ==========
         function init() {
             document.getElementById('btnAddZone').addEventListener('click', showAddZoneModal);
             document.getElementById('btnAddProduct').addEventListener('click', showAddProductModal);
             document.getElementById('btnToggleBatch').addEventListener('click', toggleBatchMode);
             document.getElementById('btnShowFifo').addEventListener('click', showFifoOrder);
-            document.getElementById('btnStatsByName').addEventListener('click', showStatsByName);
-            document.getElementById('btnStatsByModel').addEventListener('click', showStatsByModel);
+            document.getElementById('btnShowStats').addEventListener('click', showStats);
             document.getElementById('btnShowRecords').addEventListener('click', showRecords);
             document.getElementById('btnExportExcel').addEventListener('click', exportExcel);
             document.getElementById('btnExportProducts').addEventListener('click', exportProductsData);
