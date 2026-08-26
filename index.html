@@ -74,15 +74,15 @@
         .btn-warning { background:var(--warning); color:#333; }
         .btn-sm { padding:4px 8px; font-size:10px; }
         .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.5); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px; }
-        .modal { background:#fff; border-radius:var(--radius); padding:20px; width:100%; max-width:500px; max-height:85vh; overflow-y:auto; }
+        .modal { background:#fff; border-radius:var(--radius); padding:20px; width:100%; max-width:600px; max-height:85vh; overflow-y:auto; }
         .form-group { margin-bottom:12px; }
         .form-group label { display:block; font-size:12px; font-weight:500; margin-bottom:4px; color:var(--text-secondary); }
         .form-group input, .form-group select, .form-group textarea { width:100%; padding:8px 10px; border:1.5px solid var(--border); border-radius:6px; font-size:14px; }
         .toast-container { position:fixed; top:60px; right:12px; z-index:2000; display:flex; flex-direction:column; gap:6px; }
         .toast { padding:10px 14px; border-radius:8px; color:#fff; font-size:12px; cursor:pointer; }
         .toast-success { background:var(--success); } .toast-error { background:var(--danger); } .toast-info { background:var(--primary); }
-        .fifo-table, .stats-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:12px; }
-        .fifo-table th, .fifo-table td, .stats-table th, .stats-table td { padding:6px 4px; text-align:left; border-bottom:1px solid var(--border); }
+        .fifo-table, .stats-table, .records-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:12px; }
+        .fifo-table th, .fifo-table td, .stats-table th, .stats-table td, .records-table th, .records-table td { padding:6px 4px; text-align:left; border-bottom:1px solid var(--border); }
         .modal-product-list { max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; padding:4px; margin-bottom:10px; }
         .modal-product-item { display:flex; align-items:center; gap:6px; padding:6px 8px; border-bottom:1px solid #eee; font-size:12px; }
 
@@ -172,13 +172,16 @@
                 <h3>📈 统计</h3>
                 <button class="btn btn-outline btn-sm" id="btnShowStats">库存统计</button>
             </div>
+            <div class="right-section" style="background:#fff0f0;border-color:#f5c6cb;">
+                <h3>📋 记录</h3>
+                <button class="btn btn-outline btn-sm" id="btnShowRecords">出入库记录</button>
+            </div>
             <div class="right-section" style="background:#f3e8ff;border-color:#ce93d8;">
                 <h3>💾 数据</h3>
                 <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                    <button class="btn btn-outline btn-sm" id="btnExportData">导出全部</button>
-                    <button class="btn btn-outline btn-sm" id="btnExportProducts">导出产品</button>
-                    <button class="btn btn-outline btn-sm" id="btnImportData">导入全部</button>
-                    <button class="btn btn-outline btn-sm" id="btnImportProducts">导入产品</button>
+                    <button class="btn btn-outline btn-sm" id="btnExportExcel">导出Excel</button>
+                    <button class="btn btn-outline btn-sm" id="btnExportData">导出备份</button>
+                    <button class="btn btn-outline btn-sm" id="btnImportData">导入备份</button>
                 </div>
             </div>
             <div class="right-section" style="background:#fff8e1;border-color:#f0d47a;">
@@ -186,13 +189,11 @@
                 <ul style="font-size:10px;color:var(--text-secondary);padding-left:14px;line-height:1.6;">
                     <li>点击仓位：入库/出库</li>
                     <li>右键：标记不可用</li>
-                    <li>基础仓位不可删除</li>
-                    <li>入库可选单位或自定义件数</li>
-                    <li>自定义件数独立计入总库存</li>
-                    <li>新入库库位显示绿色“新”角标</li>
                     <li>库位批量操作：勾选多个库位</li>
                     <li>FIFO统计支持按名称/型号分组</li>
                     <li>FIFO统计范围为全部区域</li>
+                    <li>出入库记录自动保存</li>
+                    <li>导出Excel支持名称/型号</li>
                 </ul>
             </div>
         </aside>
@@ -216,7 +217,7 @@
         const database = firebase.database();
         const dbRef = database.ref('warehouse/data');
 
-        let db = { zones: [], locations: [], products: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1 };
+        let db = { zones: [], locations: [], products: [], records: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1, nextRecordId: 1 };
         let currentZoneId = 1;
         let batchMode = false;
         let selectedProducts = new Set();
@@ -226,7 +227,7 @@
         const NEW_DURATION = 24 * 60 * 60 * 1000;
 
         function createDefaultDB() {
-            const d = { zones: [], locations: [], products: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1 };
+            const d = { zones: [], locations: [], products: [], records: [], nextZoneId: 1, nextLocationId: 1, nextProductId: 1, nextRecordId: 1 };
             const baseZone = { id: 1, name: '成品区', rows: 34, cols: 5, isBase: true, createdAt: new Date().toISOString() };
             d.zones.push(baseZone);
             d.nextZoneId = 2;
@@ -243,9 +244,11 @@
             if (!Array.isArray(data.zones)) data.zones = [];
             if (!Array.isArray(data.locations)) data.locations = [];
             if (!Array.isArray(data.products)) data.products = [];
+            if (!Array.isArray(data.records)) data.records = [];
             if (!data.nextZoneId) data.nextZoneId = 1;
             if (!data.nextLocationId) data.nextLocationId = 1;
             if (!data.nextProductId) data.nextProductId = 1;
+            if (!data.nextRecordId) data.nextRecordId = 1;
             data.products.forEach(p => { if (!p.unit) p.unit = '件'; if (!p.remark) p.remark = ''; });
             data.locations.forEach(l => { if (!l.remark) l.remark = ''; if (l.customPieces === undefined) l.customPieces = 0; });
             return data;
@@ -303,6 +306,27 @@
             dbRef.set(db).catch(err => showToast('保存失败：' + err.message, 'error'));
         }
 
+        // ========== 出入库记录 ==========
+        function addRecord(type, product, loc, zone, quantity, customPieces, remark) {
+            if (!db || !Array.isArray(db.records)) return;
+            const record = {
+                id: db.nextRecordId++,
+                type: type, // '入库' | '出库'
+                productId: product.id,
+                productName: product.name,
+                productModel: product.model || '',
+                productUnit: product.unit,
+                zoneName: zone?.name || '未知区域',
+                locationLabel: getRowDisplayLabel(zone, loc.rowNum) + '排' + getDisplayColNumber(zone, loc.colNum) + '托',
+                quantity: quantity || 0,
+                customPieces: customPieces || 0,
+                batchNo: loc.batchNo || '',
+                remark: remark || '',
+                timestamp: new Date().toISOString()
+            };
+            db.records.push(record);
+        }
+
         function getProductDisplayInfo(productId) {
             if (!db || !Array.isArray(db.products)) return { pieces: 0, unit: '件', unitQuantity: 1, remark: '' };
             const product = db.products.find(p => p.id === productId);
@@ -346,7 +370,6 @@
             renderZoneList(); renderGrid(); renderProductList(); renderZoneStats(); updateHeaderStats();
         }
 
-        // ========== 区域列表 ==========
         function renderZoneList() {
             const list = document.getElementById('zoneList');
             if (!list || !db) return;
@@ -532,7 +555,6 @@
                 return loc && loc.status === 'normal';
             });
             if (emptyLocs.length === 0) { showToast('选中的库位中没有空库位','error'); return; }
-            // 打开批量入库弹窗，与单个入库类似，但应用到所有空库位
             const today = new Date().toISOString().slice(0, 10);
             let productOptions = db.products.map(p => `<option value="${p.id}">${p.name} (${p.model||'无型号'})</option>`).join('');
             openModal(`<h2>批量入库</h2><p>已选 <b>${emptyLocs.length}</b> 个空库位</p>
@@ -578,6 +600,8 @@
             const newDb = JSON.parse(JSON.stringify(db));
             emptyLocs.forEach(locId => {
                 const loc = newDb.locations.find(l => l.id === locId);
+                const originalLoc = db.locations.find(l => l.id === locId);
+                const zone = db.zones.find(z => z.id === loc.zoneId);
                 loc.status = 'used';
                 loc.productId = productId;
                 loc.batchNo = batchNo;
@@ -590,6 +614,7 @@
                     loc.quantity = 0;
                     loc.customPieces = customPieces;
                 }
+                addRecord('入库', product, loc, zone, quantity, customPieces, remark);
             });
             saveDB(newDb);
             closeModal();
@@ -605,6 +630,12 @@
             const newDb = JSON.parse(JSON.stringify(db));
             usedLocs.forEach(locId => {
                 const loc = newDb.locations.find(l => l.id === locId);
+                const originalLoc = db.locations.find(l => l.id === locId);
+                const product = db.products.find(p => p.id === originalLoc.productId);
+                const zone = db.zones.find(z => z.id === loc.zoneId);
+                if (product) {
+                    addRecord('出库', product, originalLoc, zone, originalLoc.quantity, originalLoc.customPieces, '批量清空');
+                }
                 loc.status = 'normal';
                 loc.productId = null;
                 loc.batchNo = null;
@@ -758,7 +789,6 @@
             document.getElementById('statProducts').textContent = Array.isArray(db.products) ? db.products.length : 0;
         }
 
-        // ========== 统计视图（全局，按名称/型号分组） ==========
         function showStatistics() {
             if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品', 'info'); return; }
             const nameMap = new Map();
@@ -794,13 +824,55 @@
             openModal(`<h2>📈 库存统计</h2><div style="margin-bottom:20px;"><h3>按名称统计（显示规格）</h3><table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>${nameRows}</tbody></table></div><div><h3>按型号统计</h3><table class="stats-table"><thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>${modelRows}</tbody></table></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
         }
 
-        // ========== FIFO 全局统计（支持分组切换） ==========
+        // ========== 出入库记录查看 ==========
+        function showRecords() {
+            if (!db || !Array.isArray(db.records) || db.records.length === 0) { showToast('暂无记录', 'info'); return; }
+            const sortedRecords = [...db.records].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            let rows = sortedRecords.map(r => {
+                const qtyStr = r.customPieces > 0 ? `${r.customPieces}件` : `${r.quantity}${r.productUnit}`;
+                const typeColor = r.type === '入库' ? '#34a853' : '#ea4335';
+                return `<tr><td style="color:${typeColor};font-weight:600;">${r.type}</td><td>${r.productName}</td><td>${r.productModel}</td><td>${qtyStr}</td><td>${r.zoneName}</td><td>${r.locationLabel}</td><td>${r.batchNo}</td><td>${r.remark || '-'}</td><td>${new Date(r.timestamp).toLocaleString()}</td></tr>`;
+            }).join('');
+            openModal(`<h2>📋 出入库记录</h2><p style="font-size:11px;color:#666;margin-bottom:8px;">共 ${db.records.length} 条记录</p><table class="records-table"><thead><tr><th>类型</th><th>产品</th><th>型号</th><th>数量</th><th>区域</th><th>仓位</th><th>批次</th><th>备注</th><th>时间</th></tr></thead><tbody>${rows}</tbody></table><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
+        }
+
+        // ========== FIFO 相关 ==========
+        function getFifoRankMap(zoneId) {
+            if (!db || !Array.isArray(db.locations)) return {};
+            const usedLocs = db.locations.filter(l => l.zoneId === zoneId && l.status === 'used' && l.batchNo);
+            const productGroups = {};
+            usedLocs.forEach(loc => {
+                const pid = loc.productId;
+                if (!pid) return;
+                if (!productGroups[pid]) productGroups[pid] = [];
+                productGroups[pid].push(loc);
+            });
+            const rankMap = {};
+            Object.keys(productGroups).forEach(pid => {
+                const locs = productGroups[pid];
+                locs.sort((a, b) => a.batchNo.localeCompare(b.batchNo));
+                locs.forEach((loc, index) => {
+                    rankMap[loc.id] = { rank: index, total: locs.length, productId: pid };
+                });
+            });
+            return rankMap;
+        }
+        function getFifoColor(rank, total) {
+            if (total <= 1) return '#1e88e5';
+            const lightness = 80 - (rank / (total - 1)) * 50;
+            return `hsl(210, 80%, ${lightness}%)`;
+        }
+        function getFifoBorderColor(rank, total) {
+            if (total <= 1) return '#0d47a1';
+            const lightness = 60 - (rank / (total - 1)) * 25;
+            return `hsl(210, 90%, ${lightness}%)`;
+        }
+
         let fifoGroupBy = 'name';
         function renderFifoOrderModal() {
             if (!db || !Array.isArray(db.locations) || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
             const usedLocs = db.locations.filter(l => l.status === 'used' && l.batchNo);
             if (usedLocs.length === 0) { showToast('无已用仓位', 'info'); return; }
-
             const grouped = {};
             usedLocs.forEach(loc => {
                 const product = db.products.find(p => p.id === loc.productId);
@@ -809,7 +881,6 @@
                 if (!grouped[key]) grouped[key] = [];
                 grouped[key].push({ loc, product });
             });
-
             let content = '';
             Object.keys(grouped).forEach(key => {
                 const items = grouped[key];
@@ -834,7 +905,6 @@
                 }).join('');
                 content += `<div style="margin-bottom:16px;"><h3 style="font-size:13px;font-weight:600;margin-bottom:4px;">📦 ${groupTitle}</h3><table class="fifo-table"><thead><tr><th>产品内优先级</th><th>批次日期</th><th>仓位</th><th>数量</th></tr></thead><tbody>${rows}</tbody></table></div>`;
             });
-
             openModal(`<h2>⏱️ FIFO 批次排序（全局）</h2>
                 <div class="form-group"><label>分组方式</label>
                     <select onchange="fifoGroupBy=this.value; renderFifoOrderModal();">
@@ -846,6 +916,8 @@
                 ${content}
                 <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
         }
+
+        function showFifoOrder() { renderFifoOrderModal(); }
 
         // ========== 仓位操作 ==========
         function handleCellClick(locationId) {
@@ -914,23 +986,26 @@
             const type = document.getElementById('stockInType').value;
             const newDb = JSON.parse(JSON.stringify(db));
             const nl = newDb.locations.find(l => l.id === locationId);
+            const zone = db.zones.find(z => z.id === nl.zoneId);
             nl.status = 'used';
             nl.productId = productId;
             nl.batchNo = batchNo;
             nl.remark = remark;
             nl.updatedAt = new Date().toISOString();
 
+            let quantity = 0, customPieces = 0;
             if (type === 'unit') {
-                const qty = parseFloat(document.getElementById('stockInQty').value);
-                if (!qty || qty <= 0) { showToast('请输入有效的单位数量', 'error'); return; }
-                nl.quantity = qty;
+                quantity = parseFloat(document.getElementById('stockInQty').value);
+                if (!quantity || quantity <= 0) { showToast('请输入有效的单位数量', 'error'); return; }
+                nl.quantity = quantity;
                 nl.customPieces = 0;
-            } else { // custom
-                const customPieces = parseInt(document.getElementById('stockInCustomPieces').value);
+            } else {
+                customPieces = parseInt(document.getElementById('stockInCustomPieces').value);
                 if (!Number.isInteger(customPieces) || customPieces < 1) { showToast('自定义件数必须是正整数', 'error'); return; }
                 nl.quantity = 0;
                 nl.customPieces = customPieces;
             }
+            addRecord('入库', product, nl, zone, quantity, customPieces, remark);
             saveDB(newDb);
             closeModal();
             showToast('入库成功', 'success');
@@ -956,62 +1031,91 @@
             if (!db || !Array.isArray(db.locations)) { showToast('数据尚未加载', 'info'); return; }
             const loc = db.locations.find(l => l.id === locationId);
             if (!loc || loc.status !== 'used') { showToast('状态异常', 'error'); closeModal(); return; }
+            const product = db.products.find(p => p.id === loc.productId);
+            const zone = db.zones.find(z => z.id === loc.zoneId);
             const newDb = JSON.parse(JSON.stringify(db));
             const nl = newDb.locations.find(l => l.id === locationId);
+            let outQty = 0, outPieces = 0;
             if (nl.customPieces > 0) {
-                const outPieces = parseInt(document.getElementById('stockOutQty').value);
+                outPieces = parseInt(document.getElementById('stockOutQty').value);
                 if (!Number.isInteger(outPieces) || outPieces < 1 || outPieces > nl.customPieces) { showToast('数量无效', 'error'); return; }
                 const remaining = nl.customPieces - outPieces;
                 if (remaining > 0) { nl.customPieces = remaining; }
                 else { nl.status = 'normal'; nl.productId = null; nl.batchNo = null; nl.quantity = 0; nl.customPieces = 0; nl.remark = ''; }
             } else {
-                const outQty = parseFloat(document.getElementById('stockOutQty').value);
+                outQty = parseFloat(document.getElementById('stockOutQty').value);
                 if (!outQty || outQty <= 0 || outQty > nl.quantity) { showToast('数量无效', 'error'); return; }
                 const remaining = nl.quantity - outQty;
                 if (remaining > 0) { nl.quantity = remaining; }
                 else { nl.status = 'normal'; nl.productId = null; nl.batchNo = null; nl.quantity = 0; nl.customPieces = 0; nl.remark = ''; }
+            }
+            if (product) {
+                addRecord('出库', product, loc, zone, outQty, outPieces, '出库');
             }
             saveDB(newDb);
             closeModal();
             showToast('出库成功', 'success');
         }
 
-        function getFifoRankMap(zoneId) {
-            if (!db || !Array.isArray(db.locations)) return {};
-            const usedLocs = db.locations.filter(l => l.zoneId === zoneId && l.status === 'used' && l.batchNo);
-            const productGroups = {};
-            usedLocs.forEach(loc => {
-                const pid = loc.productId;
-                if (!pid) return;
-                if (!productGroups[pid]) productGroups[pid] = [];
-                productGroups[pid].push(loc);
+        // ========== 导出Excel ==========
+        function exportExcel() {
+            if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品数据', 'info'); return; }
+
+            // 按名称统计
+            const nameMap = new Map();
+            db.products.forEach(p => {
+                if (!nameMap.has(p.name)) nameMap.set(p.name, { pieces: 0, units: new Set(), models: new Set() });
+                const e = nameMap.get(p.name);
+                const info = getProductDisplayInfo(p.id);
+                e.pieces += info.pieces;
+                e.units.add(p.unit);
+                e.models.add(p.model || '无型号');
             });
-            const rankMap = {};
-            Object.keys(productGroups).forEach(pid => {
-                const locs = productGroups[pid];
-                locs.sort((a, b) => a.batchNo.localeCompare(b.batchNo));
-                locs.forEach((loc, index) => {
-                    rankMap[loc.id] = { rank: index, total: locs.length, productId: pid };
-                });
+
+            // 按型号统计
+            const modelMap = new Map();
+            db.products.forEach(p => {
+                const key = p.model || '无型号';
+                if (!modelMap.has(key)) modelMap.set(key, { pieces: 0, units: new Set(), names: new Set(), productNames: [] });
+                const e = modelMap.get(key);
+                const info = getProductDisplayInfo(p.id);
+                e.pieces += info.pieces;
+                e.units.add(p.unit);
+                e.names.add(p.name);
+                e.productNames.push(p.name);
             });
-            return rankMap;
-        }
-        function getFifoColor(rank, total) {
-            if (total <= 1) return '#1e88e5';
-            const lightness = 80 - (rank / (total - 1)) * 50;
-            return `hsl(210, 80%, ${lightness}%)`;
-        }
-        function getFifoBorderColor(rank, total) {
-            if (total <= 1) return '#0d47a1';
-            const lightness = 60 - (rank / (total - 1)) * 25;
-            return `hsl(210, 90%, ${lightness}%)`;
+
+            // 构建Excel HTML表格
+            let excelHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>按名称统计</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>按型号统计</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>`;
+
+            // Sheet1: 按名称统计
+            excelHtml += `<table><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr>`;
+            nameMap.forEach((data, name) => {
+                const specs = [...data.models].join('、');
+                const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
+                excelHtml += `<tr><td>${name}</td><td>${specs}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
+            });
+            excelHtml += `</table>`;
+
+            // Sheet2: 按型号统计
+            excelHtml += `<table><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr>`;
+            modelMap.forEach((data, model) => {
+                const namesStr = data.productNames.join('、');
+                const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
+                excelHtml += `<tr><td>${namesStr}</td><td>${model}</td><td>${data.names.size}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
+            });
+            excelHtml += `</table></body></html>`;
+
+            const blob = new Blob(['\ufeff' + excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `仓库统计_${new Date().toISOString().slice(0,10)}.xls`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Excel导出成功', 'success');
         }
 
-        function showFifoOrder() {
-            renderFifoOrderModal();
-        }
-
-        // ========== 导出导入 ==========
         function exportData() {
             if (!db || !Array.isArray(db.zones)) { showToast('数据尚未加载', 'info'); return; }
             const json = JSON.stringify(db, null, 2);
@@ -1022,20 +1126,7 @@
             a.download = `warehouse_backup_${new Date().toISOString().slice(0, 10)}.json`;
             a.click();
             URL.revokeObjectURL(url);
-            showToast('导出成功', 'success');
-        }
-
-        function exportProductsData() {
-            if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('无产品', 'info'); return; }
-            const json = JSON.stringify(db.products, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `warehouse_products_${new Date().toISOString().slice(0, 10)}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast('产品导出成功', 'success');
+            showToast('备份导出成功', 'success');
         }
 
         function importData(file) {
@@ -1055,39 +1146,16 @@
             reader.readAsText(file);
         }
 
-        function importProductsData(file) {
-            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const products = JSON.parse(e.target.result);
-                    if (!Array.isArray(products)) { showToast('需要数组', 'error'); return; }
-                    const newDb = JSON.parse(JSON.stringify(db));
-                    let added = 0;
-                    products.forEach(item => {
-                        if (!item.name || !item.unit) return;
-                        if (newDb.products.some(p => p.name === item.name && (p.model || '') === (item.model || ''))) return;
-                        newDb.products.push({ id: newDb.nextProductId++, name: item.name, model: item.model || '', unit: item.unit, unitQuantity: item.unitQuantity || 1, remark: item.remark || '', createdAt: new Date().toISOString() });
-                        added++;
-                    });
-                    saveDB(newDb);
-                    showToast(`导入${added}个产品`, 'success');
-                } catch (err) { showToast('解析失败', 'error'); }
-            };
-            reader.readAsText(file);
-        }
-
-        // ========== 初始化 ==========
         function init() {
             document.getElementById('btnAddZone').addEventListener('click', showAddZoneModal);
             document.getElementById('btnAddProduct').addEventListener('click', showAddProductModal);
             document.getElementById('btnToggleBatch').addEventListener('click', toggleBatchMode);
             document.getElementById('btnShowFifo').addEventListener('click', showFifoOrder);
             document.getElementById('btnShowStats').addEventListener('click', showStatistics);
+            document.getElementById('btnShowRecords').addEventListener('click', showRecords);
+            document.getElementById('btnExportExcel').addEventListener('click', exportExcel);
             document.getElementById('btnExportData').addEventListener('click', exportData);
-            document.getElementById('btnExportProducts').addEventListener('click', exportProductsData);
             document.getElementById('btnImportData').addEventListener('click', () => { const input=document.createElement('input'); input.type='file'; input.onchange=e=>{ if(e.target.files[0]) importData(e.target.files[0]); }; input.click(); });
-            document.getElementById('btnImportProducts').addEventListener('click', () => { const input=document.createElement('input'); input.type='file'; input.onchange=e=>{ if(e.target.files[0]) importProductsData(e.target.files[0]); }; input.click(); });
             document.getElementById('btnToggleLocationBatch').addEventListener('click', toggleLocationBatchMode);
             document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
             initFromFirebase();
