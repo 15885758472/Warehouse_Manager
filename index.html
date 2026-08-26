@@ -180,6 +180,8 @@
                 <h3>💾 数据</h3>
                 <div style="display:flex;gap:4px;flex-wrap:wrap;">
                     <button class="btn btn-outline btn-sm" id="btnExportExcel">导出Excel</button>
+                    <button class="btn btn-outline btn-sm" id="btnExportProducts">导出产品</button>
+                    <button class="btn btn-outline btn-sm" id="btnImportProducts">导入产品</button>
                     <button class="btn btn-outline btn-sm" id="btnExportData">导出备份</button>
                     <button class="btn btn-outline btn-sm" id="btnImportData">导入备份</button>
                 </div>
@@ -194,6 +196,7 @@
                     <li>FIFO统计范围为全部区域</li>
                     <li>出入库记录自动保存</li>
                     <li>导出Excel支持名称/型号</li>
+                    <li>导出/导入产品数据</li>
                 </ul>
             </div>
         </aside>
@@ -370,6 +373,7 @@
             renderZoneList(); renderGrid(); renderProductList(); renderZoneStats(); updateHeaderStats();
         }
 
+        // ========== 区域列表 ==========
         function renderZoneList() {
             const list = document.getElementById('zoneList');
             if (!list || !db) return;
@@ -600,7 +604,6 @@
             const newDb = JSON.parse(JSON.stringify(db));
             emptyLocs.forEach(locId => {
                 const loc = newDb.locations.find(l => l.id === locId);
-                const originalLoc = db.locations.find(l => l.id === locId);
                 const zone = db.zones.find(z => z.id === loc.zoneId);
                 loc.status = 'used';
                 loc.productId = productId;
@@ -764,6 +767,7 @@
             saveDB(newDb); showToast('已删除','success');
         }
 
+        // ========== 统计与报表 ==========
         function renderZoneStats() {
             const container = document.getElementById('zoneStats');
             if (!container || !db || !Array.isArray(db.zones) || !Array.isArray(db.locations)) return;
@@ -1061,7 +1065,6 @@
         function exportExcel() {
             if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品数据', 'info'); return; }
 
-            // 按名称统计
             const nameMap = new Map();
             db.products.forEach(p => {
                 if (!nameMap.has(p.name)) nameMap.set(p.name, { pieces: 0, units: new Set(), models: new Set() });
@@ -1072,7 +1075,6 @@
                 e.models.add(p.model || '无型号');
             });
 
-            // 按型号统计
             const modelMap = new Map();
             db.products.forEach(p => {
                 const key = p.model || '无型号';
@@ -1085,10 +1087,8 @@
                 e.productNames.push(p.name);
             });
 
-            // 构建Excel HTML表格
             let excelHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>按名称统计</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>按型号统计</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>`;
 
-            // Sheet1: 按名称统计
             excelHtml += `<table><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr>`;
             nameMap.forEach((data, name) => {
                 const specs = [...data.models].join('、');
@@ -1097,7 +1097,6 @@
             });
             excelHtml += `</table>`;
 
-            // Sheet2: 按型号统计
             excelHtml += `<table><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr>`;
             modelMap.forEach((data, model) => {
                 const namesStr = data.productNames.join('、');
@@ -1116,6 +1115,43 @@
             showToast('Excel导出成功', 'success');
         }
 
+        // ========== 导出/导入产品 ==========
+        function exportProductsData() {
+            if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('无产品', 'info'); return; }
+            const json = JSON.stringify(db.products, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `warehouse_products_${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('产品导出成功', 'success');
+        }
+
+        function importProductsData(file) {
+            if (!db || !Array.isArray(db.products)) { showToast('数据尚未加载', 'info'); return; }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const products = JSON.parse(e.target.result);
+                    if (!Array.isArray(products)) { showToast('需要数组', 'error'); return; }
+                    const newDb = JSON.parse(JSON.stringify(db));
+                    let added = 0;
+                    products.forEach(item => {
+                        if (!item.name || !item.unit) return;
+                        if (newDb.products.some(p => p.name === item.name && (p.model || '') === (item.model || ''))) return;
+                        newDb.products.push({ id: newDb.nextProductId++, name: item.name, model: item.model || '', unit: item.unit, unitQuantity: item.unitQuantity || 1, remark: item.remark || '', createdAt: new Date().toISOString() });
+                        added++;
+                    });
+                    saveDB(newDb);
+                    showToast(`导入${added}个产品`, 'success');
+                } catch (err) { showToast('解析失败', 'error'); }
+            };
+            reader.readAsText(file);
+        }
+
+        // ========== 导出/导入备份 ==========
         function exportData() {
             if (!db || !Array.isArray(db.zones)) { showToast('数据尚未加载', 'info'); return; }
             const json = JSON.stringify(db, null, 2);
@@ -1154,6 +1190,8 @@
             document.getElementById('btnShowStats').addEventListener('click', showStatistics);
             document.getElementById('btnShowRecords').addEventListener('click', showRecords);
             document.getElementById('btnExportExcel').addEventListener('click', exportExcel);
+            document.getElementById('btnExportProducts').addEventListener('click', exportProductsData);
+            document.getElementById('btnImportProducts').addEventListener('click', () => { const input=document.createElement('input'); input.type='file'; input.onchange=e=>{ if(e.target.files[0]) importProductsData(e.target.files[0]); }; input.click(); });
             document.getElementById('btnExportData').addEventListener('click', exportData);
             document.getElementById('btnImportData').addEventListener('click', () => { const input=document.createElement('input'); input.type='file'; input.onchange=e=>{ if(e.target.files[0]) importData(e.target.files[0]); }; input.click(); });
             document.getElementById('btnToggleLocationBatch').addEventListener('click', toggleLocationBatchMode);
