@@ -170,7 +170,8 @@
             </div>
             <div class="right-section" style="background:#e8f5e9;border-color:#81c784;">
                 <h3>📈 统计</h3>
-                <button class="btn btn-outline btn-sm" id="btnShowStats">库存统计</button>
+                <button class="btn btn-outline btn-sm" id="btnStatsByName">按名称统计</button>
+                <button class="btn btn-outline btn-sm" id="btnStatsByModel">按型号统计</button>
             </div>
             <div class="right-section" style="background:#fff0f0;border-color:#f5c6cb;">
                 <h3>📋 记录</h3>
@@ -195,6 +196,7 @@
                     <li>FIFO统计支持按名称/型号分组</li>
                     <li>FIFO统计范围为全部区域</li>
                     <li>出入库记录自动保存</li>
+                    <li>统计可按名称或型号查看</li>
                     <li>导出Excel支持名称/型号</li>
                     <li>导出/导入产品数据</li>
                 </ul>
@@ -309,12 +311,11 @@
             dbRef.set(db).catch(err => showToast('保存失败：' + err.message, 'error'));
         }
 
-        // ========== 出入库记录 ==========
         function addRecord(type, product, loc, zone, quantity, customPieces, remark) {
             if (!db || !Array.isArray(db.records)) return;
             const record = {
                 id: db.nextRecordId++,
-                type: type, // '入库' | '出库'
+                type: type,
                 productId: product.id,
                 productName: product.name,
                 productModel: product.model || '',
@@ -767,7 +768,7 @@
             saveDB(newDb); showToast('已删除','success');
         }
 
-        // ========== 统计与报表 ==========
+        // ========== 仓位统计 ==========
         function renderZoneStats() {
             const container = document.getElementById('zoneStats');
             if (!container || !db || !Array.isArray(db.zones) || !Array.isArray(db.locations)) return;
@@ -793,7 +794,8 @@
             document.getElementById('statProducts').textContent = Array.isArray(db.products) ? db.products.length : 0;
         }
 
-        function showStatistics() {
+        // ========== 库存统计（按名称/按型号分开） ==========
+        function showStatsByName() {
             if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品', 'info'); return; }
             const nameMap = new Map();
             db.products.forEach(p => {
@@ -809,6 +811,11 @@
                 const unitStr = data.units.size === 1 ? [...data.units][0] : '多单位';
                 return `<tr><td>${name}</td><td>${specs}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
             }).join('');
+            openModal(`<h2>📈 按名称统计</h2><table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>${nameRows}</tbody></table><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
+        }
+
+        function showStatsByModel() {
+            if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品', 'info'); return; }
             const modelMap = new Map();
             db.products.forEach(p => {
                 const key = p.model || '无型号';
@@ -825,7 +832,7 @@
                 const namesStr = data.productNames.join('、');
                 return `<tr><td>${namesStr}</td><td>${model}</td><td>${data.names.size}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
             }).join('');
-            openModal(`<h2>📈 库存统计</h2><div style="margin-bottom:20px;"><h3>按名称统计（显示规格）</h3><table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>${nameRows}</tbody></table></div><div><h3>按型号统计</h3><table class="stats-table"><thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>${modelRows}</tbody></table></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
+            openModal(`<h2>📈 按型号统计</h2><table class="stats-table"><thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>${modelRows}</tbody></table><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
         }
 
         // ========== 出入库记录查看 ==========
@@ -1061,10 +1068,9 @@
             showToast('出库成功', 'success');
         }
 
-        // ========== 导出Excel ==========
+        // ========== 导出Excel（包含两个工作表） ==========
         function exportExcel() {
             if (!db || !Array.isArray(db.products) || db.products.length === 0) { showToast('暂无产品数据', 'info'); return; }
-
             const nameMap = new Map();
             db.products.forEach(p => {
                 if (!nameMap.has(p.name)) nameMap.set(p.name, { pieces: 0, units: new Set(), models: new Set() });
@@ -1074,7 +1080,6 @@
                 e.units.add(p.unit);
                 e.models.add(p.model || '无型号');
             });
-
             const modelMap = new Map();
             db.products.forEach(p => {
                 const key = p.model || '无型号';
@@ -1086,9 +1091,7 @@
                 e.names.add(p.name);
                 e.productNames.push(p.name);
             });
-
             let excelHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>按名称统计</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet><x:ExcelWorksheet><x:Name>按型号统计</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>`;
-
             excelHtml += `<table><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr>`;
             nameMap.forEach((data, name) => {
                 const specs = [...data.models].join('、');
@@ -1096,7 +1099,6 @@
                 excelHtml += `<tr><td>${name}</td><td>${specs}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
             });
             excelHtml += `</table>`;
-
             excelHtml += `<table><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr>`;
             modelMap.forEach((data, model) => {
                 const namesStr = data.productNames.join('、');
@@ -1104,7 +1106,6 @@
                 excelHtml += `<tr><td>${namesStr}</td><td>${model}</td><td>${data.names.size}</td><td>${data.pieces}</td><td>${unitStr}</td></tr>`;
             });
             excelHtml += `</table></body></html>`;
-
             const blob = new Blob(['\ufeff' + excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -1182,12 +1183,14 @@
             reader.readAsText(file);
         }
 
+        // ========== 初始化 ==========
         function init() {
             document.getElementById('btnAddZone').addEventListener('click', showAddZoneModal);
             document.getElementById('btnAddProduct').addEventListener('click', showAddProductModal);
             document.getElementById('btnToggleBatch').addEventListener('click', toggleBatchMode);
             document.getElementById('btnShowFifo').addEventListener('click', showFifoOrder);
-            document.getElementById('btnShowStats').addEventListener('click', showStatistics);
+            document.getElementById('btnStatsByName').addEventListener('click', showStatsByName);
+            document.getElementById('btnStatsByModel').addEventListener('click', showStatsByModel);
             document.getElementById('btnShowRecords').addEventListener('click', showRecords);
             document.getElementById('btnExportExcel').addEventListener('click', exportExcel);
             document.getElementById('btnExportProducts').addEventListener('click', exportProductsData);
