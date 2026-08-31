@@ -7,77 +7,112 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        :root{--bg:#f0f2f5;--card-bg:#fff;--primary:#1a73e8;--success:#34a853;--danger:#ea4335;--warning:#fbbc04;--text:#202124;--text-secondary:#5f6368;--border:#dadce0;--shadow:0 1px 3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--cell-size:60px;--cell-gap:6px;--row-label-width:52px}
+        :root{--bg:#f0f2f5;--card-bg:#fff;--primary:#1a73e8;--success:#34a853;--danger:#ea4335;--warning:#fbbc04;--text:#202124;--text-secondary:#5f6368;--border:#dadce0;--shadow:0 1px 3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--cell-size:56px;--cell-gap:4px;--row-label-width:44px}
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
-        .header{background:var(--card-bg);border-bottom:1px solid var(--border);padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);gap:8px}
+        .header{background:var(--card-bg);border-bottom:1px solid var(--border);padding:0 12px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);gap:8px}
         .header-left{display:flex;align-items:center;gap:8px;min-width:0}
-        .logo-icon{width:32px;height:32px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700;flex-shrink:0}
-        .header h1{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .logo-icon{width:30px;height:30px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:700;flex-shrink:0}
+        .header h1{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .header-stats{display:flex;gap:4px;align-items:center;overflow-x:auto;scrollbar-width:none}
-        .stat-chip{display:flex;align-items:center;gap:3px;font-size:10px;color:var(--text-secondary);background:#f8f9fa;padding:3px 8px;border-radius:12px;border:1px solid var(--border);white-space:nowrap}
-        .sync-badge{font-size:10px;padding:3px 8px;border-radius:12px;background:#fff8e1;color:#f57c00}
+        .header-stats::-webkit-scrollbar{display:none}
+        .stat-chip{display:flex;align-items:center;gap:3px;font-size:9px;color:var(--text-secondary);background:#f8f9fa;padding:2px 6px;border-radius:10px;border:1px solid var(--border);white-space:nowrap}
+        .sync-badge{font-size:9px;padding:2px 6px;border-radius:10px;background:#fff8e1;color:#f57c00;white-space:nowrap}
         .sync-badge.online{background:#e8f5e9;color:#2e7d32}
         .sync-badge.offline{background:#ffebee;color:#c62828}
-        .main-container{display:flex;flex-direction:column;height:calc(100vh - 56px);overflow:hidden}
-        .left-panel{background:var(--card-bg);border-bottom:1px solid var(--border);padding:10px 12px;overflow-x:auto;overflow-y:auto;display:flex;gap:6px;align-items:center;flex-direction:column}
-        .zone-list{display:flex;flex-direction:column;gap:6px;width:100%}
-        .zone-item{padding:8px 12px;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;background:#fafafa;white-space:nowrap;font-size:12px;display:flex;align-items:center;gap:4px}
-        .zone-item.active{border-color:var(--primary);background:#e8f0fe}
-        .zone-delete-btn{width:20px;height:20px;border-radius:50%;border:none;background:#f1f3f4;cursor:pointer;display:inline-flex!important;align-items:center;justify-content:center;font-size:12px;color:var(--danger);margin-left:2px}
-        .zone-sort-btn{width:20px;height:20px;border-radius:4px;border:none;background:#e0e0e0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#333;margin-left:2px}
-        .add-zone-btn{padding:8px 14px;border:2px dashed var(--border);border-radius:var(--radius-sm);background:transparent;cursor:pointer;font-size:12px;white-space:nowrap}
-        .center-panel{flex:1;overflow-y:auto;background:var(--bg);padding:12px}
-        .center-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px}
-        .grid-container{background:var(--card-bg);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);overflow-x:auto}
-        .grid-side-by-side{display:flex;gap:16px;overflow-x:auto}
-        .grid-table{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+
+        .main-container{display:flex;flex-direction:column;height:calc(100vh - 52px);overflow:hidden}
+
+        /* 手机端左侧面板：横向滚动区域列表 */
+        .left-panel{background:var(--card-bg);border-bottom:1px solid var(--border);padding:6px 8px;flex-shrink:0;display:flex;flex-direction:column;gap:4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+        .left-panel::-webkit-scrollbar{display:none}
+        .left-panel-top{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+        .panel-title{font-size:11px;font-weight:600;color:var(--text-secondary);white-space:nowrap}
+        .zone-list{display:flex;flex-direction:row;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+        .zone-list::-webkit-scrollbar{display:none}
+        .zone-item{padding:6px 12px;border-radius:16px;border:2px solid var(--border);cursor:pointer;background:#fafafa;white-space:nowrap;font-size:12px;display:flex;align-items:center;gap:4px;flex-shrink:0;min-width:fit-content}
+        .zone-item.active{border-color:var(--primary);background:#e8f0fe;font-weight:600}
+        .zone-delete-btn{width:18px;height:18px;border-radius:50%;border:none;background:#f1f3f4;cursor:pointer;display:inline-flex!important;align-items:center;justify-content:center;font-size:10px;color:var(--danger);margin-left:2px;flex-shrink:0}
+        .add-zone-btn{padding:6px 12px;border:2px dashed var(--border);border-radius:16px;background:transparent;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0}
+        .zone-sort-btn-small{width:22px;height:22px;border-radius:4px;border:none;background:#e0e0e0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:#333;flex-shrink:0}
+
+        .center-panel{flex:1;overflow-y:auto;background:var(--bg);padding:8px 10px;-webkit-overflow-scrolling:touch}
+        .center-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px}
+        .center-header h2{font-size:16px;font-weight:600}
+        .legend{display:flex;gap:6px;flex-wrap:wrap;font-size:9px}
+        .grid-container{background:var(--card-bg);border-radius:var(--radius);padding:6px;box-shadow:var(--shadow);overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
+        .grid-side-by-side{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding-bottom:4px}
+        .grid-table{display:flex;flex-direction:column;gap:3px;flex-shrink:0}
         .grid-col-label-row{display:flex;align-items:center;gap:var(--cell-gap);margin-bottom:2px;padding-left:calc(var(--row-label-width) + var(--cell-gap))}
-        .grid-col-label{width:var(--cell-size);text-align:center;font-size:10px;font-weight:600;color:var(--text-secondary)}
+        .grid-col-label{width:var(--cell-size);text-align:center;font-size:9px;font-weight:600;color:var(--text-secondary)}
         .grid-row{display:flex;align-items:center;gap:var(--cell-gap)}
-        .grid-row-label{width:var(--row-label-width);font-size:10px;font-weight:600;color:var(--text-secondary);text-align:right}
-        .cell{width:var(--cell-size);height:48px;border-radius:4px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:9px;text-align:center;position:relative;flex-shrink:0;user-select:none;overflow:hidden}
+        .grid-row-label{width:var(--row-label-width);font-size:9px;font-weight:600;color:var(--text-secondary);text-align:right}
+        .cell{width:var(--cell-size);height:44px;border-radius:4px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:8px;text-align:center;position:relative;flex-shrink:0;user-select:none;overflow:hidden;touch-action:manipulation}
+        .cell:active{transform:scale(0.96)}
         .cell.status-normal{background:#e8f5e9;border-color:#4caf50;color:#2e7d32}
         .cell.status-unavailable{background:#ffebee;border-color:#ef5350;color:#c62828;opacity:.8}
         .cell.status-used{color:#fff;border-color:#333}
-        .cell .cell-label{font-weight:600;font-size:8px;line-height:1.1}
-        .cell .cell-batch{font-size:7px;position:absolute;bottom:1px;left:2px;right:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .cell .cell-qty{font-size:8px;font-weight:700;position:absolute;top:1px;right:2px;background:rgba(255,255,255,.85);border-radius:3px;padding:0 2px;color:#000}
-        .cell .fifo-rank{position:absolute;top:1px;left:2px;background:rgba(0,0,0,.5);color:#fff;font-size:7px;border-radius:3px}
-        .cell .new-badge{position:absolute;bottom:1px;right:2px;background:var(--success);color:#fff;font-size:7px;padding:0 2px;border-radius:3px}
-        .cell .yesterday-badge{position:absolute;bottom:1px;right:2px;background:#ff9800;color:#fff;font-size:7px;padding:0 2px;border-radius:3px}
-        .cell .hand-badge{position:absolute;bottom:1px;left:2px;background:#ff9800;color:#fff;font-size:7px;padding:0 2px;border-radius:3px}
-        .cell .select-checkbox{position:absolute;top:2px;left:2px;z-index:2}
-        .right-panel{background:var(--card-bg);border-top:1px solid var(--border);padding:10px 12px;flex-shrink:0;display:flex;gap:8px;overflow-x:auto}
-        .right-section{background:#f8f9fa;border-radius:var(--radius-sm);padding:10px;border:1px solid var(--border);min-width:180px;max-width:280px;display:flex;flex-direction:column;gap:6px}
-        .product-list{display:flex;flex-direction:column;gap:4px;max-height:130px;overflow-y:auto}
-        .product-item{padding:6px 8px;background:#fff;border-radius:4px;border:1px solid var(--border);font-size:11px;display:flex;gap:4px;align-items:center;cursor:pointer}
+        .cell .cell-label{font-weight:600;font-size:7px;line-height:1.1;word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .cell .cell-batch{font-size:6px;position:absolute;bottom:1px;left:2px;right:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .cell .cell-qty{font-size:7px;font-weight:700;position:absolute;top:1px;right:2px;background:rgba(255,255,255,.85);border-radius:2px;padding:0 2px;color:#000}
+        .cell .fifo-rank{position:absolute;top:1px;left:2px;background:rgba(0,0,0,.5);color:#fff;font-size:6px;padding:0 2px;border-radius:2px}
+        .cell .new-badge{position:absolute;bottom:1px;right:2px;background:var(--success);color:#fff;font-size:6px;padding:0 2px;border-radius:2px}
+        .cell .yesterday-badge{position:absolute;bottom:1px;right:2px;background:#ff9800;color:#fff;font-size:6px;padding:0 2px;border-radius:2px}
+        .cell .hand-badge{position:absolute;bottom:1px;left:2px;background:#ff9800;color:#fff;font-size:6px;padding:0 2px;border-radius:2px}
+        .cell .select-checkbox{position:absolute;top:2px;left:2px;z-index:2;width:12px;height:12px}
+
+        .right-panel{background:var(--card-bg);border-top:1px solid var(--border);padding:8px;flex-shrink:0;display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+        .right-panel::-webkit-scrollbar{display:none}
+        .right-section{background:#f8f9fa;border-radius:var(--radius-sm);padding:8px;border:1px solid var(--border);min-width:160px;max-width:220px;flex-shrink:0;display:flex;flex-direction:column;gap:4px}
+        .right-section h3{font-size:10px;font-weight:600;color:var(--text-secondary);white-space:nowrap}
+        .product-list{display:flex;flex-direction:column;gap:3px;max-height:100px;overflow-y:auto}
+        .product-item{padding:4px 6px;background:#fff;border-radius:3px;border:1px solid var(--border);font-size:10px;display:flex;gap:3px;align-items:center;cursor:pointer;white-space:nowrap}
         .product-item.selected{background:#e8f0fe;border-color:var(--primary)}
-        .batch-toolbar{display:none;gap:4px;margin-top:4px;flex-wrap:wrap}
+        .batch-toolbar{display:none;gap:3px;margin-top:3px;flex-wrap:wrap}
         .batch-toolbar.active{display:flex}
-        .location-batch-toolbar{display:none;gap:4px;margin-top:4px;flex-wrap:wrap}
+        .location-batch-toolbar{display:none;gap:3px;margin-top:3px;flex-wrap:wrap}
         .location-batch-toolbar.active{display:flex}
-        .btn{padding:7px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:500;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+        .btn{padding:6px 10px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:500;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;touch-action:manipulation}
+        .btn:active{transform:scale(0.95)}
         .btn-primary{background:var(--primary);color:#fff}
         .btn-outline{background:transparent;color:var(--primary);border:1.5px solid var(--primary)}
         .btn-danger{background:var(--danger);color:#fff}
         .btn-success{background:var(--success);color:#fff}
         .btn-warning{background:var(--warning);color:#333}
-        .btn-sm{padding:4px 8px;font-size:10px}
-        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
-        .modal{background:#fff;border-radius:var(--radius);padding:20px;width:100%;max-width:600px;max-height:85vh;overflow-y:auto}
-        .form-group{margin-bottom:12px}
-        .form-group label{display:block;font-size:12px;font-weight:500;margin-bottom:4px;color:var(--text-secondary)}
-        .form-group input,.form-group select,.form-group textarea{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:14px}
-        .toast-container{position:fixed;top:60px;right:12px;z-index:2000;display:flex;flex-direction:column;gap:6px}
-        .toast{padding:10px 14px;border-radius:8px;color:#fff;font-size:12px;cursor:pointer}
+        .btn-sm{padding:3px 6px;font-size:9px;border-radius:3px}
+        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:12px}
+        .modal{background:#fff;border-radius:var(--radius);padding:16px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto}
+        .modal h2{font-size:16px;margin-bottom:12px}
+        .form-group{margin-bottom:10px}
+        .form-group label{display:block;font-size:11px;font-weight:500;margin-bottom:3px;color:var(--text-secondary)}
+        .form-group input,.form-group select,.form-group textarea{width:100%;padding:7px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:13px}
+        .toast-container{position:fixed;top:52px;right:8px;z-index:2000;display:flex;flex-direction:column;gap:5px;max-width:250px}
+        .toast{padding:8px 12px;border-radius:6px;color:#fff;font-size:11px;cursor:pointer;box-shadow:var(--shadow)}
         .toast-success{background:var(--success)}.toast-error{background:var(--danger)}.toast-info{background:var(--primary)}
-        .fifo-table,.stats-table,.records-table,.daily-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
-        .fifo-table th,.fifo-table td,.stats-table th,.stats-table td,.records-table th,.records-table td,.daily-table th,.daily-table td{padding:6px 4px;text-align:left;border-bottom:1px solid var(--border)}
-        .zone-sort-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+        .fifo-table,.stats-table,.records-table,.daily-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px}
+        .fifo-table th,.fifo-table td,.stats-table th,.stats-table td,.records-table th,.records-table td,.daily-table th,.daily-table td{padding:5px 3px;text-align:left;border-bottom:1px solid var(--border)}
+        .zone-sort-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
         .zone-sort-item{padding:10px 12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:#fafafa;cursor:move;display:flex;align-items:center;gap:8px;font-size:14px}
         .zone-sort-item.dragging{opacity:.5;border-color:var(--primary)}
-        @media(min-width:768px){.main-container{flex-direction:row}.left-panel{width:220px;height:auto;flex-direction:column;border-right:1px solid var(--border);border-bottom:none;overflow-y:auto}.zone-list{flex-direction:column}.right-panel{width:300px;flex-direction:column;border-left:1px solid var(--border);border-top:none;overflow-y:auto}.cell{width:68px;height:56px}.grid-col-label{width:68px}}
+
+        /* 桌面端适配 */
+        @media(min-width:768px){
+            .main-container{flex-direction:row}
+            .left-panel{width:230px;height:auto;flex-direction:column;border-right:1px solid var(--border);border-bottom:none;overflow-y:auto;overflow-x:hidden;padding:12px;gap:8px}
+            .zone-list{flex-direction:column;overflow-x:visible;overflow-y:auto}
+            .zone-item{white-space:normal;border-radius:var(--radius-sm)}
+            .center-panel{padding:16px 20px}
+            .cell{width:60px;height:50px;font-size:9px}
+            .cell .cell-label{font-size:8px}
+            .grid-col-label{width:60px;font-size:10px}
+            .grid-row-label{font-size:10px;width:50px}
+            .right-panel{width:280px;flex-direction:column;border-left:1px solid var(--border);border-top:none;overflow-y:auto;overflow-x:hidden;padding:12px;gap:8px}
+            .right-section{min-width:auto;max-width:none}
+            .header h1{font-size:16px}
+            .stat-chip{font-size:11px}
+            .btn{font-size:12px}
+            .btn-sm{font-size:10px}
+        }
     </style>
 </head>
 <body>
@@ -93,8 +128,8 @@
 </header>
 <div class="main-container">
     <aside class="left-panel">
-        <div class="panel-title" style="display:flex;justify-content:space-between;width:100%">
-            <span>仓位区域</span>
+        <div class="left-panel-top">
+            <span class="panel-title">仓位区域</span>
             <button class="btn btn-sm btn-outline" onclick="showZoneSortModal()">排序</button>
         </div>
         <div class="zone-list" id="zoneList"></div>
@@ -102,25 +137,25 @@
     </aside>
     <main class="center-panel">
         <div class="center-header">
-            <div><h2 id="currentZoneTitle">成品区</h2><span id="currentZoneInfo"></span></div>
-            <div class="legend"><span>🟢正常</span><span>🔴不可用</span><span>🔵已用</span><span>🟢今</span><span>🟠昨</span><span>🟠手帐</span></div>
-            <button class="btn btn-outline btn-sm" id="btnToggleLocationBatch">库位批量操作</button>
+            <div><h2 id="currentZoneTitle">成品区</h2><span id="currentZoneInfo" style="font-size:11px;color:var(--text-secondary)"></span></div>
+            <div class="legend"><span>🟢正常</span><span>🔴不可用</span><span>🔵已用</span><span>🟢今</span><span>🟠昨</span><span>🟠账</span></div>
+            <button class="btn btn-outline btn-sm" id="btnToggleLocationBatch">库位批量</button>
         </div>
         <div class="location-batch-toolbar" id="locationBatchToolbar">
             <button class="btn btn-sm btn-success" onclick="batchStockInLocations()">批量入库</button>
             <button class="btn btn-sm btn-danger" onclick="batchClearLocations()">批量清空</button>
-            <button class="btn btn-sm btn-outline" onclick="exitLocationBatchMode()">退出批量</button>
+            <button class="btn btn-sm btn-outline" onclick="exitLocationBatchMode()">退出</button>
         </div>
         <div class="grid-container" id="gridContainer"></div>
     </main>
     <aside class="right-panel">
-        <div class="right-section"><h3>📦 产品列表</h3><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" id="btnToggleBatch">批量操作</button><button class="btn btn-primary btn-sm" id="btnAddProduct">+ 新建</button></div><div class="product-list" id="productList"></div><div class="batch-toolbar" id="batchToolbar"><button class="btn btn-sm btn-warning" onclick="batchUpdateUnit()">批量修改单位</button><button class="btn btn-sm btn-warning" onclick="batchUpdateUnitQuantity()">批量修改单位数量</button><button class="btn btn-sm btn-danger" onclick="batchDeleteProducts()">批量删除</button><button class="btn btn-sm btn-outline" onclick="clearSelectionAndExit()">取消选择</button></div></div>
-        <div class="right-section"><h3>📊 仓位统计</h3><div id="zoneStats"></div></div>
-        <div class="right-section"><h3>⏱️ FIFO排序</h3><button class="btn btn-outline btn-sm" id="btnShowFifo">查看批次排序</button></div>
-        <div class="right-section"><h3>📈 统计</h3><button class="btn btn-outline btn-sm" id="btnShowStats">库存统计</button></div>
-        <div class="right-section"><h3>📋 记录</h3><button class="btn btn-outline btn-sm" id="btnShowRecords">出入库记录</button></div>
-        <div class="right-section"><h3>📅 每日统计</h3><button class="btn btn-outline btn-sm" id="btnShowDailyStats">14天统计表</button></div>
-        <div class="right-section"><h3>💾 数据</h3><div style="display:flex;gap:4px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" id="btnExportExcel">导出Excel</button><button class="btn btn-outline btn-sm" id="btnExportProducts">导出产品</button><button class="btn btn-outline btn-sm" id="btnImportProducts">导入产品</button><button class="btn btn-outline btn-sm" id="btnExportData">导出备份</button><button class="btn btn-outline btn-sm" id="btnImportData">导入备份</button></div></div>
+        <div class="right-section"><h3>📦 产品</h3><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" id="btnToggleBatch">批量</button><button class="btn btn-primary btn-sm" id="btnAddProduct">+</button></div><div class="product-list" id="productList"></div><div class="batch-toolbar" id="batchToolbar"><button class="btn btn-sm btn-warning" onclick="batchUpdateUnit()">单位</button><button class="btn btn-sm btn-warning" onclick="batchUpdateUnitQuantity()">单位数量</button><button class="btn btn-sm btn-danger" onclick="batchDeleteProducts()">删除</button><button class="btn btn-sm btn-outline" onclick="clearSelectionAndExit()">取消</button></div></div>
+        <div class="right-section"><h3>📊 统计</h3><div id="zoneStats" style="font-size:10px"></div></div>
+        <div class="right-section"><h3>⏱️ FIFO</h3><button class="btn btn-outline btn-sm" id="btnShowFifo">批次排序</button></div>
+        <div class="right-section"><h3>📈 统计</h3><button class="btn btn-outline btn-sm" id="btnShowStats">库存</button></div>
+        <div class="right-section"><h3>📋 记录</h3><button class="btn btn-outline btn-sm" id="btnShowRecords">出入库</button></div>
+        <div class="right-section"><h3>📅 每日</h3><button class="btn btn-outline btn-sm" id="btnShowDailyStats">14天</button></div>
+        <div class="right-section"><h3>💾 数据</h3><div style="display:flex;gap:4px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" id="btnExportExcel">Excel</button><button class="btn btn-outline btn-sm" id="btnExportProducts">产品</button><button class="btn btn-outline btn-sm" id="btnImportProducts">导入</button><button class="btn btn-outline btn-sm" id="btnExportData">备份</button><button class="btn btn-outline btn-sm" id="btnImportData">恢复</button></div></div>
     </aside>
 </div>
 <div id="modalContainer"></div>
@@ -150,13 +185,13 @@ function showToast(msg,type='info'){const c=document.getElementById('toastContai
 function openModal(html){document.getElementById('modalContainer').innerHTML='<div class="modal-overlay" id="modalOverlay"><div class="modal">'+html+'</div></div>';document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});}
 function closeModal(){document.getElementById('modalContainer').innerHTML='';}
 function renderAll(){if(!db||!Array.isArray(db.zones)||!Array.isArray(db.locations)||!Array.isArray(db.products))return;renderZoneList();renderGrid();renderProductList();renderZoneStats();updateHeaderStats();}
-function renderZoneList(){const list=document.getElementById('zoneList');if(!list||!db)return;list.innerHTML='';db.zones.forEach(zone=>{const item=document.createElement('div');item.className='zone-item'+(zone.id===currentZoneId?' active':'');const locCount=db.locations.filter(l=>l.zoneId===zone.id).length;const usedCount=db.locations.filter(l=>l.zoneId===zone.id&&l.status==='used').length;item.innerHTML='<span class="zone-name">'+(zone.isBase?'🏭':'📁')+' '+zone.name+'</span> '+(zone.isBase?'<span class="badge-base">基础</span>':'<span class="badge-custom">自定义</span>')+' ('+usedCount+'/'+locCount+')';if(!zone.isBase){const btn=document.createElement('button');btn.className='zone-delete-btn';btn.textContent='×';btn.addEventListener('click',e=>{e.stopPropagation();deleteZone(zone.id);});item.appendChild(btn);}item.addEventListener('click',()=>{currentZoneId=zone.id;renderAll();});list.appendChild(item);});}
+function renderZoneList(){const list=document.getElementById('zoneList');if(!list||!db)return;list.innerHTML='';db.zones.forEach(zone=>{const item=document.createElement('div');item.className='zone-item'+(zone.id===currentZoneId?' active':'');const locCount=db.locations.filter(l=>l.zoneId===zone.id).length;const usedCount=db.locations.filter(l=>l.zoneId===zone.id&&l.status==='used').length;item.innerHTML='<span class="zone-name">'+(zone.isBase?'🏭':'📁')+' '+zone.name+'</span> ('+usedCount+'/'+locCount+')';if(!zone.isBase){const btn=document.createElement('button');btn.className='zone-delete-btn';btn.textContent='×';btn.addEventListener('click',e=>{e.stopPropagation();deleteZone(zone.id);});item.appendChild(btn);}item.addEventListener('click',()=>{currentZoneId=zone.id;renderAll();});list.appendChild(item);});}
 function deleteZone(zoneId){const zone=db.zones.find(z=>z.id===zoneId);if(!zone||zone.isBase){showToast('基础仓位不可删除','error');return;}if(db.locations.some(l=>l.zoneId===zoneId&&l.status==='used')){showToast('有已用仓位','error');return;}if(!confirm('删除区域？'))return;const nd=JSON.parse(JSON.stringify(db));nd.locations=nd.locations.filter(l=>l.zoneId!==zoneId);nd.zones=nd.zones.filter(z=>z.id!==zoneId);if(currentZoneId===zoneId)currentZoneId=nd.zones[0]?.id||null;saveDB(nd);showToast('已删除','success');}
 function showAddZoneModal(){openModal('<h2>添加区域</h2><div class="form-group"><label>名称</label><input id="newZoneName" required></div><div class="form-group"><label>排数</label><input type="number" id="newZoneRows" min="1" required></div><div class="form-group"><label>托数/排</label><input type="number" id="newZoneCols" min="1" required></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addZone()">确认</button></div>');}
 function addZone(){const name=document.getElementById('newZoneName').value.trim();const rows=parseInt(document.getElementById('newZoneRows').value);const cols=parseInt(document.getElementById('newZoneCols').value);if(!name||!rows||!cols){showToast('请填写完整','error');return;}const nd=JSON.parse(JSON.stringify(db));const zone={id:nd.nextZoneId++,name,rows,cols,isBase:false,createdAt:new Date().toISOString()};nd.zones.push(zone);for(let r=1;r<=rows;r++)for(let c=1;c<=cols;c++)nd.locations.push({id:nd.nextLocationId++,zoneId:zone.id,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null});currentZoneId=zone.id;saveDB(nd);closeModal();showToast('已添加','success');}
 function renderGrid(){const container=document.getElementById('gridContainer');if(!container||!db)return;const sl=container.scrollLeft,st=container.scrollTop;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){container.innerHTML='<div>请选择区域</div>';return;}const locations=db.locations.filter(l=>l.zoneId===zone.id);document.getElementById('currentZoneTitle').textContent=zone.name;document.getElementById('currentZoneInfo').textContent=zone.isBase?'A侧17排+B侧17排×5托':zone.rows+'排×'+zone.cols+'托';const rankMap=getFifoRankMap(zone.id);if(zone.isBase&&zone.id===1){container.innerHTML='<div class="grid-side-by-side">'+renderGridTable(locations.filter(l=>l.rowNum<=17),zone,rankMap)+renderGridTable(locations.filter(l=>l.rowNum>17),zone,rankMap)+'</div>';}else{container.innerHTML=renderGridTable(locations,zone,rankMap);}container.scrollLeft=sl;container.scrollTop=st;}
-function renderGridTable(locs,zone,rankMap){if(locs.length===0)return'';const displayCols=getDisplayColArray(zone);const rows=[...new Set(locs.map(l=>l.rowNum))].sort((a,b)=>a-b);let html='<div class="grid-table"><div class="grid-col-label-row"><div style="width:52px;"></div>';displayCols.forEach((_,i)=>{html+='<div class="grid-col-label">托'+(i+1)+'</div>';});html+='</div>';rows.forEach(r=>{html+='<div class="grid-row"><div class="grid-row-label">'+getRowDisplayLabel(zone,r)+'</div>';displayCols.forEach((oc,idx)=>{const loc=locs.find(l=>l.rowNum===r&&l.colNum===oc);if(loc){let style='',rankBadge='',newBadge='',yesterdayBadge='',handBadge='',cbHtml='';if(loc.status==='used'){const info=rankMap[loc.id];if(info){style='background-color:'+getFifoColor(info.rank,info.total)+';border-color:'+getFifoBorderColor(info.rank,info.total)+';';rankBadge='<span class="fifo-rank">#'+(info.rank+1)+'/'+info.total+'</span>';}else style='background-color:#1e88e5;border-color:#0d47a1;';const updatedDate=loc.updatedAt?loc.updatedAt.split('T')[0]:null;if(updatedDate){const today=new Date().toISOString().split('T')[0];const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];if(updatedDate===today)newBadge='<span class="new-badge">今</span>';else if(updatedDate===yesterday)yesterdayBadge='<span class="yesterday-badge">昨</span>';}if(loc.handAccount)handBadge='<span class="hand-badge">账</span>';}if(locationBatchMode)cbHtml='<input type="checkbox" class="select-checkbox"'+(selectedLocations.has(loc.id)?' checked':'')+' onclick="toggleLocationSelect('+loc.id+',event)">';let label='',batchInfo='',qtyInfo='';if(loc.status==='used'&&loc.productId){const p=db.products.find(x=>x.id===loc.productId);label=p?p.name:'?';batchInfo=loc.batchNo||'';if(loc.customPieces>0)qtyInfo=loc.customPieces+'件';else qtyInfo=loc.quantity>0?loc.quantity+(p?.unit||'件'):'';}else if(loc.status==='unavailable')label='🚫';else label=getRowDisplayLabel(zone,r)+'-'+(idx+1);const click=locationBatchMode?'toggleLocationSelect('+loc.id+',event)':'handleCellClick('+loc.id+')';const cmenu=locationBatchMode?'':'handleCellRightClick('+loc.id+');return false;';html+='<div class="cell status-'+loc.status+'" style="'+style+'" onclick="'+click+'" oncontextmenu="'+cmenu+'">'+cbHtml+rankBadge+newBadge+yesterdayBadge+handBadge+'<span class="cell-label">'+label+'</span>'+(qtyInfo?'<span class="cell-qty">'+qtyInfo+'</span>':'')+(batchInfo?'<span class="cell-batch">📅'+batchInfo+'</span>':'')+'</div>';}else{html+='<div class="cell" style="border-style:dashed;opacity:.3;">-</div>';}});html+='</div>';});html+='</div>';return html;}
-function renderProductList(){const list=document.getElementById('productList');if(!list||!db||!Array.isArray(db.products))return;list.innerHTML=db.products.length===0?'<div>暂无产品</div>':'';db.products.forEach(p=>{const info=getProductDisplayInfo(p.id);const item=document.createElement('div');item.className='product-item'+(selectedProducts.has(p.id)?' selected':'');let cb=batchMode?'<input type="checkbox"'+(selectedProducts.has(p.id)?' checked':'')+' onclick="toggleSelectProduct('+p.id+',event)">':'';item.innerHTML=cb+'<span>'+p.name+'</span> <span>'+p.model+'</span> <span>'+info.pieces+p.unit+'</span>';item.addEventListener('click',()=>{if(batchMode)toggleSelectProduct(p.id);else showProductDetail(p.id);});list.appendChild(item);});}
+function renderGridTable(locs,zone,rankMap){if(locs.length===0)return'';const displayCols=getDisplayColArray(zone);const rows=[...new Set(locs.map(l=>l.rowNum))].sort((a,b)=>a-b);let html='<div class="grid-table"><div class="grid-col-label-row"><div style="width:var(--row-label-width);"></div>';displayCols.forEach((_,i)=>{html+='<div class="grid-col-label">托'+(i+1)+'</div>';});html+='</div>';rows.forEach(r=>{html+='<div class="grid-row"><div class="grid-row-label">'+getRowDisplayLabel(zone,r)+'</div>';displayCols.forEach((oc,idx)=>{const loc=locs.find(l=>l.rowNum===r&&l.colNum===oc);if(loc){let style='',rankBadge='',newBadge='',yesterdayBadge='',handBadge='',cbHtml='';if(loc.status==='used'){const info=rankMap[loc.id];if(info){style='background-color:'+getFifoColor(info.rank,info.total)+';border-color:'+getFifoBorderColor(info.rank,info.total)+';';rankBadge='<span class="fifo-rank">#'+(info.rank+1)+'/'+info.total+'</span>';}else style='background-color:#1e88e5;border-color:#0d47a1;';const updatedDate=loc.updatedAt?loc.updatedAt.split('T')[0]:null;if(updatedDate){const today=new Date().toISOString().split('T')[0];const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];if(updatedDate===today)newBadge='<span class="new-badge">今</span>';else if(updatedDate===yesterday)yesterdayBadge='<span class="yesterday-badge">昨</span>';}if(loc.handAccount)handBadge='<span class="hand-badge">账</span>';}if(locationBatchMode)cbHtml='<input type="checkbox" class="select-checkbox"'+(selectedLocations.has(loc.id)?' checked':'')+' onclick="toggleLocationSelect('+loc.id+',event)">';let label='',batchInfo='',qtyInfo='';if(loc.status==='used'&&loc.productId){const p=db.products.find(x=>x.id===loc.productId);label=p?p.name:'?';batchInfo=loc.batchNo||'';if(loc.customPieces>0)qtyInfo=loc.customPieces+'件';else qtyInfo=loc.quantity>0?loc.quantity+(p?.unit||'件'):'';}else if(loc.status==='unavailable')label='🚫';else label=getRowDisplayLabel(zone,r)+'-'+(idx+1);const click=locationBatchMode?'toggleLocationSelect('+loc.id+',event)':'handleCellClick('+loc.id+')';const cmenu=locationBatchMode?'':'handleCellRightClick('+loc.id+');return false;';html+='<div class="cell status-'+loc.status+'" style="'+style+'" onclick="'+click+'" oncontextmenu="'+cmenu+'">'+cbHtml+rankBadge+newBadge+yesterdayBadge+handBadge+'<span class="cell-label">'+label+'</span>'+(qtyInfo?'<span class="cell-qty">'+qtyInfo+'</span>':'')+(batchInfo?'<span class="cell-batch">📅'+batchInfo+'</span>':'')+'</div>';}else{html+='<div class="cell" style="border-style:dashed;opacity:.3;">-</div>';}});html+='</div>';});html+='</div>';return html;}
+function renderProductList(){const list=document.getElementById('productList');if(!list||!db||!Array.isArray(db.products))return;list.innerHTML=db.products.length===0?'<div>暂无</div>':'';db.products.forEach(p=>{const info=getProductDisplayInfo(p.id);const item=document.createElement('div');item.className='product-item'+(selectedProducts.has(p.id)?' selected':'');let cb=batchMode?'<input type="checkbox"'+(selectedProducts.has(p.id)?' checked':'')+' onclick="toggleSelectProduct('+p.id+',event)">':'';item.innerHTML=cb+'<span>'+p.name+'</span> <span>'+p.model+'</span> <span>'+info.pieces+p.unit+'</span>';item.addEventListener('click',()=>{if(batchMode)toggleSelectProduct(p.id);else showProductDetail(p.id);});list.appendChild(item);});}
 function toggleLocationBatchMode(){locationBatchMode=!locationBatchMode;if(!locationBatchMode){selectedLocations.clear();document.getElementById('locationBatchToolbar').classList.remove('active');}else document.getElementById('locationBatchToolbar').classList.add('active');renderGrid();}
 function toggleLocationSelect(id,ev){if(ev)ev.stopPropagation();if(selectedLocations.has(id))selectedLocations.delete(id);else selectedLocations.add(id);renderGrid();}
 function exitLocationBatchMode(){selectedLocations.clear();locationBatchMode=false;document.getElementById('locationBatchToolbar').classList.remove('active');renderGrid();}
@@ -189,7 +224,6 @@ function renderFifoOrderModal(){
     if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
     const used=db.locations.filter(l=>l.status==='used'&&l.batchNo);
     if(used.length===0){showToast('无已用仓位','info');return;}
-    // 构建产品筛选下拉框（多选）
     let productOptions = '<option value="all">全部产品</option>';
     db.products.forEach(p=>{
         productOptions += `<option value="${p.id}">${p.name}(${p.model||'无型号'})</option>`;
@@ -199,7 +233,6 @@ function renderFifoOrderModal(){
         '<div class="form-group"><label>筛选产品（可多选）</label><select id="fifoProductFilter" multiple size="4" onchange="updateFifoContent()">'+productOptions+'</select></div>'+
         '<div id="fifoContent"></div>'+
         '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
-    // 初始化选中状态
     if(selectedProductFilters.size>0){
         const select=document.getElementById('fifoProductFilter');
         Array.from(select.options).forEach(opt=>{
@@ -216,15 +249,11 @@ function updateFifoContent(){
     if(!container)return;
     const select=document.getElementById('fifoProductFilter');
     if(!select)return;
-    // 获取选中的产品ID
     selectedProductFilters.clear();
     for(let i=0;i<select.options.length;i++){
         if(select.options[i].selected && select.options[i].value!=='all'){
             selectedProductFilters.add(parseInt(select.options[i].value));
         }
-    }
-    if(selectedProductFilters.size===0){
-        // 未选择任何具体产品，表示全部
     }
     if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products))return;
     const used=db.locations.filter(l=>l.status==='used'&&l.batchNo);
@@ -321,7 +350,6 @@ function showZoneSortModal(){
     });
     listHtml += '</div>';
     openModal(`<h2>🔄 区域排序</h2><p>拖动区域调整顺序</p>${listHtml}<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveZoneOrder()">保存顺序</button></div>`);
-    // 添加拖拽事件监听
     initZoneDragEvents();
 }
 let draggedZoneId = null;
@@ -386,7 +414,6 @@ function saveZoneOrder(){
     const items = [...container.querySelectorAll('.zone-sort-item')];
     const newOrder = items.map(item=>parseInt(item.dataset.zoneId));
     const nd = JSON.parse(JSON.stringify(db));
-    // 根据newOrder重新排列zones
     nd.zones = newOrder.map(id=>db.zones.find(z=>z.id===id)).filter(Boolean);
     saveDB(nd);
     closeModal();
