@@ -39,9 +39,10 @@
         .center-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px}
         .center-header h2{font-size:16px;font-weight:600}
         .legend{display:flex;gap:6px;flex-wrap:wrap;font-size:9px}
-        .grid-container{background:var(--card-bg);border-radius:var(--radius);padding:6px;box-shadow:var(--shadow);overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
-        .grid-side-by-side{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding-bottom:4px}
-        .grid-table{display:flex;flex-direction:column;gap:3px;flex-shrink:0}
+        /* 修改：铺满右侧空白 */
+        .grid-container{background:var(--card-bg);border-radius:var(--radius);padding:6px;box-shadow:var(--shadow);overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%;}
+        .grid-side-by-side{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;width:100%;}
+        .grid-table{display:flex;flex-direction:column;gap:3px;flex-shrink:0;min-width:max-content;}
         .grid-col-label-row{display:flex;align-items:center;gap:var(--cell-gap);margin-bottom:2px;padding-left:calc(var(--row-label-width) + var(--cell-gap))}
         .grid-col-label{width:var(--cell-size);text-align:center;font-size:9px;font-weight:600;color:var(--text-secondary)}
         .grid-row{display:flex;align-items:center;gap:var(--cell-gap)}
@@ -208,7 +209,7 @@ function deleteZone(zoneId){const zone=db.zones.find(z=>z.id===zoneId);if(!zone|
 function showAddZoneModal(){openModal('<h2>添加区域</h2><div class="form-group"><label>名称</label><input id="newZoneName" required></div><div class="form-group"><label>排数</label><input type="number" id="newZoneRows" min="1" required></div><div class="form-group"><label>托数/排</label><input type="number" id="newZoneCols" min="1" required></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addZone()">确认</button></div>');}
 function addZone(){const name=document.getElementById('newZoneName').value.trim();const rows=parseInt(document.getElementById('newZoneRows').value);const cols=parseInt(document.getElementById('newZoneCols').value);if(!name||!rows||!cols){showToast('请填写完整','error');return;}const nd=JSON.parse(JSON.stringify(db));const zone={id:nd.nextZoneId++,name,rows,cols,isBase:false,createdAt:new Date().toISOString()};nd.zones.push(zone);for(let r=1;r<=rows;r++)for(let c=1;c<=cols;c++)nd.locations.push({id:nd.nextLocationId++,zoneId:zone.id,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null});currentZoneId=zone.id;saveDB(nd);closeModal();showToast('已添加','success');}
 
-// 核心修改：增强滚动位置恢复
+// 核心修改：增强滚动位置恢复 + 铺满容器
 function renderGrid(){
     const container=document.getElementById('gridContainer');
     if(!container||!db)return;
@@ -226,7 +227,8 @@ function renderGrid(){
     }
     // 使用 requestAnimationFrame 确保 DOM 更新后再恢复滚动位置
     requestAnimationFrame(() => {
-        container.scrollTo(sl, st);
+        container.scrollLeft = sl;
+        container.scrollTop = st;
     });
 }
 
