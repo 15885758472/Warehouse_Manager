@@ -23,7 +23,6 @@
 
         .main-container{display:flex;flex-direction:column;height:calc(100vh - 52px);overflow:hidden}
 
-        /* 手机端左侧面板：横向滚动区域列表 */
         .left-panel{background:var(--card-bg);border-bottom:1px solid var(--border);padding:6px 8px;flex-shrink:0;display:flex;flex-direction:column;gap:4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
         .left-panel::-webkit-scrollbar{display:none}
         .left-panel-top{display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
@@ -56,7 +55,6 @@
         .cell .cell-batch{font-size:6px;position:absolute;bottom:1px;left:1px;right:1px;white-space:nowrap;overflow:hidden;text-overflow:clip;color:inherit}
         .cell .cell-qty{font-size:7px;font-weight:700;position:absolute;top:1px;right:2px;background:rgba(255,255,255,.85);border-radius:2px;padding:0 2px;color:#000}
         .cell .fifo-rank{position:absolute;top:1px;left:2px;background:rgba(0,0,0,.5);color:#fff;font-size:6px;padding:0 2px;border-radius:2px}
-        /* 修改：今/昨标识移动到中间两侧，垂直居中 */
         .cell .new-badge{position:absolute;left:2px;top:50%;transform:translateY(-50%);background:var(--success);color:#fff;font-size:6px;padding:0 2px;border-radius:2px;z-index:3}
         .cell .yesterday-badge{position:absolute;right:2px;top:50%;transform:translateY(-50%);background:#ff9800;color:#fff;font-size:6px;padding:0 2px;border-radius:2px;z-index:3}
         .cell .hand-badge{position:absolute;bottom:1px;left:2px;background:#ff9800;color:#fff;font-size:6px;padding:0 2px;border-radius:2px;z-index:3}
@@ -112,6 +110,26 @@
             .stat-chip{font-size:11px}
             .btn{font-size:12px}
             .btn-sm{font-size:10px}
+        }
+
+        /* 高分辨率屏幕适配 */
+        @media(min-width:1200px){
+            :root{--cell-size:72px;--cell-gap:6px;--row-label-width:56px}
+            .cell{width:var(--cell-size);height:60px;font-size:10px}
+            .cell .cell-label{font-size:9px}
+            .cell .cell-batch{font-size:7px;bottom:2px}
+            .cell .cell-qty{font-size:8px;top:2px;right:3px}
+            .cell .fifo-rank{font-size:7px;top:2px;left:3px}
+            .cell .new-badge,.cell .yesterday-badge,.cell .hand-badge{font-size:7px;padding:0 3px}
+            .grid-col-label{width:var(--cell-size);font-size:11px}
+            .grid-row-label{width:var(--row-label-width);font-size:11px}
+            .center-header h2{font-size:20px}
+            .right-panel{width:320px}
+            .right-section{min-width:200px}
+            .product-item{font-size:12px}
+            .btn{font-size:13px}
+            .btn-sm{font-size:11px}
+            .fifo-table th,.fifo-table td,.stats-table th,.stats-table td,.records-table th,.records-table td,.daily-table th,.daily-table td{font-size:13px;padding:8px 5px}
         }
     </style>
 </head>
