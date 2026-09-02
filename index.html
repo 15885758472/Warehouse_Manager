@@ -90,6 +90,11 @@
         .zone-sort-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
         .zone-sort-item{padding:10px 12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:#fafafa;cursor:move;display:flex;align-items:center;gap:8px;font-size:14px}
         .zone-sort-item.dragging{opacity:.5;border-color:var(--primary)}
+        /* 智能排序卡片式选择样式 */
+        .smart-select-cards{display:flex;flex-wrap:wrap;gap:8px;}
+        .smart-select-card{border:2px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;background:#fff;transition:all .2s;user-select:none;}
+        .smart-select-card.active{border-color:var(--primary);background:#e8f0fe;box-shadow:0 0 0 2px rgba(26,115,232,.2);}
+        .smart-select-card input{display:none;}
         /* 响应式多选框 */
         .multi-select-container .checkbox-list{display:block;}
         .multi-select-container .select-multi{display:none;}
@@ -414,7 +419,7 @@ function renderGridTable(locs,zone,rankMap){
     const displayCols=getDisplayColArray(zone);
     const rows=[...new Set(locs.map(l=>l.rowNum))].sort((a,b)=>a-b);
     let html='<div class="grid-table"><div class="grid-col-label-row"><div style="width:var(--row-label-width);"></div>';
-    displayCols.forEach((_,i)=>{html+='<div class="grid-col-label">托'+(i+1)+'</div>';});
+    displayCols.forEach((_,i)=>{html+='<div class="grid-col-label">'+(i+1)+'托</div>';});
     html+='</div>';
     rows.forEach(r=>{
         html+='<div class="grid-row"><div class="grid-row-label">'+getRowDisplayLabel(zone,r)+'</div>';
@@ -881,51 +886,35 @@ function updateHeaderStats(){if(!db||!Array.isArray(db.locations))return;const a
 function showSmartSortModal() {
     let zoneCheckboxes = '';
     db.zones.forEach(z => {
-        zoneCheckboxes += `<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <input type="checkbox" value="${z.id}" class="smart-sort-target-check"> ${z.name}
-        </label>`;
+        zoneCheckboxes += `<div class="smart-select-card" data-value="${z.id}" data-type="target">
+            ${z.name}
+        </div>`;
     });
-    let zoneMultiSelect = '<select multiple size="4" class="smart-sort-target-multi">';
-    db.zones.forEach(z => {
-        zoneMultiSelect += `<option value="${z.id}">${z.name}</option>`;
-    });
-    zoneMultiSelect += '</select>';
-
     let auxCheckboxes = '';
     db.zones.forEach(z => {
-        auxCheckboxes += `<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <input type="checkbox" value="${z.id}" class="smart-sort-aux-check"> ${z.name}
-        </label>`;
+        auxCheckboxes += `<div class="smart-select-card" data-value="${z.id}" data-type="aux">
+            ${z.name}
+        </div>`;
     });
-    let auxMultiSelect = '<select multiple size="4" class="smart-sort-aux-multi">';
-    db.zones.forEach(z => {
-        auxMultiSelect += `<option value="${z.id}">${z.name}</option>`;
-    });
-    auxMultiSelect += '</select>';
-
     openModal(`
         <h2>🧹 智能排序</h2>
         <div class="form-group">
             <label>目标区域（可多选，主要整理）</label>
-            <div class="multi-select-container">
-                <div class="checkbox-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
-                    ${zoneCheckboxes}
-                </div>
-                <div class="select-multi">
-                    ${zoneMultiSelect}
-                </div>
+            <div class="smart-select-cards" id="targetZoneCards">
+                ${zoneCheckboxes}
             </div>
+            <select multiple size="4" class="smart-sort-target-multi" style="display:none;">
+                ${db.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}
+            </select>
         </div>
         <div class="form-group">
             <label>辅助区域（可多选，用于临时存放）</label>
-            <div class="multi-select-container">
-                <div class="checkbox-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
-                    ${auxCheckboxes}
-                </div>
-                <div class="select-multi">
-                    ${auxMultiSelect}
-                </div>
+            <div class="smart-select-cards" id="auxZoneCards">
+                ${auxCheckboxes}
             </div>
+            <select multiple size="4" class="smart-sort-aux-multi" style="display:none;">
+                ${db.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}
+            </select>
         </div>
         <div class="form-group">
             <label>排序规则</label>
@@ -939,15 +928,23 @@ function showSmartSortModal() {
             <button class="btn btn-primary" onclick="executeSmartSort()">执行排序</button>
         </div>
     `);
+    // 卡片点击事件
+    document.querySelectorAll('.smart-select-card').forEach(card=>{
+        card.addEventListener('click', function(){
+            this.classList.toggle('active');
+        });
+    });
 }
 
 function executeSmartSort() {
     let targetZoneIds, auxZoneIds;
-    const targetCheckList = document.querySelector('.smart-sort-target-check');
-    if (targetCheckList && targetCheckList.offsetParent !== null) {
-        targetZoneIds = [...document.querySelectorAll('.smart-sort-target-check:checked')].map(o => parseInt(o.value));
-        auxZoneIds = [...document.querySelectorAll('.smart-sort-aux-check:checked')].map(o => parseInt(o.value));
+    // 检测是否使用卡片式（电脑端）
+    const cards = document.querySelectorAll('.smart-select-card[data-type="target"]');
+    if (cards.length > 0 && cards[0].offsetParent !== null) {
+        targetZoneIds = [...document.querySelectorAll('.smart-select-card[data-type="target"].active')].map(card=>parseInt(card.dataset.value));
+        auxZoneIds = [...document.querySelectorAll('.smart-select-card[data-type="aux"].active')].map(card=>parseInt(card.dataset.value));
     } else {
+        // 手机端使用多选下拉
         const targetMulti = document.querySelector('.smart-sort-target-multi');
         const auxMulti = document.querySelector('.smart-sort-aux-multi');
         targetZoneIds = [...targetMulti.selectedOptions].map(o => parseInt(o.value));
@@ -964,7 +961,6 @@ function executeSmartSort() {
         const targetZone = db.zones.find(z => z.id === targetZoneId);
         if (!targetZone) return;
 
-        // 获取目标区域所有库位，按排、托排序
         const allLocs = db.locations
             .filter(l => l.zoneId === targetZoneId)
             .sort((a, b) => {
@@ -975,16 +971,14 @@ function executeSmartSort() {
         const usedLocs = allLocs.filter(l => l.status === 'used');
         if (usedLocs.length === 0) return;
 
-        // 按产品分组
+        // 按产品分组，计算每种产品数量
         const productGroups = {};
         usedLocs.forEach(loc => {
-            if (!productGroups[loc.productId]) {
-                productGroups[loc.productId] = [];
-            }
+            if (!productGroups[loc.productId]) productGroups[loc.productId] = [];
             productGroups[loc.productId].push(loc);
         });
 
-        // 构建产品列表并按库位数量降序排序（大产品优先）
+        // 产品按库位数量降序排列（大产品优先）
         const productEntries = Object.keys(productGroups).map(pid => ({
             productId: parseInt(pid),
             locs: productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo)),
@@ -993,29 +987,26 @@ function executeSmartSort() {
         productEntries.sort((a, b) => b.count - a.count);
 
         const finalAssignments = [];
-        const occupied = new Set(); // 已分配的目标库位ID
+        const occupied = new Set();
 
-        // 依次分配每个产品的每个库位，每次选择当前空余最多的排
+        // 分配：优先选择空余最多的排
         for (const entry of productEntries) {
             for (const loc of entry.locs) {
-                // 计算当前每排的空余库位数量
-                const rowFreeCount = {};
+                // 计算每排当前空余数量
+                const rowFree = {};
                 allLocs.forEach(l => {
                     if (!occupied.has(l.id)) {
-                        rowFreeCount[l.rowNum] = (rowFreeCount[l.rowNum] || 0) + 1;
+                        rowFree[l.rowNum] = (rowFree[l.rowNum] || 0) + 1;
                     }
                 });
-
-                // 选择空余最多的排
                 let bestRow = null, maxFree = -1;
-                for (const row in rowFreeCount) {
-                    if (rowFreeCount[row] > maxFree) {
-                        maxFree = rowFreeCount[row];
+                for (const row in rowFree) {
+                    if (rowFree[row] > maxFree) {
+                        maxFree = rowFree[row];
                         bestRow = parseInt(row);
                     }
                 }
-                if (bestRow === null) break; // 无空位
-
+                if (bestRow === null) break;
                 const targetLoc = allLocs.find(l => l.rowNum === bestRow && !occupied.has(l.id));
                 if (targetLoc) {
                     finalAssignments.push({
@@ -1029,7 +1020,7 @@ function executeSmartSort() {
             }
         }
 
-        // 防御：如果还有未分配的产品（理论上不会），放入剩余空位
+        // 防御：未分配产品放入剩余空位
         const assignedSourceIds = new Set(finalAssignments.map(a => a.sourceLocId));
         usedLocs.forEach(loc => {
             if (!assignedSourceIds.has(loc.id)) {
@@ -1046,7 +1037,7 @@ function executeSmartSort() {
             }
         });
 
-        // 生成移动步骤（与之前相同）
+        // 生成移动步骤
         const currentState = new Map();
         allLocs.forEach(loc => {
             currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null);
@@ -1061,7 +1052,6 @@ function executeSmartSort() {
         });
 
         const tempMoves = [];
-        // 移出需要变动的产品到辅助区
         for (const loc of allLocs) {
             const cur = currentState.get(loc.id);
             const fin = finalState.get(loc.id);
@@ -1081,7 +1071,6 @@ function executeSmartSort() {
             }
         }
 
-        // 移入最终产品
         for (const assign of finalAssignments) {
             const targetLoc = allLocs.find(l => l.id === assign.toLocId);
             const cur = currentState.get(assign.toLocId);
@@ -1120,6 +1109,9 @@ function showSmartSortResult(assignments, moves) {
         const rows = [...new Set(db.locations.filter(l => l.zoneId === zoneId).map(l => l.rowNum))].sort((a, b) => a - b);
         const cols = getDisplayColArray(zone);
         html += `<div class="grid-table">`;
+        html += `<div class="grid-col-label-row"><div style="width:var(--row-label-width);"></div>`;
+        cols.forEach((_,i)=>{ html += `<div class="grid-col-label">${i+1}托</div>`; });
+        html += `</div>`;
         rows.forEach(row => {
             html += `<div class="grid-row">`;
             html += `<div class="grid-row-label">${getRowDisplayLabel(zone, row)}</div>`;
