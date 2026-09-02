@@ -936,20 +936,81 @@ function showSmartSortModal() {
     });
 }
 
+function showSmartSortModal() {
+    let zoneCheckboxes = '';
+    db.zones.forEach(z => {
+        zoneCheckboxes += `<div class="smart-select-card" data-value="${z.id}" data-type="target">
+            ${z.name}
+        </div>`;
+    });
+    let auxCheckboxes = '';
+    db.zones.forEach(z => {
+        auxCheckboxes += `<div class="smart-select-card" data-value="${z.id}" data-type="aux">
+            ${z.name}
+        </div>`;
+    });
+    openModal(`
+        <h2>🧹 智能排序</h2>
+        <div class="form-group">
+            <label>目标区域（可多选，主要整理）</label>
+            <div class="smart-select-cards" id="targetZoneCards">
+                ${zoneCheckboxes}
+            </div>
+            <select multiple size="4" class="smart-sort-target-multi" style="display:none;">
+                ${db.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>辅助区域（可多选，用于临时存放）</label>
+            <div class="smart-select-cards" id="auxZoneCards">
+                ${auxCheckboxes}
+            </div>
+            <select multiple size="4" class="smart-sort-aux-multi" style="display:none;">
+                ${db.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>排序规则</label>
+            <select id="sortRule">
+                <option value="same_product_per_row">每排尽量同产品，新批次放高托号</option>
+                <option value="fifo_only">仅按批次日期顺序排列</option>
+            </select>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-outline" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="executeSmartSort()">执行排序</button>
+        </div>
+    `);
+    // 卡片点击事件（使用事件委托，避免重新绑定）
+    document.querySelectorAll('.smart-select-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.stopPropagation();
+            this.classList.toggle('active');
+        });
+    });
+}
+
 function executeSmartSort() {
     let targetZoneIds, auxZoneIds;
-    const targetCheckList = document.querySelector('.smart-sort-target-check');
-    if (targetCheckList && targetCheckList.offsetParent !== null) {
-        targetZoneIds = [...document.querySelectorAll('.smart-sort-target-check:checked')].map(o => parseInt(o.value));
-        auxZoneIds = [...document.querySelectorAll('.smart-sort-aux-check:checked')].map(o => parseInt(o.value));
+    // 检测卡片是否可见（电脑端）
+    const targetCards = document.querySelectorAll('.smart-select-card[data-type="target"]');
+    const auxCards = document.querySelectorAll('.smart-select-card[data-type="aux"]');
+    if (targetCards.length > 0 && targetCards[0].offsetParent !== null) {
+        // 电脑端：读取卡片选中状态
+        targetZoneIds = [...document.querySelectorAll('.smart-select-card[data-type="target"].active')].map(card => parseInt(card.dataset.value));
+        auxZoneIds = [...document.querySelectorAll('.smart-select-card[data-type="aux"].active')].map(card => parseInt(card.dataset.value));
     } else {
+        // 手机端：读取多选下拉
         const targetMulti = document.querySelector('.smart-sort-target-multi');
         const auxMulti = document.querySelector('.smart-sort-aux-multi');
         targetZoneIds = [...targetMulti.selectedOptions].map(o => parseInt(o.value));
         auxZoneIds = [...auxMulti.selectedOptions].map(o => parseInt(o.value));
     }
 
-    if (targetZoneIds.length === 0) { showToast('请至少选择一个目标区域', 'error'); return; }
+    if (targetZoneIds.length === 0) {
+        showToast('请至少选择一个目标区域', 'error');
+        return;
+    }
 
     const auxEmptyLocs = db.locations.filter(l => auxZoneIds.includes(l.zoneId) && l.status === 'normal');
     let allAssignments = [];
@@ -959,35 +1020,40 @@ function executeSmartSort() {
         const targetZone = db.zones.find(z => z.id === targetZoneId);
         if (!targetZone) return;
 
-        // 获取目标区域所有库位，按排号升序、列号降序排列（大托号优先）
+        // 获取所有库位，按排、列排序（列按实际显示顺序）
         const allLocs = db.locations
             .filter(l => l.zoneId === targetZoneId)
             .sort((a, b) => {
                 if (a.rowNum !== b.rowNum) return a.rowNum - b.rowNum;
-                return getDisplayColNumber(targetZone, b.colNum) - getDisplayColNumber(targetZone, a.colNum);
+                return getDisplayColNumber(targetZone, a.colNum) - getDisplayColNumber(targetZone, b.colNum);
             });
 
         const usedLocs = allLocs.filter(l => l.status === 'used');
         if (usedLocs.length === 0) return;
 
-        // 按产品分组，组内按批次升序（旧→新）
+        // 按产品分组，计算数量
         const productGroups = {};
         usedLocs.forEach(loc => {
             if (!productGroups[loc.productId]) productGroups[loc.productId] = [];
             productGroups[loc.productId].push(loc);
         });
-        for (const pid in productGroups) {
-            productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo));
-        }
+
+        // 产品按数量降序（大产品优先）
+        const productEntries = Object.keys(productGroups).map(pid => ({
+            productId: parseInt(pid),
+            locs: productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo)),
+            count: productGroups[pid].length
+        }));
+        productEntries.sort((a, b) => b.count - a.count);
 
         const finalAssignments = [];
         const occupied = new Set();
 
-        // 依次分配每个产品的每个库位，按当前排剩余空位填充
-        for (const pid in productGroups) {
-            const locs = productGroups[pid];
-            for (const loc of locs) {
-                // 计算每排剩余空位
+        // 分配逻辑
+        for (const entry of productEntries) {
+            // 为每个产品的每个库位寻找目标位置
+            for (const loc of entry.locs) {
+                // 计算每排当前空余库位数量
                 const rowFree = {};
                 allLocs.forEach(l => {
                     if (!occupied.has(l.id)) {
@@ -995,24 +1061,23 @@ function executeSmartSort() {
                     }
                 });
 
-                // 选择剩余空位最多的排
-                let bestRow = null, maxFree = -1;
+                // 选择空余最多的排（优先排）
+                let bestRow = null;
+                let maxFree = -1;
                 for (const row in rowFree) {
                     if (rowFree[row] > maxFree) {
                         maxFree = rowFree[row];
                         bestRow = parseInt(row);
                     }
                 }
-                if (bestRow === null) break;
+                if (bestRow === null) break; // 没有空位
 
-                // 在该排中选择最大托号（列号最大）的空位
-                const rowLocs = allLocs.filter(l => l.rowNum === bestRow && !occupied.has(l.id));
-                // 上面 allLocs 已经按列号降序排列，因此取第一个即可
-                const targetLoc = rowLocs[0];
+                // 在该排内按列号从小到大找第一个空位（保证旧批次放低列）
+                const targetLoc = allLocs.find(l => l.rowNum === bestRow && !occupied.has(l.id));
                 if (targetLoc) {
                     finalAssignments.push({
                         toLocId: targetLoc.id,
-                        productId: parseInt(pid),
+                        productId: entry.productId,
                         batchNo: loc.batchNo,
                         sourceLocId: loc.id
                     });
@@ -1021,7 +1086,7 @@ function executeSmartSort() {
             }
         }
 
-        // 防御：未分配的产品放入剩余空位（按列号降序）
+        // 防御：未分配的产品放入任意剩余空位
         const assignedSourceIds = new Set(finalAssignments.map(a => a.sourceLocId));
         usedLocs.forEach(loc => {
             if (!assignedSourceIds.has(loc.id)) {
@@ -1043,7 +1108,6 @@ function executeSmartSort() {
         allLocs.forEach(loc => {
             currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null);
         });
-
         const finalState = new Map();
         finalAssignments.forEach(assign => {
             finalState.set(assign.toLocId, { productId: assign.productId, batchNo: assign.batchNo });
@@ -1071,7 +1135,6 @@ function executeSmartSort() {
                 }
             }
         }
-
         for (const assign of finalAssignments) {
             const targetLoc = allLocs.find(l => l.id === assign.toLocId);
             const cur = currentState.get(assign.toLocId);
@@ -1091,64 +1154,6 @@ function executeSmartSort() {
     });
 
     showSmartSortResult(allAssignments, allMoves);
-}
-
-function showSmartSortResult(assignments, moves) {
-    const targetZoneIds = [...new Set(assignments.map(a => {
-        const loc = db.locations.find(l => l.id === a.toLocId);
-        return loc ? loc.zoneId : null;
-    }).filter(Boolean))];
-
-    let html = `<h2>排序结果（最终状态）</h2>`;
-    html += `<div id="smartSortResultContent">`;
-
-    targetZoneIds.forEach(zoneId => {
-        const zone = db.zones.find(z => z.id === zoneId);
-        if (!zone) return;
-        html += `<h3>${zone.name}</h3>`;
-        html += `<div class="grid-container" style="overflow:auto;">`;
-        const rows = [...new Set(db.locations.filter(l => l.zoneId === zoneId).map(l => l.rowNum))].sort((a, b) => a - b);
-        const cols = getDisplayColArray(zone);
-        html += `<div class="grid-table">`;
-        html += `<div class="grid-col-label-row"><div style="width:var(--row-label-width);"></div>`;
-        cols.forEach((_,i)=>{ html += `<div class="grid-col-label">${i+1}托</div>`; });
-        html += `</div>`;
-        rows.forEach(row => {
-            html += `<div class="grid-row">`;
-            html += `<div class="grid-row-label">${getRowDisplayLabel(zone, row)}</div>`;
-            cols.forEach(col => {
-                const loc = db.locations.find(l => l.zoneId === zoneId && l.rowNum === row && l.colNum === col);
-                if (loc) {
-                    const assign = assignments.find(a => a.toLocId === loc.id);
-                    const product = assign ? db.products.find(p => p.id === assign.productId) : null;
-                    let style = 'background:#fff;border-color:#ddd;';
-                    let label = '空';
-                    if (assign && product) {
-                        style = 'background:#a5d6a7;border-color:#4caf50;';
-                        label = `${product.name||'未知'} (${assign.batchNo})`;
-                    }
-                    html += `<div class="cell" style="${style}">${label}</div>`;
-                } else {
-                    html += `<div class="cell" style="border-style:dashed;opacity:.3;">-</div>`;
-                }
-            });
-            html += `</div>`;
-        });
-        html += `</div></div>`;
-    });
-
-    html += `<h3>移动步骤（共${moves.length}步）</h3>`;
-    html += `<table class="records-table"><thead><tr><th>步骤</th><th>操作</th><th>从</th><th>到</th><th>产品</th><th>原因</th></tr></thead><tbody>`;
-    moves.forEach((move, idx) => {
-        const fromLabel = move.from ? (db.zones.find(z => z.id === move.from.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.from.zoneId), move.from.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.from.zoneId), move.from.colNum) + '托') : '-';
-        const toLabel = move.to ? (db.zones.find(z => z.id === move.to.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.to.zoneId), move.to.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.to.zoneId), move.to.colNum) + '托') : '-';
-        const prod = move.productId ? (db.products.find(p => p.id === move.productId)?.name || '未知产品') : '-';
-        html += `<tr><td>${idx+1}</td><td>${move.type}</td><td>${fromLabel}</td><td>${toLabel}</td><td>${prod}</td><td>${move.reason||''}</td></tr>`;
-    });
-    html += `</tbody></table>`;
-    html += `</div>`;
-    html += `<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-primary" onclick="exportSmartSortImage()">输出图片</button></div>`;
-    openModal(html);
 }
 
 function exportSmartSortImage() {
