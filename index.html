@@ -91,11 +91,11 @@
         .zone-sort-item{padding:10px 12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:#fafafa;cursor:move;display:flex;align-items:center;gap:8px;font-size:14px}
         .zone-sort-item.dragging{opacity:.5;border-color:var(--primary)}
         /* 响应式多选框 */
-        .smart-sort-checkbox-list{display:block;}
-        .smart-sort-multiselect{display:none;}
+        .multi-select-container .checkbox-list{display:block;}
+        .multi-select-container .select-multi{display:none;}
         @media(max-width:767px){
-            .smart-sort-checkbox-list{display:none;}
-            .smart-sort-multiselect{display:block;}
+            .multi-select-container .checkbox-list{display:none;}
+            .multi-select-container .select-multi{display:block;}
         }
         @media(min-width:768px){
             .main-container{flex-direction:row}
@@ -171,7 +171,6 @@
     <aside class="right-panel">
         <div class="right-section"><h3>📦 产品</h3><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" id="btnToggleBatch">批量</button><button class="btn btn-primary btn-sm" id="btnAddProduct">+</button></div><div class="product-list" id="productList"></div><div class="batch-toolbar" id="batchToolbar"><button class="btn btn-sm btn-warning" onclick="batchUpdateUnit()">单位</button><button class="btn btn-sm btn-warning" onclick="batchUpdateUnitQuantity()">单位数量</button><button class="btn btn-sm btn-danger" onclick="batchDeleteProducts()">删除</button><button class="btn btn-sm btn-outline" onclick="clearSelectionAndExit()">取消</button></div></div>
         <div class="right-section"><h3>📊 统计</h3><div id="zoneStats" style="font-size:10px"></div></div>
-        <!-- 将 FIFO、库存统计、记录、每日统计合并到工具箱 -->
         <div class="right-section"><h3>🧰 工具箱</h3>
             <button class="btn btn-outline btn-sm" id="btnShowFifo">FIFO批次排序</button>
             <button class="btn btn-outline btn-sm" id="btnShowStats">库存统计</button>
@@ -878,9 +877,8 @@ function importData(file){if(!db||!Array.isArray(db.zones)){showToast('数据未
 function renderZoneStats(){const c=document.getElementById('zoneStats');if(!c||!db)return;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){c.textContent='请选择区域';return;}const locs=db.locations.filter(l=>l.zoneId===zone.id);const n=locs.filter(l=>l.status==='normal').length,u=locs.filter(l=>l.status==='unavailable').length,s=locs.filter(l=>l.status==='used').length;const tp=locs.filter(l=>l.status==='used').reduce((sum,l)=>{const p=db.products.find(x=>x.id===l.productId);return sum+(l.quantity||0)*(p?.unitQuantity||1)+(l.customPieces||0);},0);c.innerHTML='<div>正常:'+n+' 不可用:'+u+' 已用:'+s+' 总件数:'+tp+'</div>';}
 function updateHeaderStats(){if(!db||!Array.isArray(db.locations))return;const all=db.locations;document.getElementById('statNormal').textContent=all.filter(l=>l.status==='normal').length;document.getElementById('statUnavailable').textContent=all.filter(l=>l.status==='unavailable').length;document.getElementById('statUsed').textContent=all.filter(l=>l.status==='used').length;document.getElementById('statProducts').textContent=db.products.length;}
 
-// ==================== 智能排序功能（重写） ====================
+// ==================== 智能排序功能（优化版） ====================
 function showSmartSortModal() {
-    // 电脑端使用复选框列表，手机端使用多选下拉框
     let zoneCheckboxes = '';
     db.zones.forEach(z => {
         zoneCheckboxes += `<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
@@ -909,20 +907,24 @@ function showSmartSortModal() {
         <h2>🧹 智能排序</h2>
         <div class="form-group">
             <label>目标区域（可多选，主要整理）</label>
-            <div class="smart-sort-checkbox-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
-                ${zoneCheckboxes}
-            </div>
-            <div class="smart-sort-multiselect">
-                ${zoneMultiSelect}
+            <div class="multi-select-container">
+                <div class="checkbox-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
+                    ${zoneCheckboxes}
+                </div>
+                <div class="select-multi">
+                    ${zoneMultiSelect}
+                </div>
             </div>
         </div>
         <div class="form-group">
             <label>辅助区域（可多选，用于临时存放）</label>
-            <div class="smart-sort-checkbox-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
-                ${auxCheckboxes}
-            </div>
-            <div class="smart-sort-multiselect">
-                ${auxMultiSelect}
+            <div class="multi-select-container">
+                <div class="checkbox-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
+                    ${auxCheckboxes}
+                </div>
+                <div class="select-multi">
+                    ${auxMultiSelect}
+                </div>
             </div>
         </div>
         <div class="form-group">
@@ -938,6 +940,7 @@ function showSmartSortModal() {
         </div>
     `);
 }
+
 function executeSmartSort() {
     let targetZoneIds, auxZoneIds;
     const targetCheckList = document.querySelector('.smart-sort-target-check');
@@ -961,7 +964,6 @@ function executeSmartSort() {
         const targetZone = db.zones.find(z => z.id === targetZoneId);
         if (!targetZone) return;
 
-        // 获取目标区域所有库位，按排、托排序
         const allLocs = db.locations
             .filter(l => l.zoneId === targetZoneId)
             .sort((a, b) => {
@@ -972,7 +974,6 @@ function executeSmartSort() {
         const usedLocs = allLocs.filter(l => l.status === 'used');
         if (usedLocs.length === 0) return;
 
-        // 按产品分组
         const productGroups = {};
         usedLocs.forEach(loc => {
             if (!productGroups[loc.productId]) {
@@ -981,7 +982,6 @@ function executeSmartSort() {
             productGroups[loc.productId].push(loc);
         });
 
-        // 统计每排每种产品的数量
         const rowProductCount = {};
         allLocs.forEach(loc => {
             if (loc.status === 'used') {
@@ -994,12 +994,10 @@ function executeSmartSort() {
         const finalAssignments = [];
         const occupied = new Set();
 
-        // 对每个产品，优先放在其出现最多的排，按批次顺序填满该排，若满则找相邻排
         for (const pid in productGroups) {
             const locs = productGroups[pid];
             locs.sort((a, b) => a.batchNo.localeCompare(b.batchNo));
 
-            // 找到该产品出现最多的排
             let bestRow = null, maxCount = -1;
             for (const row in rowProductCount) {
                 const cnt = rowProductCount[row][pid] || 0;
@@ -1010,12 +1008,9 @@ function executeSmartSort() {
             }
             if (bestRow === null) continue;
 
-            // 尝试将该产品的所有库位放入最佳排
             for (const loc of locs) {
-                // 在最佳排找空位
                 let targetLoc = allLocs.find(l => l.rowNum === bestRow && !occupied.has(l.id));
                 if (!targetLoc) {
-                    // 最佳排满了，找相邻排
                     const allRows = [...new Set(allLocs.map(l => l.rowNum))].sort((a, b) => a - b);
                     for (const row of allRows) {
                         if (row === bestRow) continue;
@@ -1035,7 +1030,6 @@ function executeSmartSort() {
             }
         }
 
-        // 防御：如果有未分配的产品，放入任意剩余空位
         const assignedSourceIds = new Set(finalAssignments.map(a => a.sourceLocId));
         usedLocs.forEach(loc => {
             if (!assignedSourceIds.has(loc.id)) {
@@ -1052,7 +1046,6 @@ function executeSmartSort() {
             }
         });
 
-        // 生成移动步骤
         const currentState = new Map();
         allLocs.forEach(loc => {
             currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null);
@@ -1067,7 +1060,6 @@ function executeSmartSort() {
         });
 
         const tempMoves = [];
-        // 移出需要变动的产品到辅助区
         for (const loc of allLocs) {
             const cur = currentState.get(loc.id);
             const fin = finalState.get(loc.id);
@@ -1087,7 +1079,6 @@ function executeSmartSort() {
             }
         }
 
-        // 移入最终产品
         for (const assign of finalAssignments) {
             const targetLoc = allLocs.find(l => l.id === assign.toLocId);
             const cur = currentState.get(assign.toLocId);
@@ -1163,6 +1154,7 @@ function showSmartSortResult(assignments, moves) {
     html += `<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-primary" onclick="exportSmartSortImage()">输出图片</button></div>`;
     openModal(html);
 }
+
 function exportSmartSortImage() {
     const content = document.getElementById('smartSortResultContent');
     if (!content) { showToast('没有内容可输出', 'error'); return; }
