@@ -487,29 +487,38 @@ function toggleLocationBatchMode(){locationBatchMode=!locationBatchMode;if(!loca
 function toggleLocationSelect(id,ev){if(ev)ev.stopPropagation();if(selectedLocations.has(id))selectedLocations.delete(id);else selectedLocations.add(id);renderGrid();}
 function exitLocationBatchMode(){selectedLocations.clear();locationBatchMode=false;document.getElementById('locationBatchToolbar').classList.remove('active');renderGrid();}
 
-// 批量入库（排序、预览、批次记忆）
+// 批量入库（修改：支持每个库位单独设置批次号）
 function batchStockInLocations(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
     const empty=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='normal');
     if(empty.length===0){showToast('没有空库位','error');return;}
+    // 排序
     const sortedEmpty = empty.map(id=>db.locations.find(l=>l.id===id)).sort((a,b)=>{
         if(a.zoneId!==b.zoneId) return a.zoneId - b.zoneId;
         if(a.rowNum!==b.rowNum) return a.rowNum - b.rowNum;
         return a.colNum - b.colNum;
     });
-    let locPreview = sortedEmpty.map(l=>{
-        const zone=db.zones.find(z=>z.id===l.zoneId);
-        return zone.name+' '+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托';
-    }).join('、');
     const today=new Date().toISOString().slice(0,10);
     const defaultBatch = lastBatchNo || today;
     let opts=db.products.map(p=>'<option value="'+p.id+'">'+p.name+' ('+p.model+')</option>').join('');
-    openModal('<h2>批量入库</h2><p>已选 '+sortedEmpty.length+' 个空库位，按顺序添加：</p><div style="background:#f8f9fa;padding:6px;border-radius:4px;margin-bottom:10px;max-height:80px;overflow-y:auto">'+locPreview+'</div>'+
+    // 构建每个库位的批次号输入行
+    let batchRowsHtml = '';
+    sortedEmpty.forEach(loc => {
+        const zone=db.zones.find(z=>z.id===loc.zoneId);
+        const locName = zone.name+' '+getRowDisplayLabel(zone,loc.rowNum)+'排'+getDisplayColNumber(zone,loc.colNum)+'托';
+        batchRowsHtml += `
+            <div style="display:flex; align-items:center; margin-bottom:4px;">
+                <span style="flex:1; font-size:12px;">${locName}</span>
+                <input type="date" id="batchNo_${loc.id}" value="${defaultBatch}" style="width:150px;">
+            </div>
+        `;
+    });
+    openModal('<h2>批量入库</h2><p>已选 '+sortedEmpty.length+' 个空库位，按顺序添加，可分别设置批次号：</p>'+
+        '<div style="background:#f8f9fa;padding:6px;border-radius:4px;margin-bottom:10px;max-height:200px;overflow-y:auto">'+batchRowsHtml+'</div>'+
         '<div class="form-group"><label>产品</label><select id="batchStockProduct">'+opts+'</select></div>'+
         '<div class="form-group"><label>方式</label><select id="batchStockType" onchange="toggleBatchStockType()"><option value="unit">按单位数量</option><option value="custom">自定义件数</option></select></div>'+
         '<div class="form-group" id="batchUnitQtyGroup"><label>单位数量</label><input type="number" id="batchStockQty" min="0.01" step="any" value="1"></div>'+
         '<div class="form-group" id="batchCustomPiecesGroup" style="display:none"><label>件数</label><input type="number" id="batchStockCustomPieces" min="1" step="1" value="1"></div>'+
-        '<div class="form-group"><label>批次日期</label><input type="date" id="batchStockBatch" value="'+defaultBatch+'"></div>'+
         '<div class="form-group"><label>备注</label><textarea id="batchStockRemark"></textarea></div>'+
         '<div class="form-group"><label>记录手帐</label><input type="checkbox" id="batchHandAccount"></div>'+
         '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-success" onclick="confirmBatchStockIn()">确认</button></div>');
@@ -517,14 +526,11 @@ function batchStockInLocations(){
 function toggleBatchStockType(){const t=document.getElementById('batchStockType').value;document.getElementById('batchUnitQtyGroup').style.display=t==='unit'?'block':'none';document.getElementById('batchCustomPiecesGroup').style.display=t==='custom'?'block':'none';}
 function confirmBatchStockIn(){
     const pid=parseInt(document.getElementById('batchStockProduct').value);
-    const batch=document.getElementById('batchStockBatch').value;
     const remark=document.getElementById('batchStockRemark').value.trim();
     const type=document.getElementById('batchStockType').value;
     const handAccount=document.getElementById('batchHandAccount')?.checked||false;
     const product=db.products.find(p=>p.id===pid);
     if(!product){showToast('产品不存在','error');return;}
-    if(!batch){showToast('请选择批次日期','error');return;}
-    lastBatchNo = batch;
     let qty=0,cp=0;
     if(type==='unit'){qty=parseFloat(document.getElementById('batchStockQty').value);if(!qty||qty<=0){showToast('无效','error');return;}}
     else{cp=parseInt(document.getElementById('batchStockCustomPieces').value);if(!Number.isInteger(cp)||cp<1){showToast('无效','error');return;}}
@@ -536,6 +542,10 @@ function confirmBatchStockIn(){
     });
     const nd=JSON.parse(JSON.stringify(db));
     sortedEmpty.forEach(loc=>{
+        const batchInput = document.getElementById('batchNo_'+loc.id);
+        const batch = batchInput ? batchInput.value : (lastBatchNo || new Date().toISOString().slice(0,10));
+        if(!batch){showToast('批次号不能为空','error');return;}
+        lastBatchNo = batch;
         const nl=nd.locations.find(l=>l.id===loc.id);
         const zone=db.zones.find(z=>z.id===loc.zoneId);
         nl.status='used'; nl.productId=pid; nl.batchNo=batch; nl.remark=remark; nl.handAccount=handAccount; nl.updatedAt=new Date().toISOString();
