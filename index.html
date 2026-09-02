@@ -952,7 +952,7 @@ function executeSmartSort() {
         const targetZone = db.zones.find(z => z.id === targetZoneId);
         if (!targetZone) return;
 
-        // 获取所有库位，按排、列排序
+        // 获取该区域所有库位，按排、列排序
         const allLocs = db.locations
             .filter(l => l.zoneId === targetZoneId)
             .sort((a, b) => {
@@ -963,100 +963,97 @@ function executeSmartSort() {
         const usedLocs = allLocs.filter(l => l.status === 'used');
         if (usedLocs.length === 0) return;
 
-        // 按产品分组，计算数量，并按批次排序（同产品批次升序）
+        // 产品分组
         const productGroups = {};
         usedLocs.forEach(loc => {
             if (!productGroups[loc.productId]) productGroups[loc.productId] = [];
             productGroups[loc.productId].push(loc);
         });
-        for (let pid in productGroups) {
-            productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo));
-        }
 
-        // 构建产品条目，按数量降序（大产品先分配）
+        // 产品按数量降序
         const productEntries = Object.keys(productGroups).map(pid => ({
             productId: parseInt(pid),
-            locs: productGroups[pid],
+            locs: productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo)),
             count: productGroups[pid].length
         }));
         productEntries.sort((a, b) => b.count - a.count);
 
-        // 获取排信息
-        const rows = [...new Set(allLocs.map(l => l.rowNum))].sort((a, b) => a - b);
-        const colsPerRow = allLocs.filter(l => l.rowNum === rows[0]).length; // 假设每排列数相同
-
         const finalAssignments = [];
         const occupied = new Set();
-        let currentRowIndex = 0; // 当前分配到的排索引
 
-        // 为每个产品分配
+        // 第一步：保留原有排中占多数的产品
+        const rows = [...new Set(allLocs.map(l => l.rowNum))].sort((a, b) => a - b);
+        rows.forEach(row => {
+            const rowLocs = allLocs.filter(l => l.rowNum === row);
+            const rowUsed = rowLocs.filter(l => l.status === 'used');
+            if (rowUsed.length === 0) return;
+
+            // 统计该排各产品数量
+            const rowProductCount = {};
+            rowUsed.forEach(loc => {
+                rowProductCount[loc.productId] = (rowProductCount[loc.productId] || 0) + 1;
+            });
+
+            // 找出占多数的产品（≥60%且该产品总数量不超过排容量）
+            const totalUsed = rowUsed.length;
+            for (const pid in rowProductCount) {
+                const ratio = rowProductCount[pid] / totalUsed;
+                const product = productEntries.find(p => p.productId === parseInt(pid));
+                if (ratio >= 0.6 && product && product.count <= rowLocs.length) {
+                    // 将该产品的所有库位分配到该排，按批次顺序填充列
+                    const productLocs = product.locs;
+                    const availableSlots = rowLocs.filter(l => !occupied.has(l.id));
+                    // 按列顺序分配
+                    for (let i = 0; i < productLocs.length && i < availableSlots.length; i++) {
+                        finalAssignments.push({
+                            toLocId: availableSlots[i].id,
+                            productId: product.productId,
+                            batchNo: productLocs[i].batchNo,
+                            sourceLocId: productLocs[i].id
+                        });
+                        occupied.add(availableSlots[i].id);
+                    }
+                    // 标记该产品已分配（避免后面重复分配）
+                    product.locs = product.locs.slice(productLocs.length);
+                    // 如果该产品还有剩余，后面会继续处理
+                }
+            }
+        });
+
+        // 第二步：处理剩余产品，填充空余排
         for (const entry of productEntries) {
-            let remaining = entry.locs;
-            while (remaining.length > 0) {
-                if (currentRowIndex >= rows.length) {
-                    // 排不够，需要合并到已有排的空余位置（合并小产品）
-                    // 简单处理：将剩余产品放入任何空位（保持连续）
-                    for (const loc of remaining) {
-                        const anyLoc = allLocs.find(l => !occupied.has(l.id));
-                        if (anyLoc) {
-                            finalAssignments.push({
-                                toLocId: anyLoc.id,
-                                productId: entry.productId,
-                                batchNo: loc.batchNo,
-                                sourceLocId: loc.id
-                            });
-                            occupied.add(anyLoc.id);
-                        }
+            if (entry.locs.length === 0) continue;
+            // 为每个库位寻找目标位置
+            for (const loc of entry.locs) {
+                // 计算每排空余数量
+                const rowFree = {};
+                allLocs.forEach(l => {
+                    if (!occupied.has(l.id)) {
+                        rowFree[l.rowNum] = (rowFree[l.rowNum] || 0) + 1;
                     }
-                    remaining = [];
-                    break;
+                });
+                let bestRow = null, maxFree = -1;
+                for (const row in rowFree) {
+                    if (rowFree[row] > maxFree) {
+                        maxFree = rowFree[row];
+                        bestRow = parseInt(row);
+                    }
                 }
-
-                const currentRow = rows[currentRowIndex];
-                const rowLocs = allLocs.filter(l => l.rowNum === currentRow);
-
-                // 如果这一排已经被占用（之前产品分配过），检查是否还能放置
-                const freeLocsInRow = rowLocs.filter(l => !occupied.has(l.id));
-                if (freeLocsInRow.length === 0) {
-                    currentRowIndex++;
-                    continue;
-                }
-
-                // 如果剩余产品数量 >= 一排容量，则占满这一排
-                if (remaining.length >= colsPerRow) {
-                    // 将产品按批次依次放入这一排的所有空位（按列顺序）
-                    const targets = rowLocs.slice(0, colsPerRow); // 按列顺序取
-                    for (let i = 0; i < colsPerRow; i++) {
-                        const loc = remaining[i];
-                        finalAssignments.push({
-                            toLocId: targets[i].id,
-                            productId: entry.productId,
-                            batchNo: loc.batchNo,
-                            sourceLocId: loc.id
-                        });
-                        occupied.add(targets[i].id);
-                    }
-                    remaining = remaining.slice(colsPerRow);
-                    currentRowIndex++; // 进入下一排
-                } else {
-                    // 剩余产品数量 < 一排容量，独占这一排（即使有空位）
-                    const targets = rowLocs.slice(0, remaining.length);
-                    for (let i = 0; i < remaining.length; i++) {
-                        finalAssignments.push({
-                            toLocId: targets[i].id,
-                            productId: entry.productId,
-                            batchNo: remaining[i].batchNo,
-                            sourceLocId: remaining[i].id
-                        });
-                        occupied.add(targets[i].id);
-                    }
-                    remaining = [];
-                    currentRowIndex++; // 独占一排，进入下一排
+                if (bestRow === null) break;
+                const targetLoc = allLocs.find(l => l.rowNum === bestRow && !occupied.has(l.id));
+                if (targetLoc) {
+                    finalAssignments.push({
+                        toLocId: targetLoc.id,
+                        productId: entry.productId,
+                        batchNo: loc.batchNo,
+                        sourceLocId: loc.id
+                    });
+                    occupied.add(targetLoc.id);
                 }
             }
         }
 
-        // 防御：如果还有未分配的产品（理论不会），放入剩余空位
+        // 防御：未分配的产品放入剩余空位
         const assignedSourceIds = new Set(finalAssignments.map(a => a.sourceLocId));
         usedLocs.forEach(loc => {
             if (!assignedSourceIds.has(loc.id)) {
@@ -1073,7 +1070,7 @@ function executeSmartSort() {
             }
         });
 
-        // 生成移动步骤（与之前相同）
+        // 生成移动步骤（与之前类似）
         const currentState = new Map();
         allLocs.forEach(loc => {
             currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null);
