@@ -941,14 +941,11 @@ function showSmartSortModal() {
 
 function executeSmartSort() {
     let targetZoneIds, auxZoneIds;
-    // 判断使用哪种控件（根据是否可见）
     const targetCheckList = document.querySelector('.smart-sort-target-check');
     if (targetCheckList && targetCheckList.offsetParent !== null) {
-        // 电脑端复选框
         targetZoneIds = [...document.querySelectorAll('.smart-sort-target-check:checked')].map(o => parseInt(o.value));
         auxZoneIds = [...document.querySelectorAll('.smart-sort-aux-check:checked')].map(o => parseInt(o.value));
     } else {
-        // 手机端多选下拉
         const targetMulti = document.querySelector('.smart-sort-target-multi');
         const auxMulti = document.querySelector('.smart-sort-aux-multi');
         targetZoneIds = [...targetMulti.selectedOptions].map(o => parseInt(o.value));
@@ -959,99 +956,135 @@ function executeSmartSort() {
 
     // 辅助空位池
     const auxEmptyLocs = db.locations.filter(l => auxZoneIds.includes(l.zoneId) && l.status === 'normal');
-    let allAssignments = [];
-    let allMoves = [];
+
+    let allAssignments = []; // 最终分配：{toLoc, productId, batchNo}
+    let allMoves = [];       // 移动步骤
 
     targetZoneIds.forEach(targetZoneId => {
         const targetZone = db.zones.find(z => z.id === targetZoneId);
         if (!targetZone) return;
-        const usedLocs = db.locations.filter(l => l.zoneId === targetZoneId && l.status === 'used');
-        if (usedLocs.length === 0) return;
 
-        // 产品分组
-        const productGroups = {};
+        // 获取目标区域所有库位（包括空库位），按排、托排序
+        const allLocs = db.locations
+            .filter(l => l.zoneId === targetZoneId)
+            .sort((a, b) => {
+                if (a.rowNum !== b.rowNum) return a.rowNum - b.rowNum;
+                return getDisplayColNumber(targetZone, a.colNum) - getDisplayColNumber(targetZone, b.colNum);
+            });
+
+        // 获取目标区域所有已用产品信息
+        const usedLocs = allLocs.filter(l => l.status === 'used');
+        const productList = [];
         usedLocs.forEach(loc => {
-            const pid = loc.productId;
-            if (!productGroups[pid]) productGroups[pid] = [];
-            productGroups[pid].push(loc);
-        });
-        for (let pid in productGroups) {
-            productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo));
-        }
-
-        // 分配方案
-        const assignments = [];
-        const allTargetLocs = db.locations.filter(l => l.zoneId === targetZoneId);
-        const rowsMap = {};
-        allTargetLocs.forEach(loc => {
-            if (!rowsMap[loc.rowNum]) rowsMap[loc.rowNum] = [];
-            rowsMap[loc.rowNum].push(loc);
-        });
-        for (let row in rowsMap) {
-            rowsMap[row].sort((a, b) => getDisplayColNumber(targetZone, a.colNum) - getDisplayColNumber(targetZone, b.colNum));
-        }
-        const rows = Object.keys(rowsMap).sort((a, b) => a - b);
-        let rowIndex = 0;
-        const productIds = Object.keys(productGroups);
-        productIds.forEach(pid => {
-            const locs = productGroups[pid];
-            for (let loc of locs) {
-                while (rowIndex < rows.length && rowsMap[rows[rowIndex]].length === 0) rowIndex++;
-                if (rowIndex >= rows.length) break;
-                const currentRow = rows[rowIndex];
-                const rowLocs = rowsMap[currentRow];
-                const targetLoc = rowLocs.shift();
-                assignments.push({
-                    fromLoc: loc,
-                    toLoc: targetLoc,
-                    productId: pid,
-                    batchNo: loc.batchNo
-                });
-                if (rowLocs.length === 0) rowIndex++;
-            }
-        });
-
-        // 生成移动步骤
-        const moves = [];
-        assignments.forEach(assign => {
-            const destLoc = assign.toLoc;
-            // 跳过源和目标相同的移动
-            if (destLoc.id === assign.fromLoc.id) return;
-
-            if (destLoc.status === 'used') {
-                if (auxEmptyLocs.length > 0) {
-                    const tempLoc = auxEmptyLocs.shift();
-                    moves.push({
-                        type: '移到辅助区',
-                        from: destLoc,
-                        to: tempLoc,
-                        productId: destLoc.productId,
-                        reason: '临时移走以腾出目标位置'
-                    });
-                } else {
-                    moves.push({ type: '错误', message: '辅助区域空位不足' });
-                }
-            }
-            moves.push({
-                type: '移动产品',
-                from: assign.fromLoc,
-                to: destLoc,
-                productId: assign.productId,
-                reason: '按排序规则移动'
+            const p = db.products.find(x => x.id === loc.productId);
+            productList.push({
+                productId: loc.productId,
+                batchNo: loc.batchNo,
+                sourceLocId: loc.id,
+                productName: p ? p.name : '未知产品'
             });
         });
 
-        allAssignments = allAssignments.concat(assignments);
-        allMoves = allMoves.concat(moves);
+        // 按产品顺序排序：先按产品在 db.products 中的索引排序，同产品按批次日期升序（旧→新）
+        const productOrderMap = new Map(db.products.map((p, idx) => [p.id, idx]));
+        productList.sort((a, b) => {
+            const idxA = productOrderMap.has(a.productId) ? productOrderMap.get(a.productId) : Number.MAX_SAFE_INTEGER;
+            const idxB = productOrderMap.has(b.productId) ? productOrderMap.get(b.productId) : Number.MAX_SAFE_INTEGER;
+            if (idxA !== idxB) return idxA - idxB;
+            return a.batchNo.localeCompare(b.batchNo);
+        });
+
+        // 构建最终分配：将 productList 依次填入 allLocs
+        // 注意：需要保持同产品尽量在同一排，但简化处理，直接按顺序填充即可满足基本需求
+        const finalAssignments = [];
+        const locQueue = [...allLocs]; // 所有库位（包括空）
+        for (const item of productList) {
+            if (locQueue.length === 0) break;
+            const targetLoc = locQueue.shift();
+            finalAssignments.push({
+                toLocId: targetLoc.id,
+                productId: item.productId,
+                batchNo: item.batchNo,
+                sourceLocId: item.sourceLocId
+            });
+        }
+
+        // 生成移动步骤：比较当前状态与最终状态
+        const currentState = new Map(); // locId -> {productId, batchNo}
+        allLocs.forEach(loc => {
+            if (loc.status === 'used') {
+                currentState.set(loc.id, { productId: loc.productId, batchNo: loc.batchNo });
+            } else {
+                currentState.set(loc.id, null);
+            }
+        });
+
+        const finalState = new Map();
+        finalAssignments.forEach(assign => {
+            finalState.set(assign.toLocId, { productId: assign.productId, batchNo: assign.batchNo });
+        });
+        // 剩余未分配的库位设为空
+        allLocs.forEach(loc => {
+            if (!finalState.has(loc.id)) finalState.set(loc.id, null);
+        });
+
+        // 计算移动步骤
+        // 为简化，假设辅助区足够，先处理需要移出的产品，再移入最终产品
+        const tempMoves = [];
+        // 找出所有当前有产品但最终为空或产品不同的库位，将产品移出到辅助区
+        for (const loc of allLocs) {
+            const cur = currentState.get(loc.id);
+            const fin = finalState.get(loc.id);
+            if (cur && (!fin || cur.productId !== fin.productId || cur.batchNo !== fin.batchNo)) {
+                // 需要移出当前产品
+                if (auxEmptyLocs.length > 0) {
+                    const tempLoc = auxEmptyLocs.shift();
+                    tempMoves.push({
+                        type: '移到辅助区',
+                        from: loc,
+                        to: tempLoc,
+                        productId: cur.productId,
+                        reason: '腾出目标位置'
+                    });
+                } else {
+                    tempMoves.push({ type: '错误', message: '辅助区域空位不足' });
+                }
+            }
+        }
+
+        // 移入最终产品
+        for (const assign of finalAssignments) {
+            const targetLoc = allLocs.find(l => l.id === assign.toLocId);
+            const cur = currentState.get(assign.toLocId);
+            // 如果目标库位当前没有产品或产品不同，则需要移动（若相同则无需移动）
+            if (!cur || cur.productId !== assign.productId || cur.batchNo !== assign.batchNo) {
+                tempMoves.push({
+                    type: '移动产品',
+                    from: db.locations.find(l => l.id === assign.sourceLocId), // 源库位
+                    to: targetLoc,
+                    productId: assign.productId,
+                    reason: '按排序规则移动'
+                });
+            }
+        }
+
+        allAssignments = allAssignments.concat(finalAssignments);
+        allMoves = allMoves.concat(tempMoves);
     });
 
     showSmartSortResult(allAssignments, allMoves);
 }
 
 function showSmartSortResult(assignments, moves) {
-    const targetZoneIds = [...new Set(assignments.map(a => a.toLoc.zoneId))];
-    let html = `<h2>排序结果</h2>`;
+    // 按目标区域分组显示最终平面图
+    const targetZoneIds = [...new Set(assignments.map(a => {
+        const loc = db.locations.find(l => l.id === a.toLocId);
+        return loc ? loc.zoneId : null;
+    }).filter(Boolean))];
+
+    let html = `<h2>排序结果（最终状态）</h2>`;
     html += `<div id="smartSortResultContent">`;
+
     targetZoneIds.forEach(zoneId => {
         const zone = db.zones.find(z => z.id === zoneId);
         if (!zone) return;
@@ -1066,20 +1099,14 @@ function showSmartSortResult(assignments, moves) {
             cols.forEach(col => {
                 const loc = db.locations.find(l => l.zoneId === zoneId && l.rowNum === row && l.colNum === col);
                 if (loc) {
-                    const assign = assignments.find(a => a.toLoc.id === loc.id);
-                    const currentProduct = db.products.find(p => p.id === loc.productId);
-                    const targetProduct = assign ? db.products.find(p => p.id === assign.productId) : null;
-                    let style = '';
-                    let label = '';
-                    if (assign && targetProduct && currentProduct && targetProduct.id !== currentProduct.id) {
-                        style = 'background:#ffeb3b;border-color:#fbc02d;';
-                        label = `${currentProduct.name||'未知'}→${targetProduct.name||'未知'} (${assign.batchNo})`;
-                    } else if (assign && targetProduct) {
+                    // 从最终分配中查找该库位的产品
+                    const assign = assignments.find(a => a.toLocId === loc.id);
+                    const product = assign ? db.products.find(p => p.id === assign.productId) : null;
+                    let style = 'background:#fff;border-color:#ddd;';
+                    let label = '空';
+                    if (assign && product) {
                         style = 'background:#a5d6a7;border-color:#4caf50;';
-                        label = `${targetProduct.name||'未知'} (${assign.batchNo})`;
-                    } else {
-                        style = 'background:#fff;border-color:#ddd;';
-                        label = currentProduct ? `${currentProduct.name||'未知'} (${loc.batchNo})` : '空';
+                        label = `${product.name||'未知'} (${assign.batchNo})`;
                     }
                     html += `<div class="cell" style="${style}">${label}</div>`;
                 } else {
