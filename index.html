@@ -31,6 +31,7 @@
         .zone-item{padding:6px 12px;border-radius:16px;border:2px solid var(--border);cursor:pointer;background:#fafafa;white-space:nowrap;font-size:12px;display:flex;align-items:center;gap:4px;flex-shrink:0;min-width:fit-content}
         .zone-item.active{border-color:var(--primary);background:#e8f0fe;font-weight:600}
         .zone-delete-btn{width:18px;height:18px;border-radius:50%;border:none;background:#f1f3f4;cursor:pointer;display:inline-flex!important;align-items:center;justify-content:center;font-size:10px;color:var(--danger);margin-left:2px;flex-shrink:0}
+        .zone-edit-btn{width:18px;height:18px;border-radius:50%;border:none;background:#e3f2fd;cursor:pointer;display:inline-flex!important;align-items:center;justify-content:center;font-size:10px;color:var(--primary);margin-left:2px;flex-shrink:0}
         .add-zone-btn{padding:6px 12px;border:2px dashed var(--border);border-radius:16px;background:transparent;cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0}
         .center-panel{flex:1;overflow-y:auto;background:var(--bg);padding:8px 10px;-webkit-overflow-scrolling:touch}
         .center-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px}
@@ -90,11 +91,9 @@
         .zone-sort-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
         .zone-sort-item{padding:10px 12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:#fafafa;cursor:move;display:flex;align-items:center;gap:8px;font-size:14px}
         .zone-sort-item.dragging{opacity:.5;border-color:var(--primary)}
-        /* 智能排序卡片样式 */
         .smart-select-cards{display:flex;flex-wrap:wrap;gap:8px;}
         .smart-select-card{border:2px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;background:#fff;transition:all .2s;user-select:none;}
         .smart-select-card.active{border-color:var(--primary);background:#e8f0fe;box-shadow:0 0 0 2px rgba(26,115,232,.2);}
-        /* 响应式：电脑端显示卡片，手机端显示多选下拉 */
         @media(min-width:768px){
             .smart-select-cards{display:flex;}
             .smart-sort-target-multi,.smart-sort-aux-multi{display:none!important;}
@@ -210,7 +209,7 @@ let lastBatchNo = '';
 // ==================== 数据初始化与工具 ====================
 function createDefaultDB(){
     const d={zones:[],locations:[],products:[],records:[],dailyStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
-    const bz={id:1,name:'成品区',rows:34,cols:5,isBase:true,createdAt:new Date().toISOString()};
+    const bz={id:1,name:'成品区',rows:34,cols:5,isBase:true,createdAt:new Date().toISOString(),rowDetails:Array(34).fill(5)};
     d.zones.push(bz); d.nextZoneId=2;
     for(let r=1;r<=34;r++) for(let c=1;c<=5;c++) d.locations.push({id:d.nextLocationId++,zoneId:1,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null});
     return d;
@@ -230,6 +229,10 @@ function ensureCompleteDB(data){
     if(!data.nextTransitId)data.nextTransitId=1;
     data.products.forEach(p=>{if(!p.unit)p.unit='件';if(!p.remark)p.remark='';});
     data.locations.forEach(l=>{if(!l.remark)l.remark='';if(l.customPieces===undefined)l.customPieces=0;if(l.handAccount===undefined)l.handAccount=false;});
+    // 兼容没有rowDetails的区域
+    data.zones.forEach(z=>{
+        if(!z.rowDetails) z.rowDetails=Array(z.rows).fill(z.cols);
+    });
     return data;
 }
 function initFromFirebase(){
@@ -310,12 +313,14 @@ function getRowDisplayLabel(zone,rowNum){
     }
     return String(rowNum);
 }
-function getDisplayColArray(zone){
-    if(zone.id===1&&zone.cols===5)return[3,2,4,1,5];
-    return Array.from({length:zone.cols},(_,i)=>i+1);
+function getDisplayColArray(zone,rowNum){
+    let cols=zone.cols;
+    if(zone.rowDetails && zone.rowDetails[rowNum-1]) cols=zone.rowDetails[rowNum-1];
+    if(zone.id===1&&cols===5)return[3,2,4,1,5];
+    return Array.from({length:cols},(_,i)=>i+1);
 }
 function getDisplayColNumber(zone,oc){
-    const arr=getDisplayColArray(zone);
+    const arr=getDisplayColArray(zone,1); // 仅用于取得映射，传入第1排不影响
     const idx=arr.indexOf(oc);
     return idx!==-1?idx+1:oc;
 }
@@ -360,10 +365,14 @@ function renderZoneList(){
         const usedCount=db.locations.filter(l=>l.zoneId===zone.id&&l.status==='used').length;
         item.innerHTML='<span class="zone-name">'+(zone.isBase?'🏭':'📁')+' '+zone.name+'</span> ('+usedCount+'/'+locCount+')';
         if(!zone.isBase){
-            const btn=document.createElement('button');
-            btn.className='zone-delete-btn';btn.textContent='×';
-            btn.addEventListener('click',e=>{e.stopPropagation();deleteZone(zone.id);});
-            item.appendChild(btn);
+            const editBtn=document.createElement('button');
+            editBtn.className='zone-edit-btn';editBtn.textContent='✎';
+            editBtn.addEventListener('click',e=>{e.stopPropagation();showEditZoneModal(zone.id);});
+            item.appendChild(editBtn);
+            const delBtn=document.createElement('button');
+            delBtn.className='zone-delete-btn';delBtn.textContent='×';
+            delBtn.addEventListener('click',e=>{e.stopPropagation();deleteZone(zone.id);});
+            item.appendChild(delBtn);
         }
         item.addEventListener('click',()=>{currentZoneId=zone.id;renderAll();});
         list.appendChild(item);
@@ -381,19 +390,87 @@ function deleteZone(zoneId){
     saveDB(nd);showToast('已删除','success');
 }
 function showAddZoneModal(){
-    openModal('<h2>添加区域</h2><div class="form-group"><label>名称</label><input id="newZoneName" required></div><div class="form-group"><label>排数</label><input type="number" id="newZoneRows" min="1" required></div><div class="form-group"><label>托数/排</label><input type="number" id="newZoneCols" min="1" required></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addZone()">确认</button></div>');
+    openModal('<h2>添加区域</h2><div class="form-group"><label>名称</label><input id="newZoneName" required></div><div class="form-group"><label>排数</label><input type="number" id="newZoneRows" min="1" required></div><div class="form-group"><label>默认托数/排</label><input type="number" id="newZoneCols" min="1" required></div><div class="form-group"><label>每排托数（可选，逗号分隔，如 10,10,5）</label><input id="newZoneRowDetails"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addZone()">确认</button></div>');
 }
 function addZone(){
     const name=document.getElementById('newZoneName').value.trim();
     const rows=parseInt(document.getElementById('newZoneRows').value);
     const cols=parseInt(document.getElementById('newZoneCols').value);
+    const detailsStr=document.getElementById('newZoneRowDetails')?.value.trim();
     if(!name||!rows||!cols){showToast('请填写完整','error');return;}
     const nd=JSON.parse(JSON.stringify(db));
-    const zone={id:nd.nextZoneId++,name,rows,cols,isBase:false,createdAt:new Date().toISOString()};
+    const zone={id:nd.nextZoneId++,name,rows,cols,isBase:false,createdAt:new Date().toISOString(),rowDetails:[]};
+    if(detailsStr){
+        const arr=detailsStr.split(',').map(Number);
+        for(let i=0;i<rows;i++) zone.rowDetails[i]=arr[i]||cols;
+    } else {
+        zone.rowDetails=Array(rows).fill(cols);
+    }
     nd.zones.push(zone);
-    for(let r=1;r<=rows;r++)for(let c=1;c<=cols;c++)nd.locations.push({id:nd.nextLocationId++,zoneId:zone.id,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null});
+    for(let r=1;r<=rows;r++){
+        const rowCols=zone.rowDetails[r-1];
+        for(let c=1;c<=rowCols;c++){
+            nd.locations.push({id:nd.nextLocationId++,zoneId:zone.id,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null});
+        }
+    }
     currentZoneId=zone.id;
     saveDB(nd);closeModal();showToast('已添加','success');
+}
+function showEditZoneModal(zoneId){
+    const zone=db.zones.find(z=>z.id===zoneId);
+    if(!zone) return;
+    const detailsStr=zone.rowDetails?zone.rowDetails.join(','):'';
+    openModal(`<h2>编辑区域</h2>
+        <div class="form-group"><label>名称</label><input id="editZoneName" value="${zone.name}"></div>
+        <div class="form-group"><label>排数</label><input type="number" id="editZoneRows" value="${zone.rows}" min="1"></div>
+        <div class="form-group"><label>每排托数（逗号分隔，如 10,10,3）</label><input id="editZoneRowDetails" value="${detailsStr}"></div>
+        <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveEditZone(${zoneId})">保存</button></div>`);
+}
+function saveEditZone(zoneId){
+    const nd=JSON.parse(JSON.stringify(db));
+    const zone=nd.zones.find(z=>z.id===zoneId);
+    if(!zone) return;
+    const newName=document.getElementById('editZoneName').value.trim();
+    const newRows=parseInt(document.getElementById('editZoneRows').value);
+    const detailsStr=document.getElementById('editZoneRowDetails').value.trim();
+    if(!newName||!newRows||newRows<1){showToast('请输入有效信息','error');return;}
+    const newRowDetails=[];
+    if(detailsStr){
+        const arr=detailsStr.split(',').map(Number);
+        for(let i=0;i<newRows;i++) newRowDetails[i]=arr[i]||zone.cols;
+    } else {
+        for(let i=0;i<newRows;i++) newRowDetails[i]=zone.cols;
+    }
+    // 检查产品是否超出新托数
+    const oldLocs=nd.locations.filter(l=>l.zoneId===zoneId);
+    for(const loc of oldLocs){
+        const rowCols=newRowDetails[loc.rowNum-1]||0;
+        if(loc.status==='used' && loc.colNum>rowCols){
+            showToast(`第${loc.rowNum}排有产品超出新托数，请先迁移`, 'error');
+            return;
+        }
+    }
+    zone.name=newName; zone.rows=newRows; zone.rowDetails=newRowDetails;
+    // 删除空库位超出部分
+    nd.locations=nd.locations.filter(l=>{
+        if(l.zoneId!==zoneId) return true;
+        const rowCols=newRowDetails[l.rowNum-1]||0;
+        if(l.rowNum>newRows || l.colNum>rowCols){
+            if(l.status==='used') return true;
+            return false;
+        }
+        return true;
+    });
+    // 新增缺失库位
+    for(let r=1;r<=newRows;r++){
+        const rowCols=newRowDetails[r-1]||0;
+        for(let c=1;c<=rowCols;c++){
+            if(!nd.locations.some(l=>l.zoneId===zoneId && l.rowNum===r && l.colNum===c)){
+                nd.locations.push({id:nd.nextLocationId++,zoneId,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null});
+            }
+        }
+    }
+    saveDB(nd);closeModal();renderAll();showToast('区域已更新','success');
 }
 function renderGrid(){
     const container=document.getElementById('gridContainer');
@@ -403,7 +480,7 @@ function renderGrid(){
     if(!zone){container.innerHTML='<div>请选择区域</div>';return;}
     const locations=db.locations.filter(l=>l.zoneId===zone.id);
     document.getElementById('currentZoneTitle').textContent=zone.name;
-    document.getElementById('currentZoneInfo').textContent=zone.isBase?'A侧17排+B侧17排×5托':zone.rows+'排×'+zone.cols+'托';
+    document.getElementById('currentZoneInfo').textContent=zone.isBase?'A侧17排+B侧17排×5托':zone.rows+'排×自定义托数';
     const rankMap=getFifoRankMap(zone.id);
     if(zone.isBase&&zone.id===1){
         container.innerHTML='<div class="grid-side-by-side">'+renderGridTable(locations.filter(l=>l.rowNum<=17),zone,rankMap)+renderGridTable(locations.filter(l=>l.rowNum>17),zone,rankMap)+'</div>';
@@ -417,14 +494,15 @@ function renderGrid(){
 }
 function renderGridTable(locs,zone,rankMap){
     if(locs.length===0)return'';
-    const displayCols=getDisplayColArray(zone);
     const rows=[...new Set(locs.map(l=>l.rowNum))].sort((a,b)=>a-b);
-    let html='<div class="grid-table"><div class="grid-col-label-row"><div style="width:var(--row-label-width);"></div>';
-    displayCols.forEach((_,i)=>{html+='<div class="grid-col-label">'+(i+1)+'托</div>';});
-    html+='</div>';
+    let html='<div class="grid-table">';
+    // 移除统一列标题，改为每排单独显示托号在单元格内
     rows.forEach(r=>{
+        const rowCols=zone.rowDetails? (zone.rowDetails[r-1]||zone.cols) : zone.cols;
+        const displayCols=getDisplayColArray({...zone, cols:rowCols}, r);
         html+='<div class="grid-row"><div class="grid-row-label">'+getRowDisplayLabel(zone,r)+'</div>';
-        displayCols.forEach((oc,idx)=>{
+        for(let idx=0;idx<displayCols.length;idx++){
+            const oc=displayCols[idx];
             const loc=locs.find(l=>l.rowNum===r&&l.colNum===oc);
             if(loc){
                 let style='',rankBadge='',newBadge='',yesterdayBadge='',handBadge='',cbHtml='';
@@ -453,20 +531,19 @@ function renderGridTable(locs,zone,rankMap){
                     if(loc.customPieces>0)qtyInfo=loc.customPieces+'件';
                     else qtyInfo=loc.quantity>0?loc.quantity+(p?.unit||'件'):'';
                 }else if(loc.status==='unavailable')label='🚫';
-                else label=getRowDisplayLabel(zone,r)+'-'+(idx+1);
+                else label='托'+(idx+1);
                 const click=locationBatchMode?'toggleLocationSelect('+loc.id+',event)':'handleCellClick('+loc.id+')';
                 const cmenu=locationBatchMode?'':'handleCellRightClick('+loc.id+');return false;';
                 html+='<div class="cell status-'+loc.status+'" style="'+style+'" onclick="'+click+'" oncontextmenu="'+cmenu+'">'+cbHtml+rankBadge+newBadge+yesterdayBadge+handBadge+'<span class="cell-label">'+label+'</span>'+(qtyInfo?'<span class="cell-qty">'+qtyInfo+'</span>':'')+(batchInfo?'<span class="cell-batch">'+batchInfo+'</span>':'')+'</div>';
             }else{
-                html+='<div class="cell" style="border-style:dashed;opacity:.3;">-</div>';
+                html+='<div class="cell" style="border-style:dashed;opacity:.3;">托'+(idx+1)+'</div>';
             }
-        });
+        }
         html+='</div>';
     });
     html+='</div>';
     return html;
 }
-
 // ==================== 产品列表与批量操作 ====================
 function renderProductList(){
     const list=document.getElementById('productList');
@@ -605,6 +682,7 @@ function batchAddToTransit(){
     });
     saveDB(nd);exitLocationBatchMode();showToast('批量加入中转仓成功','success');
 }
+
 // ==================== 库位单元格交互 ====================
 function handleCellClick(lid){
     if(locationBatchMode){toggleLocationSelect(lid,event);return;}
@@ -883,7 +961,7 @@ function importData(file){if(!db||!Array.isArray(db.zones)){showToast('数据未
 function renderZoneStats(){const c=document.getElementById('zoneStats');if(!c||!db)return;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){c.textContent='请选择区域';return;}const locs=db.locations.filter(l=>l.zoneId===zone.id);const n=locs.filter(l=>l.status==='normal').length,u=locs.filter(l=>l.status==='unavailable').length,s=locs.filter(l=>l.status==='used').length;const tp=locs.filter(l=>l.status==='used').reduce((sum,l)=>{const p=db.products.find(x=>x.id===l.productId);return sum+(l.quantity||0)*(p?.unitQuantity||1)+(l.customPieces||0);},0);c.innerHTML='<div>正常:'+n+' 不可用:'+u+' 已用:'+s+' 总件数:'+tp+'</div>';}
 function updateHeaderStats(){if(!db||!Array.isArray(db.locations))return;const all=db.locations;document.getElementById('statNormal').textContent=all.filter(l=>l.status==='normal').length;document.getElementById('statUnavailable').textContent=all.filter(l=>l.status==='unavailable').length;document.getElementById('statUsed').textContent=all.filter(l=>l.status==='used').length;document.getElementById('statProducts').textContent=db.products.length;}
 
-// ==================== 智能排序功能（最终优化版） ====================
+// ==================== 智能排序功能 ====================
 function showSmartSortModal() {
     let zoneCards = '';
     db.zones.forEach(z => {
@@ -952,7 +1030,6 @@ function executeSmartSort() {
         const targetZone = db.zones.find(z => z.id === targetZoneId);
         if (!targetZone) return;
 
-        // 获取所有库位，按排、列排序
         const allLocs = db.locations
             .filter(l => l.zoneId === targetZoneId)
             .sort((a, b) => {
@@ -963,100 +1040,88 @@ function executeSmartSort() {
         const usedLocs = allLocs.filter(l => l.status === 'used');
         if (usedLocs.length === 0) return;
 
-        // 按产品分组，计算数量，并按批次排序（同产品批次升序）
+        // 产品分组
         const productGroups = {};
         usedLocs.forEach(loc => {
             if (!productGroups[loc.productId]) productGroups[loc.productId] = [];
             productGroups[loc.productId].push(loc);
         });
-        for (let pid in productGroups) {
-            productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo));
-        }
 
-        // 构建产品条目，按数量降序（大产品先分配）
+        // 产品按数量降序
         const productEntries = Object.keys(productGroups).map(pid => ({
             productId: parseInt(pid),
-            locs: productGroups[pid],
+            locs: productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo)),
             count: productGroups[pid].length
         }));
         productEntries.sort((a, b) => b.count - a.count);
 
-        // 获取排信息
-        const rows = [...new Set(allLocs.map(l => l.rowNum))].sort((a, b) => a - b);
-        const colsPerRow = allLocs.filter(l => l.rowNum === rows[0]).length; // 假设每排列数相同
-
         const finalAssignments = [];
         const occupied = new Set();
-        let currentRowIndex = 0; // 当前分配到的排索引
 
-        // 为每个产品分配
+        // 优先保留原有排中占多数的产品
+        const rows = [...new Set(allLocs.map(l => l.rowNum))].sort((a, b) => a - b);
+        rows.forEach(row => {
+            const rowLocs = allLocs.filter(l => l.rowNum === row);
+            const rowUsed = rowLocs.filter(l => l.status === 'used');
+            if (rowUsed.length === 0) return;
+            const rowProductCount = {};
+            rowUsed.forEach(loc => {
+                rowProductCount[loc.productId] = (rowProductCount[loc.productId] || 0) + 1;
+            });
+            const totalUsed = rowUsed.length;
+            for (const pid in rowProductCount) {
+                const ratio = rowProductCount[pid] / totalUsed;
+                const product = productEntries.find(p => p.productId === parseInt(pid));
+                if (ratio >= 0.6 && product && product.count <= rowLocs.length) {
+                    const productLocs = product.locs;
+                    const availableSlots = rowLocs.filter(l => !occupied.has(l.id));
+                    for (let i = 0; i < productLocs.length && i < availableSlots.length; i++) {
+                        finalAssignments.push({
+                            toLocId: availableSlots[i].id,
+                            productId: product.productId,
+                            batchNo: productLocs[i].batchNo,
+                            sourceLocId: productLocs[i].id
+                        });
+                        occupied.add(availableSlots[i].id);
+                    }
+                    // 更新剩余
+                    product.locs = product.locs.slice(productLocs.length);
+                }
+            }
+        });
+
+        // 处理剩余产品，填充空余排
         for (const entry of productEntries) {
-            let remaining = entry.locs;
-            while (remaining.length > 0) {
-                if (currentRowIndex >= rows.length) {
-                    // 排不够，需要合并到已有排的空余位置（合并小产品）
-                    // 简单处理：将剩余产品放入任何空位（保持连续）
-                    for (const loc of remaining) {
-                        const anyLoc = allLocs.find(l => !occupied.has(l.id));
-                        if (anyLoc) {
-                            finalAssignments.push({
-                                toLocId: anyLoc.id,
-                                productId: entry.productId,
-                                batchNo: loc.batchNo,
-                                sourceLocId: loc.id
-                            });
-                            occupied.add(anyLoc.id);
-                        }
+            if (entry.locs.length === 0) continue;
+            for (const loc of entry.locs) {
+                const rowFree = {};
+                allLocs.forEach(l => {
+                    if (!occupied.has(l.id)) {
+                        rowFree[l.rowNum] = (rowFree[l.rowNum] || 0) + 1;
                     }
-                    remaining = [];
-                    break;
+                });
+                let bestRow = null, maxFree = -1;
+                for (const row in rowFree) {
+                    if (rowFree[row] > maxFree) {
+                        maxFree = rowFree[row];
+                        bestRow = parseInt(row);
+                    }
                 }
-
-                const currentRow = rows[currentRowIndex];
-                const rowLocs = allLocs.filter(l => l.rowNum === currentRow);
-
-                // 如果这一排已经被占用（之前产品分配过），检查是否还能放置
-                const freeLocsInRow = rowLocs.filter(l => !occupied.has(l.id));
-                if (freeLocsInRow.length === 0) {
-                    currentRowIndex++;
-                    continue;
-                }
-
-                // 如果剩余产品数量 >= 一排容量，则占满这一排
-                if (remaining.length >= colsPerRow) {
-                    // 将产品按批次依次放入这一排的所有空位（按列顺序）
-                    const targets = rowLocs.slice(0, colsPerRow); // 按列顺序取
-                    for (let i = 0; i < colsPerRow; i++) {
-                        const loc = remaining[i];
-                        finalAssignments.push({
-                            toLocId: targets[i].id,
-                            productId: entry.productId,
-                            batchNo: loc.batchNo,
-                            sourceLocId: loc.id
-                        });
-                        occupied.add(targets[i].id);
-                    }
-                    remaining = remaining.slice(colsPerRow);
-                    currentRowIndex++; // 进入下一排
-                } else {
-                    // 剩余产品数量 < 一排容量，独占这一排（即使有空位）
-                    const targets = rowLocs.slice(0, remaining.length);
-                    for (let i = 0; i < remaining.length; i++) {
-                        finalAssignments.push({
-                            toLocId: targets[i].id,
-                            productId: entry.productId,
-                            batchNo: remaining[i].batchNo,
-                            sourceLocId: remaining[i].id
-                        });
-                        occupied.add(targets[i].id);
-                    }
-                    remaining = [];
-                    currentRowIndex++; // 独占一排，进入下一排
+                if (bestRow === null) break;
+                const targetLoc = allLocs.find(l => l.rowNum === bestRow && !occupied.has(l.id));
+                if (targetLoc) {
+                    finalAssignments.push({
+                        toLocId: targetLoc.id,
+                        productId: entry.productId,
+                        batchNo: loc.batchNo,
+                        sourceLocId: loc.id
+                    });
+                    occupied.add(targetLoc.id);
                 }
             }
         }
 
-        // 防御：如果还有未分配的产品（理论不会），放入剩余空位
+        // 防御：未分配的产品放入剩余空位
         const assignedSourceIds = new Set(finalAssignments.map(a => a.sourceLocId));
         usedLocs.forEach(loc => {
             if (!assignedSourceIds.has(loc.id)) {
@@ -1073,7 +1138,7 @@ function executeSmartSort() {
             }
         });
 
-        // 生成移动步骤（与之前相同）
+        // 生成移动步骤
         const currentState = new Map();
         allLocs.forEach(loc => {
             currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null);
@@ -1129,15 +1194,13 @@ function showSmartSortResult(assignments, moves) {
         html += `<h3>${zone.name}</h3>`;
         html += `<div class="grid-container" style="overflow:auto;">`;
         const rows = [...new Set(db.locations.filter(l => l.zoneId === zoneId).map(l => l.rowNum))].sort((a, b) => a - b);
-        const cols = getDisplayColArray(zone);
         html += `<div class="grid-table">`;
-        html += `<div class="grid-col-label-row"><div style="width:var(--row-label-width);"></div>`;
-        cols.forEach((_, i) => { html += `<div class="grid-col-label">${i+1}托</div>`; });
-        html += `</div>`;
         rows.forEach(row => {
+            const rowCols = zone.rowDetails ? (zone.rowDetails[row-1] || zone.cols) : zone.cols;
+            const cols = getDisplayColArray({ ...zone, cols: rowCols }, row);
             html += `<div class="grid-row">`;
             html += `<div class="grid-row-label">${getRowDisplayLabel(zone, row)}</div>`;
-            cols.forEach(col => {
+            cols.forEach((col, idx) => {
                 const loc = db.locations.find(l => l.zoneId === zoneId && l.rowNum === row && l.colNum === col);
                 if (loc) {
                     const assign = assignments.find(a => a.toLocId === loc.id);
