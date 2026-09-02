@@ -938,13 +938,11 @@ function showSmartSortModal() {
 
 function executeSmartSort() {
     let targetZoneIds, auxZoneIds;
-    // 检测是否使用卡片式（电脑端）
-    const cards = document.querySelectorAll('.smart-select-card[data-type="target"]');
-    if (cards.length > 0 && cards[0].offsetParent !== null) {
-        targetZoneIds = [...document.querySelectorAll('.smart-select-card[data-type="target"].active')].map(card=>parseInt(card.dataset.value));
-        auxZoneIds = [...document.querySelectorAll('.smart-select-card[data-type="aux"].active')].map(card=>parseInt(card.dataset.value));
+    const targetCheckList = document.querySelector('.smart-sort-target-check');
+    if (targetCheckList && targetCheckList.offsetParent !== null) {
+        targetZoneIds = [...document.querySelectorAll('.smart-sort-target-check:checked')].map(o => parseInt(o.value));
+        auxZoneIds = [...document.querySelectorAll('.smart-sort-aux-check:checked')].map(o => parseInt(o.value));
     } else {
-        // 手机端使用多选下拉
         const targetMulti = document.querySelector('.smart-sort-target-multi');
         const auxMulti = document.querySelector('.smart-sort-aux-multi');
         targetZoneIds = [...targetMulti.selectedOptions].map(o => parseInt(o.value));
@@ -961,44 +959,43 @@ function executeSmartSort() {
         const targetZone = db.zones.find(z => z.id === targetZoneId);
         if (!targetZone) return;
 
+        // 获取目标区域所有库位，按排号升序、列号降序排列（大托号优先）
         const allLocs = db.locations
             .filter(l => l.zoneId === targetZoneId)
             .sort((a, b) => {
                 if (a.rowNum !== b.rowNum) return a.rowNum - b.rowNum;
-                return getDisplayColNumber(targetZone, a.colNum) - getDisplayColNumber(targetZone, b.colNum);
+                return getDisplayColNumber(targetZone, b.colNum) - getDisplayColNumber(targetZone, a.colNum);
             });
 
         const usedLocs = allLocs.filter(l => l.status === 'used');
         if (usedLocs.length === 0) return;
 
-        // 按产品分组，计算每种产品数量
+        // 按产品分组，组内按批次升序（旧→新）
         const productGroups = {};
         usedLocs.forEach(loc => {
             if (!productGroups[loc.productId]) productGroups[loc.productId] = [];
             productGroups[loc.productId].push(loc);
         });
-
-        // 产品按库位数量降序排列（大产品优先）
-        const productEntries = Object.keys(productGroups).map(pid => ({
-            productId: parseInt(pid),
-            locs: productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo)),
-            count: productGroups[pid].length
-        }));
-        productEntries.sort((a, b) => b.count - a.count);
+        for (const pid in productGroups) {
+            productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo));
+        }
 
         const finalAssignments = [];
         const occupied = new Set();
 
-        // 分配：优先选择空余最多的排
-        for (const entry of productEntries) {
-            for (const loc of entry.locs) {
-                // 计算每排当前空余数量
+        // 依次分配每个产品的每个库位，按当前排剩余空位填充
+        for (const pid in productGroups) {
+            const locs = productGroups[pid];
+            for (const loc of locs) {
+                // 计算每排剩余空位
                 const rowFree = {};
                 allLocs.forEach(l => {
                     if (!occupied.has(l.id)) {
                         rowFree[l.rowNum] = (rowFree[l.rowNum] || 0) + 1;
                     }
                 });
+
+                // 选择剩余空位最多的排
                 let bestRow = null, maxFree = -1;
                 for (const row in rowFree) {
                     if (rowFree[row] > maxFree) {
@@ -1007,11 +1004,15 @@ function executeSmartSort() {
                     }
                 }
                 if (bestRow === null) break;
-                const targetLoc = allLocs.find(l => l.rowNum === bestRow && !occupied.has(l.id));
+
+                // 在该排中选择最大托号（列号最大）的空位
+                const rowLocs = allLocs.filter(l => l.rowNum === bestRow && !occupied.has(l.id));
+                // 上面 allLocs 已经按列号降序排列，因此取第一个即可
+                const targetLoc = rowLocs[0];
                 if (targetLoc) {
                     finalAssignments.push({
                         toLocId: targetLoc.id,
-                        productId: entry.productId,
+                        productId: parseInt(pid),
                         batchNo: loc.batchNo,
                         sourceLocId: loc.id
                     });
@@ -1020,7 +1021,7 @@ function executeSmartSort() {
             }
         }
 
-        // 防御：未分配产品放入剩余空位
+        // 防御：未分配的产品放入剩余空位（按列号降序）
         const assignedSourceIds = new Set(finalAssignments.map(a => a.sourceLocId));
         usedLocs.forEach(loc => {
             if (!assignedSourceIds.has(loc.id)) {
@@ -1037,7 +1038,7 @@ function executeSmartSort() {
             }
         });
 
-        // 生成移动步骤
+        // 生成移动步骤（与之前相同）
         const currentState = new Map();
         allLocs.forEach(loc => {
             currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null);
