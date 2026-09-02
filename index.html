@@ -168,6 +168,7 @@
         <div class="right-section"><h3>📋 记录</h3><button class="btn btn-outline btn-sm" id="btnShowRecords">出入库</button></div>
         <div class="right-section"><h3>📅 每日</h3><button class="btn btn-outline btn-sm" id="btnShowDailyStats">14天</button></div>
         <div class="right-section"><h3>🚚 中转仓</h3><button class="btn btn-outline btn-sm" id="btnShowTransit">查看中转仓</button></div>
+        <div class="right-section"><h3>🧹 智能排序</h3><button class="btn btn-outline btn-sm" id="btnSmartSort">开始排序</button></div>
         <div class="right-section"><h3>💾 数据</h3><div style="display:flex;gap:4px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" id="btnExportExcel">Excel</button><button class="btn btn-outline btn-sm" id="btnExportProducts">产品</button><button class="btn btn-outline btn-sm" id="btnImportProducts">导入</button><button class="btn btn-outline btn-sm" id="btnExportData">备份</button><button class="btn btn-outline btn-sm" id="btnImportData">恢复</button></div></div>
     </aside>
 </div>
@@ -591,7 +592,6 @@ function batchAddToTransit(){
     });
     saveDB(nd);exitLocationBatchMode();showToast('批量加入中转仓成功','success');
 }
-
 // ==================== 库位单元格交互 ====================
 function handleCellClick(lid){
     if(locationBatchMode){toggleLocationSelect(lid,event);return;}
@@ -870,6 +870,168 @@ function importData(file){if(!db||!Array.isArray(db.zones)){showToast('数据未
 function renderZoneStats(){const c=document.getElementById('zoneStats');if(!c||!db)return;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){c.textContent='请选择区域';return;}const locs=db.locations.filter(l=>l.zoneId===zone.id);const n=locs.filter(l=>l.status==='normal').length,u=locs.filter(l=>l.status==='unavailable').length,s=locs.filter(l=>l.status==='used').length;const tp=locs.filter(l=>l.status==='used').reduce((sum,l)=>{const p=db.products.find(x=>x.id===l.productId);return sum+(l.quantity||0)*(p?.unitQuantity||1)+(l.customPieces||0);},0);c.innerHTML='<div>正常:'+n+' 不可用:'+u+' 已用:'+s+' 总件数:'+tp+'</div>';}
 function updateHeaderStats(){if(!db||!Array.isArray(db.locations))return;const all=db.locations;document.getElementById('statNormal').textContent=all.filter(l=>l.status==='normal').length;document.getElementById('statUnavailable').textContent=all.filter(l=>l.status==='unavailable').length;document.getElementById('statUsed').textContent=all.filter(l=>l.status==='used').length;document.getElementById('statProducts').textContent=db.products.length;}
 
+// ==================== 智能排序功能 ====================
+function showSmartSortModal() {
+    let zoneOptions = db.zones.map(z => `<option value="${z.id}">${z.name}</option>`).join('');
+    openModal(`
+        <h2>🧹 智能排序</h2>
+        <div class="form-group">
+            <label>目标区域（主要整理）</label>
+            <select id="sortTargetZone">${zoneOptions}</select>
+        </div>
+        <div class="form-group">
+            <label>辅助区域（可多选，用于临时存放）</label>
+            <select id="sortAuxZones" multiple size="3">${zoneOptions}</select>
+        </div>
+        <div class="form-group">
+            <label>排序规则</label>
+            <select id="sortRule">
+                <option value="same_product_per_row">每排尽量同产品，新批次放高托号</option>
+                <option value="fifo_only">仅按批次日期顺序排列</option>
+            </select>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-outline" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="executeSmartSort()">执行排序</button>
+        </div>
+    `);
+}
+
+function executeSmartSort() {
+    const targetZoneId = parseInt(document.getElementById('sortTargetZone').value);
+    const auxZoneIds = [...document.getElementById('sortAuxZones').selectedOptions].map(o => parseInt(o.value));
+    const rule = document.getElementById('sortRule').value;
+    
+    const targetZone = db.zones.find(z => z.id === targetZoneId);
+    if (!targetZone) { showToast('请选择目标区域', 'error'); return; }
+    
+    const usedLocs = db.locations.filter(l => l.zoneId === targetZoneId && l.status === 'used');
+    const auxEmptyLocs = db.locations.filter(l => auxZoneIds.includes(l.zoneId) && l.status === 'normal');
+    
+    if (usedLocs.length === 0) { showToast('目标区域没有已用产品', 'info'); return; }
+    
+    const productGroups = {};
+    usedLocs.forEach(loc => {
+        const pid = loc.productId;
+        if (!productGroups[pid]) productGroups[pid] = [];
+        productGroups[pid].push(loc);
+    });
+    
+    for (let pid in productGroups) {
+        productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo));
+    }
+    
+    const assignments = [];
+    const allTargetLocs = db.locations.filter(l => l.zoneId === targetZoneId);
+    const rowsMap = {};
+    allTargetLocs.forEach(loc => {
+        if (!rowsMap[loc.rowNum]) rowsMap[loc.rowNum] = [];
+        rowsMap[loc.rowNum].push(loc);
+    });
+    for (let row in rowsMap) {
+        rowsMap[row].sort((a, b) => getDisplayColNumber(targetZone, a.colNum) - getDisplayColNumber(targetZone, b.colNum));
+    }
+    
+    const rows = Object.keys(rowsMap).sort((a, b) => a - b);
+    let rowIndex = 0;
+    const productIds = Object.keys(productGroups);
+    productIds.forEach(pid => {
+        const locs = productGroups[pid];
+        for (let loc of locs) {
+            while (rowIndex < rows.length && rowsMap[rows[rowIndex]].length === 0) rowIndex++;
+            if (rowIndex >= rows.length) break;
+            const currentRow = rows[rowIndex];
+            const rowLocs = rowsMap[currentRow];
+            const targetLoc = rowLocs.shift();
+            assignments.push({
+                fromLoc: loc,
+                toLoc: targetLoc,
+                productId: pid,
+                batchNo: loc.batchNo
+            });
+            if (rowLocs.length === 0) rowIndex++;
+        }
+    });
+    
+    const moves = [];
+    assignments.forEach(assign => {
+        const destLoc = assign.toLoc;
+        if (destLoc.status === 'used' && destLoc.id !== assign.fromLoc.id) {
+            if (auxEmptyLocs.length > 0) {
+                const tempLoc = auxEmptyLocs.shift();
+                moves.push({
+                    type: 'move_to_aux',
+                    from: destLoc,
+                    to: tempLoc,
+                    productId: destLoc.productId,
+                    reason: '临时移走以腾出目标位置'
+                });
+                destLoc.status = 'normal';
+            } else {
+                moves.push({ type: 'error', message: '辅助区域空位不足' });
+            }
+        }
+        moves.push({
+            type: 'move_product',
+            from: assign.fromLoc,
+            to: destLoc,
+            productId: assign.productId,
+            reason: '按排序规则移动'
+        });
+    });
+    
+    showSmartSortResult(targetZone, assignments, moves);
+}
+
+function showSmartSortResult(zone, assignments, moves) {
+    let html = `<h2>排序结果 - ${zone.name}</h2>`;
+    html += `<div class="grid-container" style="overflow:auto;">`;
+    const rows = [...new Set(db.locations.filter(l => l.zoneId === zone.id).map(l => l.rowNum))].sort((a, b) => a - b);
+    const cols = getDisplayColArray(zone);
+    html += `<div class="grid-table">`;
+    rows.forEach(row => {
+        html += `<div class="grid-row">`;
+        html += `<div class="grid-row-label">${getRowDisplayLabel(zone, row)}</div>`;
+        cols.forEach(col => {
+            const loc = db.locations.find(l => l.zoneId === zone.id && l.rowNum === row && l.colNum === col);
+            if (loc) {
+                const assign = assignments.find(a => a.toLoc.id === loc.id);
+                const currentProduct = db.products.find(p => p.id === loc.productId);
+                const targetProduct = assign ? db.products.find(p => p.id === assign.productId) : null;
+                let style = '';
+                let label = '';
+                if (assign && targetProduct && currentProduct && targetProduct.id !== currentProduct.id) {
+                    style = 'background:#ffeb3b;border-color:#fbc02d;';
+                    label = `${currentProduct.name}→${targetProduct.name}`;
+                } else if (assign && targetProduct) {
+                    style = 'background:#a5d6a7;border-color:#4caf50;';
+                    label = targetProduct.name;
+                } else {
+                    style = 'background:#fff;border-color:#ddd;';
+                    label = currentProduct ? currentProduct.name : '空';
+                }
+                html += `<div class="cell" style="${style}">${label}</div>`;
+            } else {
+                html += `<div class="cell" style="border-style:dashed;opacity:.3;">-</div>`;
+            }
+        });
+        html += `</div>`;
+    });
+    html += `</div></div>`;
+    
+    html += `<h3>移动步骤（共${moves.length}步）</h3>`;
+    html += `<table class="records-table"><thead><tr><th>步骤</th><th>操作</th><th>从</th><th>到</th><th>产品</th><th>原因</th></tr></thead><tbody>`;
+    moves.forEach((move, idx) => {
+        const fromLabel = move.from ? (db.zones.find(z => z.id === move.from.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.from.zoneId), move.from.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.from.zoneId), move.from.colNum) + '托') : '-';
+        const toLabel = move.to ? (db.zones.find(z => z.id === move.to.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.to.zoneId), move.to.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.to.zoneId), move.to.colNum) + '托') : '-';
+        const prod = move.productId ? db.products.find(p => p.id === move.productId)?.name : '-';
+        html += `<tr><td>${idx+1}</td><td>${move.type}</td><td>${fromLabel}</td><td>${toLabel}</td><td>${prod}</td><td>${move.reason||''}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    
+    openModal(html);
+}
+
 // ==================== 初始化 ====================
 function init(){
     document.getElementById('btnAddZone').addEventListener('click',showAddZoneModal);
@@ -880,6 +1042,7 @@ function init(){
     document.getElementById('btnShowRecords').addEventListener('click',()=>showRecords());
     document.getElementById('btnShowDailyStats').addEventListener('click',showDailyStats);
     document.getElementById('btnShowTransit').addEventListener('click',renderTransitModal);
+    document.getElementById('btnSmartSort').addEventListener('click',showSmartSortModal);
     document.getElementById('btnExportExcel').addEventListener('click',exportExcel);
     document.getElementById('btnExportProducts').addEventListener('click',exportProductsData);
     document.getElementById('btnImportProducts').addEventListener('click',()=>{
