@@ -6,7 +6,6 @@
     <title>仓库管理系统 · 完整版</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <!-- 引入 html2canvas 用于输出图片 -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         :root{--bg:#f0f2f5;--card-bg:#fff;--primary:#1a73e8;--success:#34a853;--danger:#ea4335;--warning:#fbbc04;--text:#202124;--text-secondary:#5f6368;--border:#dadce0;--shadow:0 1px 3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--cell-size:56px;--cell-gap:4px;--row-label-width:44px}
@@ -91,6 +90,13 @@
         .zone-sort-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
         .zone-sort-item{padding:10px 12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:#fafafa;cursor:move;display:flex;align-items:center;gap:8px;font-size:14px}
         .zone-sort-item.dragging{opacity:.5;border-color:var(--primary)}
+        /* 响应式多选框 */
+        .smart-sort-checkbox-list{display:block;}
+        .smart-sort-multiselect{display:none;}
+        @media(max-width:767px){
+            .smart-sort-checkbox-list{display:none;}
+            .smart-sort-multiselect{display:block;}
+        }
         @media(min-width:768px){
             .main-container{flex-direction:row}
             .left-panel{width:230px;height:auto;flex-direction:column;border-right:1px solid var(--border);border-bottom:none;overflow-y:auto;overflow-x:hidden;padding:12px;gap:8px}
@@ -165,10 +171,13 @@
     <aside class="right-panel">
         <div class="right-section"><h3>📦 产品</h3><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" id="btnToggleBatch">批量</button><button class="btn btn-primary btn-sm" id="btnAddProduct">+</button></div><div class="product-list" id="productList"></div><div class="batch-toolbar" id="batchToolbar"><button class="btn btn-sm btn-warning" onclick="batchUpdateUnit()">单位</button><button class="btn btn-sm btn-warning" onclick="batchUpdateUnitQuantity()">单位数量</button><button class="btn btn-sm btn-danger" onclick="batchDeleteProducts()">删除</button><button class="btn btn-sm btn-outline" onclick="clearSelectionAndExit()">取消</button></div></div>
         <div class="right-section"><h3>📊 统计</h3><div id="zoneStats" style="font-size:10px"></div></div>
-        <div class="right-section"><h3>⏱️ FIFO</h3><button class="btn btn-outline btn-sm" id="btnShowFifo">批次排序</button></div>
-        <div class="right-section"><h3>📈 统计</h3><button class="btn btn-outline btn-sm" id="btnShowStats">库存</button></div>
-        <div class="right-section"><h3>📋 记录</h3><button class="btn btn-outline btn-sm" id="btnShowRecords">出入库</button></div>
-        <div class="right-section"><h3>📅 每日</h3><button class="btn btn-outline btn-sm" id="btnShowDailyStats">14天</button></div>
+        <!-- 将 FIFO、库存统计、记录、每日统计合并到工具箱 -->
+        <div class="right-section"><h3>🧰 工具箱</h3>
+            <button class="btn btn-outline btn-sm" id="btnShowFifo">FIFO批次排序</button>
+            <button class="btn btn-outline btn-sm" id="btnShowStats">库存统计</button>
+            <button class="btn btn-outline btn-sm" id="btnShowRecords">出入库记录</button>
+            <button class="btn btn-outline btn-sm" id="btnShowDailyStats">每日统计</button>
+        </div>
         <div class="right-section"><h3>🚚 中转仓</h3><button class="btn btn-outline btn-sm" id="btnShowTransit">查看中转仓</button></div>
         <div class="right-section"><h3>🧹 智能排序</h3><button class="btn btn-outline btn-sm" id="btnSmartSort">开始排序</button></div>
         <div class="right-section"><h3>💾 数据</h3><div style="display:flex;gap:4px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" id="btnExportExcel">Excel</button><button class="btn btn-outline btn-sm" id="btnExportProducts">产品</button><button class="btn btn-outline btn-sm" id="btnImportProducts">导入</button><button class="btn btn-outline btn-sm" id="btnExportData">备份</button><button class="btn btn-outline btn-sm" id="btnImportData">恢复</button></div></div>
@@ -305,7 +314,6 @@ function getDisplayColNumber(zone,oc){
     const idx=arr.indexOf(oc);
     return idx!==-1?idx+1:oc;
 }
-// 新增：按照区域顺序对库位排序
 function sortLocationsForDisplay(locs){
     const zoneOrder = new Map(db.zones.map((z, idx) => [z.id, idx]));
     return locs.sort((a,b)=>{
@@ -870,32 +878,51 @@ function importData(file){if(!db||!Array.isArray(db.zones)){showToast('数据未
 function renderZoneStats(){const c=document.getElementById('zoneStats');if(!c||!db)return;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){c.textContent='请选择区域';return;}const locs=db.locations.filter(l=>l.zoneId===zone.id);const n=locs.filter(l=>l.status==='normal').length,u=locs.filter(l=>l.status==='unavailable').length,s=locs.filter(l=>l.status==='used').length;const tp=locs.filter(l=>l.status==='used').reduce((sum,l)=>{const p=db.products.find(x=>x.id===l.productId);return sum+(l.quantity||0)*(p?.unitQuantity||1)+(l.customPieces||0);},0);c.innerHTML='<div>正常:'+n+' 不可用:'+u+' 已用:'+s+' 总件数:'+tp+'</div>';}
 function updateHeaderStats(){if(!db||!Array.isArray(db.locations))return;const all=db.locations;document.getElementById('statNormal').textContent=all.filter(l=>l.status==='normal').length;document.getElementById('statUnavailable').textContent=all.filter(l=>l.status==='unavailable').length;document.getElementById('statUsed').textContent=all.filter(l=>l.status==='used').length;document.getElementById('statProducts').textContent=db.products.length;}
 
-// ==================== 智能排序功能 ====================
+// ==================== 智能排序功能（重写） ====================
 function showSmartSortModal() {
-    let zoneOptions = '';
+    // 电脑端使用复选框列表，手机端使用多选下拉框
+    let zoneCheckboxes = '';
     db.zones.forEach(z => {
-        zoneOptions += `<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <input type="checkbox" value="${z.id}" class="smart-sort-target-zone"> ${z.name}
+        zoneCheckboxes += `<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <input type="checkbox" value="${z.id}" class="smart-sort-target-check"> ${z.name}
         </label>`;
     });
-    let auxOptions = '';
+    let zoneMultiSelect = '<select multiple size="4" class="smart-sort-target-multi">';
     db.zones.forEach(z => {
-        auxOptions += `<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <input type="checkbox" value="${z.id}" class="smart-sort-aux-zone"> ${z.name}
+        zoneMultiSelect += `<option value="${z.id}">${z.name}</option>`;
+    });
+    zoneMultiSelect += '</select>';
+
+    let auxCheckboxes = '';
+    db.zones.forEach(z => {
+        auxCheckboxes += `<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <input type="checkbox" value="${z.id}" class="smart-sort-aux-check"> ${z.name}
         </label>`;
     });
+    let auxMultiSelect = '<select multiple size="4" class="smart-sort-aux-multi">';
+    db.zones.forEach(z => {
+        auxMultiSelect += `<option value="${z.id}">${z.name}</option>`;
+    });
+    auxMultiSelect += '</select>';
+
     openModal(`
         <h2>🧹 智能排序</h2>
         <div class="form-group">
             <label>目标区域（可多选，主要整理）</label>
-            <div style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
-                ${zoneOptions}
+            <div class="smart-sort-checkbox-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
+                ${zoneCheckboxes}
+            </div>
+            <div class="smart-sort-multiselect">
+                ${zoneMultiSelect}
             </div>
         </div>
         <div class="form-group">
             <label>辅助区域（可多选，用于临时存放）</label>
-            <div style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
-                ${auxOptions}
+            <div class="smart-sort-checkbox-list" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
+                ${auxCheckboxes}
+            </div>
+            <div class="smart-sort-multiselect">
+                ${auxMultiSelect}
             </div>
         </div>
         <div class="form-group">
@@ -913,23 +940,35 @@ function showSmartSortModal() {
 }
 
 function executeSmartSort() {
-    const targetZoneIds = [...document.querySelectorAll('.smart-sort-target-zone:checked')].map(o => parseInt(o.value));
-    const auxZoneIds = [...document.querySelectorAll('.smart-sort-aux-zone:checked')].map(o => parseInt(o.value));
-    const rule = document.getElementById('sortRule').value;
-    
-    if(targetZoneIds.length===0){showToast('请至少选择一个目标区域','error');return;}
-    
+    let targetZoneIds, auxZoneIds;
+    // 判断使用哪种控件（根据是否可见）
+    const targetCheckList = document.querySelector('.smart-sort-target-check');
+    if (targetCheckList && targetCheckList.offsetParent !== null) {
+        // 电脑端复选框
+        targetZoneIds = [...document.querySelectorAll('.smart-sort-target-check:checked')].map(o => parseInt(o.value));
+        auxZoneIds = [...document.querySelectorAll('.smart-sort-aux-check:checked')].map(o => parseInt(o.value));
+    } else {
+        // 手机端多选下拉
+        const targetMulti = document.querySelector('.smart-sort-target-multi');
+        const auxMulti = document.querySelector('.smart-sort-aux-multi');
+        targetZoneIds = [...targetMulti.selectedOptions].map(o => parseInt(o.value));
+        auxZoneIds = [...auxMulti.selectedOptions].map(o => parseInt(o.value));
+    }
+
+    if (targetZoneIds.length === 0) { showToast('请至少选择一个目标区域', 'error'); return; }
+
+    // 辅助空位池
     const auxEmptyLocs = db.locations.filter(l => auxZoneIds.includes(l.zoneId) && l.status === 'normal');
-    
     let allAssignments = [];
     let allMoves = [];
-    
+
     targetZoneIds.forEach(targetZoneId => {
         const targetZone = db.zones.find(z => z.id === targetZoneId);
-        if(!targetZone) return;
+        if (!targetZone) return;
         const usedLocs = db.locations.filter(l => l.zoneId === targetZoneId && l.status === 'used');
-        if(usedLocs.length===0) return;
-        
+        if (usedLocs.length === 0) return;
+
+        // 产品分组
         const productGroups = {};
         usedLocs.forEach(loc => {
             const pid = loc.productId;
@@ -939,7 +978,8 @@ function executeSmartSort() {
         for (let pid in productGroups) {
             productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo));
         }
-        
+
+        // 分配方案
         const assignments = [];
         const allTargetLocs = db.locations.filter(l => l.zoneId === targetZoneId);
         const rowsMap = {};
@@ -970,13 +1010,14 @@ function executeSmartSort() {
                 if (rowLocs.length === 0) rowIndex++;
             }
         });
-        
+
+        // 生成移动步骤
         const moves = [];
         assignments.forEach(assign => {
             const destLoc = assign.toLoc;
             // 跳过源和目标相同的移动
             if (destLoc.id === assign.fromLoc.id) return;
-            
+
             if (destLoc.status === 'used') {
                 if (auxEmptyLocs.length > 0) {
                     const tempLoc = auxEmptyLocs.shift();
@@ -987,7 +1028,6 @@ function executeSmartSort() {
                         productId: destLoc.productId,
                         reason: '临时移走以腾出目标位置'
                     });
-                    // 注意：这里仅模拟，实际未修改数据库
                 } else {
                     moves.push({ type: '错误', message: '辅助区域空位不足' });
                 }
@@ -1000,11 +1040,11 @@ function executeSmartSort() {
                 reason: '按排序规则移动'
             });
         });
-        
+
         allAssignments = allAssignments.concat(assignments);
         allMoves = allMoves.concat(moves);
     });
-    
+
     showSmartSortResult(allAssignments, allMoves);
 }
 
@@ -1014,7 +1054,7 @@ function showSmartSortResult(assignments, moves) {
     html += `<div id="smartSortResultContent">`;
     targetZoneIds.forEach(zoneId => {
         const zone = db.zones.find(z => z.id === zoneId);
-        if(!zone) return;
+        if (!zone) return;
         html += `<h3>${zone.name}</h3>`;
         html += `<div class="grid-container" style="overflow:auto;">`;
         const rows = [...new Set(db.locations.filter(l => l.zoneId === zoneId).map(l => l.rowNum))].sort((a, b) => a - b);
@@ -1050,7 +1090,7 @@ function showSmartSortResult(assignments, moves) {
         });
         html += `</div></div>`;
     });
-    
+
     html += `<h3>移动步骤（共${moves.length}步）</h3>`;
     html += `<table class="records-table"><thead><tr><th>步骤</th><th>操作</th><th>从</th><th>到</th><th>产品</th><th>原因</th></tr></thead><tbody>`;
     moves.forEach((move, idx) => {
@@ -1065,18 +1105,25 @@ function showSmartSortResult(assignments, moves) {
     openModal(html);
 }
 
-function exportSmartSortImage(){
+function exportSmartSortImage() {
     const content = document.getElementById('smartSortResultContent');
-    if(!content){showToast('没有内容可输出','error');return;}
-    html2canvas(content, {scale: 2}).then(canvas => {
+    if (!content) { showToast('没有内容可输出', 'error'); return; }
+    html2canvas(content, {
+        scale: 2,
+        width: content.scrollWidth,
+        height: content.scrollHeight,
+        windowWidth: content.scrollWidth,
+        windowHeight: content.scrollHeight,
+        useCORS: true
+    }).then(canvas => {
         const link = document.createElement('a');
-        link.download = '智能排序结果_' + new Date().toISOString().slice(0,10) + '.png';
+        link.download = '智能排序结果_' + new Date().toISOString().slice(0, 10) + '.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
-        showToast('图片已生成','success');
+        showToast('图片已生成', 'success');
     }).catch(err => {
         console.error(err);
-        showToast('图片生成失败','error');
+        showToast('图片生成失败', 'error');
     });
 }
 
