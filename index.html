@@ -872,16 +872,31 @@ function updateHeaderStats(){if(!db||!Array.isArray(db.locations))return;const a
 
 // ==================== 智能排序功能 ====================
 function showSmartSortModal() {
-    let zoneOptions = db.zones.map(z => `<option value="${z.id}">${z.name}</option>`).join('');
+    let zoneOptions = '';
+    db.zones.forEach(z => {
+        zoneOptions += `<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <input type="checkbox" value="${z.id}" class="smart-sort-target-zone"> ${z.name}
+        </label>`;
+    });
+    let auxOptions = '';
+    db.zones.forEach(z => {
+        auxOptions += `<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <input type="checkbox" value="${z.id}" class="smart-sort-aux-zone"> ${z.name}
+        </label>`;
+    });
     openModal(`
         <h2>🧹 智能排序</h2>
         <div class="form-group">
             <label>目标区域（可多选，主要整理）</label>
-            <select id="sortTargetZone" multiple size="3">${zoneOptions}</select>
+            <div style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
+                ${zoneOptions}
+            </div>
         </div>
         <div class="form-group">
             <label>辅助区域（可多选，用于临时存放）</label>
-            <select id="sortAuxZones" multiple size="3">${zoneOptions}</select>
+            <div style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:6px;">
+                ${auxOptions}
+            </div>
         </div>
         <div class="form-group">
             <label>排序规则</label>
@@ -898,13 +913,12 @@ function showSmartSortModal() {
 }
 
 function executeSmartSort() {
-    const targetZoneIds = [...document.getElementById('sortTargetZone').selectedOptions].map(o => parseInt(o.value));
-    const auxZoneIds = [...document.getElementById('sortAuxZones').selectedOptions].map(o => parseInt(o.value));
+    const targetZoneIds = [...document.querySelectorAll('.smart-sort-target-zone:checked')].map(o => parseInt(o.value));
+    const auxZoneIds = [...document.querySelectorAll('.smart-sort-aux-zone:checked')].map(o => parseInt(o.value));
     const rule = document.getElementById('sortRule').value;
     
     if(targetZoneIds.length===0){showToast('请至少选择一个目标区域','error');return;}
     
-    // 辅助区域空位池（全局共享）
     const auxEmptyLocs = db.locations.filter(l => auxZoneIds.includes(l.zoneId) && l.status === 'normal');
     
     let allAssignments = [];
@@ -916,7 +930,6 @@ function executeSmartSort() {
         const usedLocs = db.locations.filter(l => l.zoneId === targetZoneId && l.status === 'used');
         if(usedLocs.length===0) return;
         
-        // 产品分组
         const productGroups = {};
         usedLocs.forEach(loc => {
             const pid = loc.productId;
@@ -927,7 +940,6 @@ function executeSmartSort() {
             productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo));
         }
         
-        // 分配方案
         const assignments = [];
         const allTargetLocs = db.locations.filter(l => l.zoneId === targetZoneId);
         const rowsMap = {};
@@ -959,11 +971,13 @@ function executeSmartSort() {
             }
         });
         
-        // 生成移动建议
         const moves = [];
         assignments.forEach(assign => {
             const destLoc = assign.toLoc;
-            if (destLoc.status === 'used' && destLoc.id !== assign.fromLoc.id) {
+            // 跳过源和目标相同的移动
+            if (destLoc.id === assign.fromLoc.id) return;
+            
+            if (destLoc.status === 'used') {
                 if (auxEmptyLocs.length > 0) {
                     const tempLoc = auxEmptyLocs.shift();
                     moves.push({
@@ -995,7 +1009,6 @@ function executeSmartSort() {
 }
 
 function showSmartSortResult(assignments, moves) {
-    // 按目标区域分组显示平面图
     const targetZoneIds = [...new Set(assignments.map(a => a.toLoc.zoneId))];
     let html = `<h2>排序结果</h2>`;
     html += `<div id="smartSortResultContent">`;
@@ -1043,8 +1056,8 @@ function showSmartSortResult(assignments, moves) {
     moves.forEach((move, idx) => {
         const fromLabel = move.from ? (db.zones.find(z => z.id === move.from.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.from.zoneId), move.from.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.from.zoneId), move.from.colNum) + '托') : '-';
         const toLabel = move.to ? (db.zones.find(z => z.id === move.to.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.to.zoneId), move.to.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.to.zoneId), move.to.colNum) + '托') : '-';
-        const prod = move.productId ? db.products.find(p => p.id === move.productId)?.name : '-';
-        html += `<tr><td>${idx+1}</td><td>${move.type}</td><td>${fromLabel}</td><td>${toLabel}</td><td>${prod||'未知'}</td><td>${move.reason||''}</td></tr>`;
+        const prod = move.productId ? (db.products.find(p => p.id === move.productId)?.name || '未知产品') : '-';
+        html += `<tr><td>${idx+1}</td><td>${move.type}</td><td>${fromLabel}</td><td>${toLabel}</td><td>${prod}</td><td>${move.reason||''}</td></tr>`;
     });
     html += `</tbody></table>`;
     html += `</div>`;
