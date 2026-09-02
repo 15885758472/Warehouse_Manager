@@ -954,17 +954,15 @@ function executeSmartSort() {
 
     if (targetZoneIds.length === 0) { showToast('请至少选择一个目标区域', 'error'); return; }
 
-    // 辅助空位池
     const auxEmptyLocs = db.locations.filter(l => auxZoneIds.includes(l.zoneId) && l.status === 'normal');
-
-    let allAssignments = []; // 最终分配：{toLoc, productId, batchNo}
-    let allMoves = [];       // 移动步骤
+    let allAssignments = [];
+    let allMoves = [];
 
     targetZoneIds.forEach(targetZoneId => {
         const targetZone = db.zones.find(z => z.id === targetZoneId);
         if (!targetZone) return;
 
-        // 获取目标区域所有库位（包括空库位），按排、托排序
+        // 获取目标区域所有库位，按排、托排序
         const allLocs = db.locations
             .filter(l => l.zoneId === targetZoneId)
             .sort((a, b) => {
@@ -972,7 +970,7 @@ function executeSmartSort() {
                 return getDisplayColNumber(targetZone, a.colNum) - getDisplayColNumber(targetZone, b.colNum);
             });
 
-        // 获取目标区域所有已用产品信息
+        // 收集已用产品信息
         const usedLocs = allLocs.filter(l => l.status === 'used');
         const productList = [];
         usedLocs.forEach(loc => {
@@ -985,7 +983,7 @@ function executeSmartSort() {
             });
         });
 
-        // 按产品顺序排序：先按产品在 db.products 中的索引排序，同产品按批次日期升序（旧→新）
+        // 按产品在 db.products 中的顺序排序，同产品按批次升序
         const productOrderMap = new Map(db.products.map((p, idx) => [p.id, idx]));
         productList.sort((a, b) => {
             const idxA = productOrderMap.has(a.productId) ? productOrderMap.get(a.productId) : Number.MAX_SAFE_INTEGER;
@@ -994,49 +992,41 @@ function executeSmartSort() {
             return a.batchNo.localeCompare(b.batchNo);
         });
 
-        // 构建最终分配：将 productList 依次填入 allLocs
-        // 注意：需要保持同产品尽量在同一排，但简化处理，直接按顺序填充即可满足基本需求
+        // 连续填充：按排、托依次分配产品
         const finalAssignments = [];
-        const locQueue = [...allLocs]; // 所有库位（包括空）
+        let locIndex = 0;
         for (const item of productList) {
-            if (locQueue.length === 0) break;
-            const targetLoc = locQueue.shift();
+            if (locIndex >= allLocs.length) break;
+            const targetLoc = allLocs[locIndex];
             finalAssignments.push({
                 toLocId: targetLoc.id,
                 productId: item.productId,
                 batchNo: item.batchNo,
                 sourceLocId: item.sourceLocId
             });
+            locIndex++;
         }
 
-        // 生成移动步骤：比较当前状态与最终状态
-        const currentState = new Map(); // locId -> {productId, batchNo}
+        // 生成移动步骤
+        const currentState = new Map();
         allLocs.forEach(loc => {
-            if (loc.status === 'used') {
-                currentState.set(loc.id, { productId: loc.productId, batchNo: loc.batchNo });
-            } else {
-                currentState.set(loc.id, null);
-            }
+            currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null);
         });
 
         const finalState = new Map();
         finalAssignments.forEach(assign => {
             finalState.set(assign.toLocId, { productId: assign.productId, batchNo: assign.batchNo });
         });
-        // 剩余未分配的库位设为空
         allLocs.forEach(loc => {
             if (!finalState.has(loc.id)) finalState.set(loc.id, null);
         });
 
-        // 计算移动步骤
-        // 为简化，假设辅助区足够，先处理需要移出的产品，再移入最终产品
         const tempMoves = [];
-        // 找出所有当前有产品但最终为空或产品不同的库位，将产品移出到辅助区
+        // 移出所有需要变动位置的产品到辅助区
         for (const loc of allLocs) {
             const cur = currentState.get(loc.id);
             const fin = finalState.get(loc.id);
             if (cur && (!fin || cur.productId !== fin.productId || cur.batchNo !== fin.batchNo)) {
-                // 需要移出当前产品
                 if (auxEmptyLocs.length > 0) {
                     const tempLoc = auxEmptyLocs.shift();
                     tempMoves.push({
@@ -1056,11 +1046,10 @@ function executeSmartSort() {
         for (const assign of finalAssignments) {
             const targetLoc = allLocs.find(l => l.id === assign.toLocId);
             const cur = currentState.get(assign.toLocId);
-            // 如果目标库位当前没有产品或产品不同，则需要移动（若相同则无需移动）
             if (!cur || cur.productId !== assign.productId || cur.batchNo !== assign.batchNo) {
                 tempMoves.push({
                     type: '移动产品',
-                    from: db.locations.find(l => l.id === assign.sourceLocId), // 源库位
+                    from: db.locations.find(l => l.id === assign.sourceLocId),
                     to: targetLoc,
                     productId: assign.productId,
                     reason: '按排序规则移动'
@@ -1076,7 +1065,6 @@ function executeSmartSort() {
 }
 
 function showSmartSortResult(assignments, moves) {
-    // 按目标区域分组显示最终平面图
     const targetZoneIds = [...new Set(assignments.map(a => {
         const loc = db.locations.find(l => l.id === a.toLocId);
         return loc ? loc.zoneId : null;
@@ -1099,7 +1087,6 @@ function showSmartSortResult(assignments, moves) {
             cols.forEach(col => {
                 const loc = db.locations.find(l => l.zoneId === zoneId && l.rowNum === row && l.colNum === col);
                 if (loc) {
-                    // 从最终分配中查找该库位的产品
                     const assign = assignments.find(a => a.toLocId === loc.id);
                     const product = assign ? db.products.find(p => p.id === assign.productId) : null;
                     let style = 'background:#fff;border-color:#ddd;';
@@ -1131,7 +1118,6 @@ function showSmartSortResult(assignments, moves) {
     html += `<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-primary" onclick="exportSmartSortImage()">输出图片</button></div>`;
     openModal(html);
 }
-
 function exportSmartSortImage() {
     const content = document.getElementById('smartSortResultContent');
     if (!content) { showToast('没有内容可输出', 'error'); return; }
