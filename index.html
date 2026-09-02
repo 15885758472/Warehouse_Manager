@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>仓库管理系统 · 多端实时同步版</title>
+    <title>仓库管理系统 · 精简稳定版</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
+        /* 样式与之前基本相同，此处省略以节省长度，请使用之前完整样式 */
         :root{--bg:#f0f2f5;--card-bg:#fff;--primary:#1a73e8;--success:#34a853;--danger:#ea4335;--warning:#fbbc04;--text:#202124;--text-secondary:#5f6368;--border:#dadce0;--shadow:0 1px 3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--cell-size:56px;--cell-gap:4px;--row-label-width:44px}
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
@@ -84,11 +85,8 @@
         .toast-container{position:fixed;top:52px;right:8px;z-index:2000;display:flex;flex-direction:column;gap:5px;max-width:250px}
         .toast{padding:8px 12px;border-radius:6px;color:#fff;font-size:11px;cursor:pointer;box-shadow:var(--shadow)}
         .toast-success{background:var(--success)}.toast-error{background:var(--danger)}.toast-info{background:var(--primary)}
-        .fifo-table,.stats-table,.records-table,.daily-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px}
-        .fifo-table th,.fifo-table td,.stats-table th,.stats-table td,.records-table th,.records-table td,.daily-table th,.daily-table td{padding:5px 3px;text-align:left;border-bottom:1px solid var(--border)}
-        .zone-sort-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
-        .zone-sort-item{padding:10px 12px;border:2px solid var(--border);border-radius:var(--radius-sm);background:#fafafa;cursor:move;display:flex;align-items:center;gap:8px;font-size:14px}
-        .zone-sort-item.dragging{opacity:.5;border-color:var(--primary)}
+        .records-table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px}
+        .records-table th,.records-table td{padding:5px 3px;text-align:left;border-bottom:1px solid var(--border)}
         @media(min-width:768px){
             .main-container{flex-direction:row}
             .left-panel{width:230px;height:auto;flex-direction:column;border-right:1px solid var(--border);border-bottom:none;overflow-y:auto;overflow-x:hidden;padding:12px;gap:8px}
@@ -122,7 +120,6 @@
             .product-item{font-size:12px}
             .btn{font-size:13px}
             .btn-sm{font-size:11px}
-            .fifo-table th,.fifo-table td,.stats-table th,.stats-table td,.records-table th,.records-table td,.daily-table th,.daily-table td{font-size:13px;padding:8px 5px}
         }
     </style>
 </head>
@@ -141,7 +138,6 @@
     <aside class="left-panel">
         <div class="left-panel-top">
             <span class="panel-title">仓位区域</span>
-            <button class="btn btn-sm btn-outline" onclick="showZoneSortModal()">排序</button>
         </div>
         <div class="zone-list" id="zoneList"></div>
         <button class="add-zone-btn" id="btnAddZone">+ 添加区域</button>
@@ -163,36 +159,31 @@
     <aside class="right-panel">
         <div class="right-section"><h3>📦 产品</h3><div style="display:flex;gap:4px;"><button class="btn btn-outline btn-sm" id="btnToggleBatch">批量</button><button class="btn btn-primary btn-sm" id="btnAddProduct">+</button></div><div class="product-list" id="productList"></div><div class="batch-toolbar" id="batchToolbar"><button class="btn btn-sm btn-warning" onclick="batchUpdateUnit()">单位</button><button class="btn btn-sm btn-warning" onclick="batchUpdateUnitQuantity()">单位数量</button><button class="btn btn-sm btn-danger" onclick="batchDeleteProducts()">删除</button><button class="btn btn-sm btn-outline" onclick="clearSelectionAndExit()">取消</button></div></div>
         <div class="right-section"><h3>📊 统计</h3><div id="zoneStats" style="font-size:10px"></div></div>
-        <div class="right-section"><h3>⏱️ FIFO</h3><button class="btn btn-outline btn-sm" id="btnShowFifo">批次排序</button></div>
-        <div class="right-section"><h3>📈 统计</h3><button class="btn btn-outline btn-sm" id="btnShowStats">库存</button></div>
         <div class="right-section"><h3>📋 记录</h3><button class="btn btn-outline btn-sm" id="btnShowRecords">出入库</button></div>
-        <div class="right-section"><h3>📅 每日</h3><button class="btn btn-outline btn-sm" id="btnShowDailyStats">14天</button></div>
         <div class="right-section"><h3>🚚 中转仓</h3><button class="btn btn-outline btn-sm" id="btnShowTransit">查看中转仓</button></div>
-        <div class="right-section"><h3>💾 数据</h3><div style="display:flex;gap:4px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" id="btnExportExcel">Excel</button><button class="btn btn-outline btn-sm" id="btnExportProducts">产品</button><button class="btn btn-outline btn-sm" id="btnImportProducts">导入</button><button class="btn btn-outline btn-sm" id="btnExportData">备份</button><button class="btn btn-outline btn-sm" id="btnImportData">恢复</button></div></div>
+        <div class="right-section"><h3>💾 数据</h3><div style="display:flex;gap:4px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" id="btnExportData">备份</button><button class="btn btn-outline btn-sm" id="btnImportData">恢复</button></div></div>
     </aside>
 </div>
 <div id="modalContainer"></div>
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
-// ==================== Firebase 初始化 ====================
+// Firebase 配置
 const firebaseConfig={apiKey:"AIzaSyDu1NYuTLUxIMkkaXdJGFgE0GXGW0hwXto",authDomain:"warehouse-manager-4eec5.firebaseapp.com",databaseURL:"https://warehouse-manager-4eec5-default-rtdb.firebaseio.com",projectId:"warehouse-manager-4eec5",storageBucket:"warehouse-manager-4eec5.firebasestorage.app",messagingSenderId:"504489473795",appId:"1:504489473795:web:4bfac7455150709994db36"};
 firebase.initializeApp(firebaseConfig);
 const database=firebase.database();
 const dbRef=database.ref('warehouse/data');
 
-// ==================== 全局状态 ====================
-let db={zones:[],locations:[],products:[],records:[],dailyStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
+// 全局数据
+let db={zones:[],locations:[],products:[],records:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
 let currentZoneId=1,batchMode=false,selectedProducts=new Set(),locationBatchMode=false,selectedLocations=new Set(),isDBLoaded=false;
-let statsGroupBy='name',fifoGroupBy='name';
 let recordFilter='all',recordStartDate='',recordEndDate='',recordProductFilter='all',recordModelFilter='all';
-let selectedProductFilters = new Set();
-let transitFilterProduct = 'all';
-let lastBatchNo = ''; // 记忆上次批量入库批次号
+let transitFilterProduct='all';
+let lastBatchNo='';
 
-// ==================== 数据初始化与工具 ====================
+// 默认数据库
 function createDefaultDB(){
-    const d={zones:[],locations:[],products:[],records:[],dailyStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
+    const d={zones:[],locations:[],products:[],records:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
     const bz={id:1,name:'成品区',rows:34,cols:5,isBase:true,createdAt:new Date().toISOString()};
     d.zones.push(bz); d.nextZoneId=2;
     for(let r=1;r<=34;r++) for(let c=1;c<=5;c++) d.locations.push({id:d.nextLocationId++,zoneId:1,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null});
@@ -204,7 +195,6 @@ function ensureCompleteDB(data){
     if(!Array.isArray(data.locations))data.locations=[];
     if(!Array.isArray(data.products))data.products=[];
     if(!Array.isArray(data.records))data.records=[];
-    if(!Array.isArray(data.dailyStats))data.dailyStats=[];
     if(!Array.isArray(data.transit))data.transit=[];
     if(!data.nextZoneId)data.nextZoneId=1;
     if(!data.nextLocationId)data.nextLocationId=1;
@@ -215,9 +205,13 @@ function ensureCompleteDB(data){
     data.locations.forEach(l=>{if(!l.remark)l.remark='';if(l.customPieces===undefined)l.customPieces=0;if(l.handAccount===undefined)l.handAccount=false;});
     return data;
 }
+
+// 初始化
 function initFromFirebase(){
     const timeout=setTimeout(()=>{
-        if(!isDBLoaded){db=createDefaultDB();isDBLoaded=true;renderAll();updateSyncBadge(false);showToast('Firebase连接超时','error');}
+        if(!isDBLoaded){
+            db=createDefaultDB();isDBLoaded=true;renderAll();updateSyncBadge(false);showToast('Firebase连接超时','error');
+        }
     },8000);
     dbRef.once('value',snapshot=>{
         clearTimeout(timeout);
@@ -225,7 +219,6 @@ function initFromFirebase(){
         db=ensureCompleteDB(raw||null);
         if(!raw)dbRef.set(db);
         isDBLoaded=true;
-        updateDailyStatsIfNeeded();
         renderAll();
         startRealtimeListener();
         updateSyncBadge(true);
@@ -238,7 +231,6 @@ function startRealtimeListener(){
     dbRef.on('value',snapshot=>{
         const data=ensureCompleteDB(snapshot.val()||null);
         db=data;
-        updateDailyStatsIfNeeded();
         renderAll();
         updateSyncBadge(true);
     });
@@ -317,7 +309,7 @@ function openModal(html){
 }
 function closeModal(){document.getElementById('modalContainer').innerHTML='';}
 
-// ==================== 渲染函数 ====================
+// 渲染
 function renderAll(){
     if(!db||!Array.isArray(db.zones)||!Array.isArray(db.locations)||!Array.isArray(db.products))return;
     renderZoneList();renderGrid();renderProductList();renderZoneStats();updateHeaderStats();
@@ -368,8 +360,6 @@ function addZone(){
     currentZoneId=zone.id;
     saveDB(nd);closeModal();showToast('已添加','success');
 }
-
-// 核心渲染网格（带滚动位置恢复）
 function renderGrid(){
     const container=document.getElementById('gridContainer');
     if(!container||!db)return;
@@ -441,8 +431,23 @@ function renderGridTable(locs,zone,rankMap){
     html+='</div>';
     return html;
 }
+function getFifoRankMap(zoneId){
+    if(!db||!Array.isArray(db.locations))return{};
+    const used=db.locations.filter(l=>l.zoneId===zoneId&&l.status==='used'&&l.batchNo);
+    const pg={};
+    used.forEach(loc=>{const pid=loc.productId;if(!pid)return;if(!pg[pid])pg[pid]=[];pg[pid].push(loc);});
+    const rm={};
+    Object.keys(pg).forEach(pid=>{
+        const locs=pg[pid];
+        locs.sort((a,b)=>a.batchNo.localeCompare(b.batchNo));
+        locs.forEach((loc,i)=>{rm[loc.id]={rank:i,total:locs.length,productId:pid};});
+    });
+    return rm;
+}
+function getFifoColor(rank,total){if(total<=1)return'#1e88e5';const l=80-(rank/(total-1))*50;return'hsl(210,80%,'+l+'%)';}
+function getFifoBorderColor(rank,total){if(total<=1)return'#0d47a1';const l=60-(rank/(total-1))*25;return'hsl(210,90%,'+l+'%)';}
 
-// ==================== 产品列表与批量操作 ====================
+// 产品列表
 function renderProductList(){
     const list=document.getElementById('productList');
     if(!list||!db||!Array.isArray(db.products))return;
@@ -457,138 +462,28 @@ function renderProductList(){
         list.appendChild(item);
     });
 }
-function toggleBatchMode(){
-    batchMode=!batchMode;
-    if(!batchMode){selectedProducts.clear();document.getElementById('batchToolbar').classList.remove('active');}
-    else document.getElementById('batchToolbar').classList.add('active');
-    renderProductList();
-}
-function toggleSelectProduct(id,ev){
-    if(ev)ev.stopPropagation();
-    if(selectedProducts.has(id))selectedProducts.delete(id);else selectedProducts.add(id);
-    renderProductList();
-}
-function clearSelectionAndExit(){
-    selectedProducts.clear();batchMode=false;
-    document.getElementById('batchToolbar').classList.remove('active');
-    renderProductList();
-}
-function batchUpdateUnit(){
-    if(selectedProducts.size===0){showToast('请先勾选产品','error');return;}
-    openModal('<h2>批量修改单位</h2><div class="form-group"><label>新单位</label><input id="newUnitInput"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmBatchUpdateUnit()">确认</button></div>');
-}
-function confirmBatchUpdateUnit(){
-    const nu=document.getElementById('newUnitInput').value.trim();
-    if(!nu){showToast('请输入单位','error');return;}
-    const nd=JSON.parse(JSON.stringify(db));
-    selectedProducts.forEach(pid=>{const p=nd.products.find(x=>x.id===pid);if(p)p.unit=nu;});
-    saveDB(nd);closeModal();clearSelectionAndExit();showToast('成功','success');
-}
-function batchUpdateUnitQuantity(){
-    if(selectedProducts.size===0){showToast('请先勾选产品','error');return;}
-    openModal('<h2>批量修改单位数量</h2><div class="form-group"><label>新单位数量</label><input type="number" id="batchUnitQuantityInput" min="1"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmBatchUpdateUnitQuantity()">确认</button></div>');
-}
-function confirmBatchUpdateUnitQuantity(){
-    const val=parseInt(document.getElementById('batchUnitQuantityInput').value);
-    if(!val||val<1){showToast('无效','error');return;}
-    const nd=JSON.parse(JSON.stringify(db));
-    selectedProducts.forEach(pid=>{const p=nd.products.find(x=>x.id===pid);if(p)p.unitQuantity=val;});
-    saveDB(nd);closeModal();clearSelectionAndExit();showToast('成功','success');
-}
-function batchDeleteProducts(){
-    if(selectedProducts.size===0){showToast('请先勾选产品','error');return;}
-    const occ=[];
-    selectedProducts.forEach(pid=>{
-        if(db.locations.some(l=>l.productId===pid&&l.status==='used')||db.transit.some(t=>t.productId===pid)){
-            const p=db.products.find(x=>x.id===pid);occ.push(p?.name||pid);
-        }
-    });
-    if(occ.length){showToast('已存储：'+occ.join('、'),'error');return;}
-    if(!confirm('删除？'))return;
-    const nd=JSON.parse(JSON.stringify(db));
-    nd.products=nd.products.filter(p=>!selectedProducts.has(p.id));
-    saveDB(nd);clearSelectionAndExit();showToast('已删除','success');
-}
+function toggleBatchMode(){batchMode=!batchMode;if(!batchMode){selectedProducts.clear();document.getElementById('batchToolbar').classList.remove('active');}else document.getElementById('batchToolbar').classList.add('active');renderProductList();}
+function toggleSelectProduct(id,ev){if(ev)ev.stopPropagation();if(selectedProducts.has(id))selectedProducts.delete(id);else selectedProducts.add(id);renderProductList();}
+function clearSelectionAndExit(){selectedProducts.clear();batchMode=false;document.getElementById('batchToolbar').classList.remove('active');renderProductList();}
+function batchUpdateUnit(){if(selectedProducts.size===0){showToast('请先勾选产品','error');return;}openModal('<h2>批量修改单位</h2><div class="form-group"><label>新单位</label><input id="newUnitInput"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmBatchUpdateUnit()">确认</button></div>');}
+function confirmBatchUpdateUnit(){const nu=document.getElementById('newUnitInput').value.trim();if(!nu){showToast('请输入单位','error');return;}const nd=JSON.parse(JSON.stringify(db));selectedProducts.forEach(pid=>{const p=nd.products.find(x=>x.id===pid);if(p)p.unit=nu;});saveDB(nd);closeModal();clearSelectionAndExit();showToast('成功','success');}
+function batchUpdateUnitQuantity(){if(selectedProducts.size===0){showToast('请先勾选产品','error');return;}openModal('<h2>批量修改单位数量</h2><div class="form-group"><label>新单位数量</label><input type="number" id="batchUnitQuantityInput" min="1"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmBatchUpdateUnitQuantity()">确认</button></div>');}
+function confirmBatchUpdateUnitQuantity(){const val=parseInt(document.getElementById('batchUnitQuantityInput').value);if(!val||val<1){showToast('无效','error');return;}const nd=JSON.parse(JSON.stringify(db));selectedProducts.forEach(pid=>{const p=nd.products.find(x=>x.id===pid);if(p)p.unitQuantity=val;});saveDB(nd);closeModal();clearSelectionAndExit();showToast('成功','success');}
+function batchDeleteProducts(){if(selectedProducts.size===0){showToast('请先勾选产品','error');return;}const occ=[];selectedProducts.forEach(pid=>{if(db.locations.some(l=>l.productId===pid&&l.status==='used')||db.transit.some(t=>t.productId===pid)){const p=db.products.find(x=>x.id===pid);occ.push(p?.name||pid);}});if(occ.length){showToast('已存储：'+occ.join('、'),'error');return;}if(!confirm('删除？'))return;const nd=JSON.parse(JSON.stringify(db));nd.products=nd.products.filter(p=>!selectedProducts.has(p.id));saveDB(nd);clearSelectionAndExit();showToast('已删除','success');}
+function showAddProductModal(){if(!db||!Array.isArray(db.products)){showToast('数据未加载','info');return;}let opts='<option value="">-- 复制 --</option>';db.products.forEach(p=>opts+='<option value="'+p.id+'">'+p.name+'</option>');openModal('<h2>📦 新建产品</h2>'+(db.products.length?'<div class="form-group"><label>复制</label><select id="existingProductSelect" onchange="fillProductFields(this.value)">'+opts+'</select></div>':'')+'<div class="form-group"><label>名称</label><input id="pName" required></div><div class="form-group"><label>型号</label><input id="pModel"></div><div class="form-group"><label>单位</label><input id="pUnit" value="件" required></div><div class="form-group"><label>单位数量</label><input type="number" id="pUnitQuantity" value="1" min="1"></div><div class="form-group"><label>备注</label><textarea id="pRemark"></textarea></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addProduct()">确认</button></div>');}
+function fillProductFields(pid){if(!pid)return;const p=db.products.find(x=>x.id==pid);if(p){document.getElementById('pName').value=p.name;document.getElementById('pModel').value=p.model||'';document.getElementById('pUnit').value=p.unit;document.getElementById('pUnitQuantity').value=p.unitQuantity||1;document.getElementById('pRemark').value=p.remark||'';}}
+function addProduct(){const name=document.getElementById('pName').value.trim(),model=document.getElementById('pModel').value.trim(),unit=document.getElementById('pUnit').value.trim(),uq=parseInt(document.getElementById('pUnitQuantity').value)||1,remark=document.getElementById('pRemark').value.trim();if(!name||!unit){showToast('必填','error');return;}const nd=JSON.parse(JSON.stringify(db));nd.products.push({id:nd.nextProductId++,name,model,unit,unitQuantity:uq,remark,createdAt:new Date().toISOString()});saveDB(nd);closeModal();showToast('已添加','success');}
+function showProductDetail(id){const p=db.products.find(x=>x.id===id);if(!p)return;const info=getProductDisplayInfo(id);const usedLocs=db.locations.filter(l=>l.productId===id&&l.status==='used');const transitCount=db.transit.filter(t=>t.productId===id).length;openModal('<h2>📦 '+p.name+'</h2><p>型号:'+p.model+' | 单位:'+p.unit+' | 单位数量:'+p.unitQuantity+'</p><p>备注:'+p.remark+'</p><p>总件数:'+info.pieces+p.unit+'</p><p>存储仓位:'+usedLocs.length+' | 中转仓:'+transitCount+'</p><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-primary" onclick="closeModal();showEditProductModal('+p.id+')">编辑</button><button class="btn btn-danger" onclick="closeModal();deleteProduct('+p.id+')">删除</button></div>');}
+function showEditProductModal(id){const p=db.products.find(x=>x.id===id);if(!p)return;openModal('<h2>✏️ 编辑产品</h2><div class="form-group"><label>名称</label><input id="editName" value="'+p.name+'"></div><div class="form-group"><label>型号</label><input id="editModel" value="'+p.model+'"></div><div class="form-group"><label>单位</label><input id="editUnit" value="'+p.unit+'"></div><div class="form-group"><label>单位数量</label><input type="number" id="editUnitQuantity" value="'+p.unitQuantity+'"></div><div class="form-group"><label>备注</label><textarea id="editRemark">'+p.remark+'</textarea></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="updateProduct('+id+')">保存</button></div>');}
+function updateProduct(id){const nd=JSON.parse(JSON.stringify(db));const p=nd.products.find(x=>x.id===id);p.name=document.getElementById('editName').value.trim();p.model=document.getElementById('editModel').value.trim();p.unit=document.getElementById('editUnit').value.trim();p.unitQuantity=parseInt(document.getElementById('editUnitQuantity').value)||1;p.remark=document.getElementById('editRemark').value.trim();saveDB(nd);closeModal();showToast('已更新','success');}
+function deleteProduct(id){if(db.locations.some(l=>l.productId===id&&l.status==='used')||db.transit.some(t=>t.productId===id)){showToast('已存储','error');return;}if(!confirm('删除？'))return;const nd=JSON.parse(JSON.stringify(db));nd.products=nd.products.filter(x=>x.id!==id);saveDB(nd);showToast('已删除','success');}
 
-// ==================== 产品增删改 ====================
-function showAddProductModal(){
-    if(!db||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
-    let opts='<option value="">-- 复制 --</option>';
-    db.products.forEach(p=>opts+='<option value="'+p.id+'">'+p.name+'</option>');
-    openModal('<h2>📦 新建产品</h2>'+(db.products.length?'<div class="form-group"><label>复制</label><select id="existingProductSelect" onchange="fillProductFields(this.value)">'+opts+'</select></div>':'')+'<div class="form-group"><label>名称</label><input id="pName" required></div><div class="form-group"><label>型号</label><input id="pModel"></div><div class="form-group"><label>单位</label><input id="pUnit" value="件" required></div><div class="form-group"><label>单位数量</label><input type="number" id="pUnitQuantity" value="1" min="1"></div><div class="form-group"><label>备注</label><textarea id="pRemark"></textarea></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addProduct()">确认</button></div>');
-}
-function fillProductFields(pid){
-    if(!pid)return;
-    const p=db.products.find(x=>x.id==pid);
-    if(p){
-        document.getElementById('pName').value=p.name;
-        document.getElementById('pModel').value=p.model||'';
-        document.getElementById('pUnit').value=p.unit;
-        document.getElementById('pUnitQuantity').value=p.unitQuantity||1;
-        document.getElementById('pRemark').value=p.remark||'';
-    }
-}
-function addProduct(){
-    const name=document.getElementById('pName').value.trim();
-    const model=document.getElementById('pModel').value.trim();
-    const unit=document.getElementById('pUnit').value.trim();
-    const uq=parseInt(document.getElementById('pUnitQuantity').value)||1;
-    const remark=document.getElementById('pRemark').value.trim();
-    if(!name||!unit){showToast('必填','error');return;}
-    const nd=JSON.parse(JSON.stringify(db));
-    nd.products.push({id:nd.nextProductId++,name,model,unit,unitQuantity:uq,remark,createdAt:new Date().toISOString()});
-    saveDB(nd);closeModal();showToast('已添加','success');
-}
-function showProductDetail(id){
-    const p=db.products.find(x=>x.id===id);
-    if(!p)return;
-    const info=getProductDisplayInfo(id);
-    const usedLocs=db.locations.filter(l=>l.productId===id&&l.status==='used');
-    const transitCount=db.transit.filter(t=>t.productId===id).length;
-    openModal('<h2>📦 '+p.name+'</h2><p>型号:'+p.model+' | 单位:'+p.unit+' | 单位数量:'+p.unitQuantity+'</p><p>备注:'+p.remark+'</p><p>总件数:'+info.pieces+p.unit+'</p><p>存储仓位:'+usedLocs.length+' | 中转仓:'+transitCount+'</p><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-primary" onclick="closeModal();showEditProductModal('+p.id+')">编辑</button><button class="btn btn-danger" onclick="closeModal();deleteProduct('+p.id+')">删除</button></div>');
-}
-function showEditProductModal(id){
-    const p=db.products.find(x=>x.id===id);
-    if(!p)return;
-    openModal('<h2>✏️ 编辑产品</h2><div class="form-group"><label>名称</label><input id="editName" value="'+p.name+'"></div><div class="form-group"><label>型号</label><input id="editModel" value="'+p.model+'"></div><div class="form-group"><label>单位</label><input id="editUnit" value="'+p.unit+'"></div><div class="form-group"><label>单位数量</label><input type="number" id="editUnitQuantity" value="'+p.unitQuantity+'"></div><div class="form-group"><label>备注</label><textarea id="editRemark">'+p.remark+'</textarea></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="updateProduct('+id+')">保存</button></div>');
-}
-function updateProduct(id){
-    const nd=JSON.parse(JSON.stringify(db));
-    const p=nd.products.find(x=>x.id===id);
-    p.name=document.getElementById('editName').value.trim();
-    p.model=document.getElementById('editModel').value.trim();
-    p.unit=document.getElementById('editUnit').value.trim();
-    p.unitQuantity=parseInt(document.getElementById('editUnitQuantity').value)||1;
-    p.remark=document.getElementById('editRemark').value.trim();
-    saveDB(nd);closeModal();showToast('已更新','success');
-}
-function deleteProduct(id){
-    if(db.locations.some(l=>l.productId===id&&l.status==='used')||db.transit.some(t=>t.productId===id)){showToast('已存储','error');return;}
-    if(!confirm('删除？'))return;
-    const nd=JSON.parse(JSON.stringify(db));
-    nd.products=nd.products.filter(x=>x.id!==id);
-    saveDB(nd);showToast('已删除','success');
-}
+// 库位批量
+function toggleLocationBatchMode(){locationBatchMode=!locationBatchMode;if(!locationBatchMode){selectedLocations.clear();document.getElementById('locationBatchToolbar').classList.remove('active');}else document.getElementById('locationBatchToolbar').classList.add('active');renderGrid();}
+function toggleLocationSelect(id,ev){if(ev)ev.stopPropagation();if(selectedLocations.has(id))selectedLocations.delete(id);else selectedLocations.add(id);renderGrid();}
+function exitLocationBatchMode(){selectedLocations.clear();locationBatchMode=false;document.getElementById('locationBatchToolbar').classList.remove('active');renderGrid();}
 
-// ==================== 库位操作 ====================
-function toggleLocationBatchMode(){
-    locationBatchMode=!locationBatchMode;
-    if(!locationBatchMode){selectedLocations.clear();document.getElementById('locationBatchToolbar').classList.remove('active');}
-    else document.getElementById('locationBatchToolbar').classList.add('active');
-    renderGrid();
-}
-function toggleLocationSelect(id,ev){
-    if(ev)ev.stopPropagation();
-    if(selectedLocations.has(id))selectedLocations.delete(id);else selectedLocations.add(id);
-    renderGrid();
-}
-function exitLocationBatchMode(){
-    selectedLocations.clear();locationBatchMode=false;
-    document.getElementById('locationBatchToolbar').classList.remove('active');
-    renderGrid();
-}
-
-// 批量入库（带排序、预览、批次记忆）
+// 批量入库（排序、预览、批次记忆）
 function batchStockInLocations(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
     const empty=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='normal');
@@ -615,11 +510,7 @@ function batchStockInLocations(){
         '<div class="form-group"><label>记录手帐</label><input type="checkbox" id="batchHandAccount"></div>'+
         '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-success" onclick="confirmBatchStockIn()">确认</button></div>');
 }
-function toggleBatchStockType(){
-    const t=document.getElementById('batchStockType').value;
-    document.getElementById('batchUnitQtyGroup').style.display=t==='unit'?'block':'none';
-    document.getElementById('batchCustomPiecesGroup').style.display=t==='custom'?'block':'none';
-}
+function toggleBatchStockType(){const t=document.getElementById('batchStockType').value;document.getElementById('batchUnitQtyGroup').style.display=t==='unit'?'block':'none';document.getElementById('batchCustomPiecesGroup').style.display=t==='custom'?'block':'none';}
 function confirmBatchStockIn(){
     const pid=parseInt(document.getElementById('batchStockProduct').value);
     const batch=document.getElementById('batchStockBatch').value;
@@ -631,13 +522,8 @@ function confirmBatchStockIn(){
     if(!batch){showToast('请选择批次日期','error');return;}
     lastBatchNo = batch;
     let qty=0,cp=0;
-    if(type==='unit'){
-        qty=parseFloat(document.getElementById('batchStockQty').value);
-        if(!qty||qty<=0){showToast('无效','error');return;}
-    }else{
-        cp=parseInt(document.getElementById('batchStockCustomPieces').value);
-        if(!Number.isInteger(cp)||cp<1){showToast('无效','error');return;}
-    }
+    if(type==='unit'){qty=parseFloat(document.getElementById('batchStockQty').value);if(!qty||qty<=0){showToast('无效','error');return;}}
+    else{cp=parseInt(document.getElementById('batchStockCustomPieces').value);if(!Number.isInteger(cp)||cp<1){showToast('无效','error');return;}}
     const empty=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='normal');
     const sortedEmpty = empty.map(id=>db.locations.find(l=>l.id===id)).sort((a,b)=>{
         if(a.zoneId!==b.zoneId) return a.zoneId - b.zoneId;
@@ -653,13 +539,9 @@ function confirmBatchStockIn(){
         else{nl.quantity=0; nl.customPieces=cp;}
         addRecord(nd,'入库',product,nl,zone,qty,cp,remark,null,null,loc.id);
     });
-    saveDB(nd);
-    closeModal();
-    exitLocationBatchMode();
-    showToast('批量入库成功','success');
+    saveDB(nd);closeModal();exitLocationBatchMode();showToast('批量入库成功','success');
 }
-
-// 批量删除（与删除产品内核一致：删除入库记录，不新增出库）
+// 批量删除（与删除产品一致）
 function batchDeleteLocations(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
     const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');
@@ -670,16 +552,11 @@ function batchDeleteLocations(){
         const loc=nd.locations.find(l=>l.id===lid);
         const orig=db.locations.find(l=>l.id===lid);
         const product=db.products.find(p=>p.id===orig.productId);
-        if(product){
-            nd.records=nd.records.filter(r=>!(r.locationId===lid && r.type==='入库' && r.productId===product.id));
-        }
+        if(product){nd.records=nd.records.filter(r=>!(r.locationId===lid && r.type==='入库' && r.productId===product.id));}
         loc.status='normal'; loc.productId=null; loc.batchNo=null; loc.quantity=0; loc.customPieces=0; loc.remark=''; loc.handAccount=false; loc.updatedAt=null;
     });
-    saveDB(nd);
-    exitLocationBatchMode();
-    showToast('批量删除成功','success');
+    saveDB(nd);exitLocationBatchMode();showToast('批量删除成功','success');
 }
-
 // 批量加入中转仓
 function batchAddToTransit(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
@@ -693,27 +570,15 @@ function batchAddToTransit(){
         const product=db.products.find(p=>p.id===orig.productId);
         const zone=db.zones.find(z=>z.id===orig.zoneId);
         if(!product||!zone) return;
-        const transitEntry={
-            id: nd.nextTransitId++,
-            productId: orig.productId,
-            batchNo: orig.batchNo,
-            quantity: orig.quantity,
-            customPieces: orig.customPieces,
-            remark: orig.remark,
-            handAccount: orig.handAccount,
-            updatedAt: new Date().toISOString(),
-            sourceLocationId: orig.id
-        };
+        const transitEntry={id: nd.nextTransitId++,productId: orig.productId,batchNo: orig.batchNo,quantity: orig.quantity,customPieces: orig.customPieces,remark: orig.remark,handAccount: orig.handAccount,updatedAt: new Date().toISOString(),sourceLocationId: orig.id};
         nd.transit.push(transitEntry);
         loc.status='normal'; loc.productId=null; loc.batchNo=null; loc.quantity=0; loc.customPieces=0; loc.remark=''; loc.handAccount=false; loc.updatedAt=null;
         addRecord(nd,'加入中转仓',product,{...orig,rowNum:orig.rowNum,colNum:orig.colNum},zone,orig.quantity,orig.customPieces,'批量加入中转仓',null,null,orig.id);
     });
-    saveDB(nd);
-    exitLocationBatchMode();
-    showToast('批量加入中转仓成功','success');
+    saveDB(nd);exitLocationBatchMode();showToast('批量加入中转仓成功','success');
 }
 
-// ==================== 库位单元格交互 ====================
+// 库位点击
 function handleCellClick(lid){
     if(locationBatchMode){toggleLocationSelect(lid,event);return;}
     if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}
@@ -742,304 +607,47 @@ function showStockInModal(loc,zone){
     let opts=db.products.map(p=>'<option value="'+p.id+'">'+p.name+' ('+p.model+')</option>').join('');
     openModal('<h2>📥 入库</h2><p>仓位:'+zone?.name+' '+rl+'排'+dc+'托</p><div class="form-group"><label>产品</label><select id="stockInProduct">'+opts+'</select></div><div class="form-group"><label>方式</label><select id="stockInType" onchange="toggleStockInType()"><option value="unit">按单位数量</option><option value="custom">自定义件数</option></select></div><div class="form-group" id="unitQtyGroup"><label>单位数量</label><input type="number" id="stockInQty" min="0.01" step="any" value="1"></div><div class="form-group" id="customPiecesGroup" style="display:none"><label>件数</label><input type="number" id="stockInCustomPieces" min="1" step="1" value="1"></div><div class="form-group"><label>批次日期</label><input type="date" id="stockInBatch" value="'+today+'"></div><div class="form-group"><label>备注</label><textarea id="stockInRemark"></textarea></div><div class="form-group"><label>记录手帐</label><input type="checkbox" id="stockHandAccount"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-success" onclick="stockIn('+loc.id+')">确认入库</button></div>');
 }
-function toggleStockInType(){
-    const t=document.getElementById('stockInType').value;
-    document.getElementById('unitQtyGroup').style.display=t==='unit'?'block':'none';
-    document.getElementById('customPiecesGroup').style.display=t==='custom'?'block':'none';
-}
-function stockIn(lid){
-    if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}
-    const loc=db.locations.find(l=>l.id===lid);
-    if(!loc||loc.status!=='normal'){showToast('状态异常','error');closeModal();return;}
-    const pid=parseInt(document.getElementById('stockInProduct').value);
-    const batch=document.getElementById('stockInBatch').value;
-    const remark=document.getElementById('stockInRemark').value.trim();
-    const handAccount=document.getElementById('stockHandAccount')?.checked||false;
-    if(!pid||!batch){showToast('信息不完整','error');return;}
-    const product=db.products.find(p=>p.id===pid);
-    if(!product){showToast('产品不存在','error');return;}
-    const type=document.getElementById('stockInType').value;
-    const nd=JSON.parse(JSON.stringify(db));
-    const nl=nd.locations.find(l=>l.id===lid);
-    const zone=db.zones.find(z=>z.id===nl.zoneId);
-    nl.status='used'; nl.productId=pid; nl.batchNo=batch; nl.remark=remark; nl.handAccount=handAccount; nl.updatedAt=new Date().toISOString();
-    let qty=0,cp=0;
-    if(type==='unit'){
-        qty=parseFloat(document.getElementById('stockInQty').value);
-        if(!qty||qty<=0){showToast('无效','error');return;}
-        nl.quantity=qty; nl.customPieces=0;
-    }else{
-        cp=parseInt(document.getElementById('stockInCustomPieces').value);
-        if(!Number.isInteger(cp)||cp<1){showToast('无效','error');return;}
-        nl.quantity=0; nl.customPieces=cp;
-    }
-    addRecord(nd,'入库',product,nl,zone,qty,cp,remark,null,null,loc.id);
-    saveDB(nd);closeModal();showToast('入库成功','success');
-}
-function showUsedLocationModal(loc,zone){
-    if(!db||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
-    const product=db.products.find(p=>p.id===loc.productId);
-    const rl=getRowDisplayLabel(zone,loc.rowNum),dc=getDisplayColNumber(zone,loc.colNum);
-    const isCustom=loc.customPieces>0;
-    const rp=loc.quantity*(product?.unitQuantity||1);
-    const disp=isCustom?loc.customPieces+'件':loc.quantity+(product?.unit||'件')+' ('+rp.toFixed(2)+'件)';
-    openModal('<h2>📤 仓位操作</h2><p>仓位:'+zone?.name+' '+rl+'排'+dc+'托</p><div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px"><p>产品:'+product?.name+'</p><p>型号:'+product?.model+'</p><p>批次:'+loc.batchNo+'</p><p>数量:'+disp+'</p><p>手帐:'+(loc.handAccount?'是':'否')+'</p><p>备注:'+(loc.remark||'-')+'</p></div>'+(isCustom?'<div class="form-group"><label>出库件数(最大'+loc.customPieces+')</label><input type="number" id="stockOutQty" min="1" max="'+loc.customPieces+'" step="1" value="'+loc.customPieces+'"></div>':'<div class="form-group"><label>出库单位数量(最大'+loc.quantity+')</label><input type="number" id="stockOutQty" min="0.01" max="'+loc.quantity+'" step="any" value="'+loc.quantity+'"></div>')+'<div class="form-actions" style="flex-wrap:wrap;gap:6px"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-danger" onclick="stockOut('+loc.id+')">出库</button><button class="btn btn-warning" onclick="shipOut('+loc.id+')">发货</button><button class="btn btn-primary" onclick="showMigrateModal('+loc.id+')">迁移</button><button class="btn btn-info" onclick="addToTransit('+loc.id+')">加入中转仓</button><button class="btn btn-danger" onclick="deleteLocationProduct('+loc.id+')">删除产品</button></div>');
-}
-function stockOut(lid){
-    if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}
-    const loc=db.locations.find(l=>l.id===lid);
-    if(!loc||loc.status!=='used'){showToast('状态异常','error');closeModal();return;}
-    const product=db.products.find(p=>p.id===loc.productId);
-    const zone=db.zones.find(z=>z.id===loc.zoneId);
-    const nd=JSON.parse(JSON.stringify(db));
-    const nl=nd.locations.find(l=>l.id===lid);
-    let oq=0,op=0;
-    if(nl.customPieces>0){
-        op=parseInt(document.getElementById('stockOutQty').value);
-        if(!Number.isInteger(op)||op<1||op>nl.customPieces){showToast('无效','error');return;}
-        const rem=nl.customPieces-op;
-        if(rem>0)nl.customPieces=rem;
-        else{nl.status='normal';nl.productId=null;nl.batchNo=null;nl.quantity=0;nl.customPieces=0;nl.remark='';nl.handAccount=false;nl.updatedAt=null;}
-    }else{
-        oq=parseFloat(document.getElementById('stockOutQty').value);
-        if(!oq||oq<=0||oq>nl.quantity){showToast('无效','error');return;}
-        const rem=nl.quantity-oq;
-        if(rem>0)nl.quantity=rem;
-        else{nl.status='normal';nl.productId=null;nl.batchNo=null;nl.quantity=0;nl.customPieces=0;nl.remark='';nl.handAccount=false;nl.updatedAt=null;}
-    }
-    if(product)addRecord(nd,'出库',product,loc,zone,oq,op,'出库',null,null,loc.id);
-    saveDB(nd);closeModal();showToast('出库成功','success');
-}
-function shipOut(lid){
-    if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}
-    const loc=db.locations.find(l=>l.id===lid);
-    if(!loc||loc.status!=='used'){showToast('状态异常','error');closeModal();return;}
-    const product=db.products.find(p=>p.id===loc.productId);
-    const zone=db.zones.find(z=>z.id===loc.zoneId);
-    const nd=JSON.parse(JSON.stringify(db));
-    const nl=nd.locations.find(l=>l.id===lid);
-    if(product)addRecord(nd,'发货',product,loc,zone,nl.quantity,nl.customPieces,'发货',null,null,loc.id);
-    nl.status='normal'; nl.productId=null; nl.batchNo=null; nl.quantity=0; nl.customPieces=0; nl.remark=''; nl.handAccount=false; nl.updatedAt=null;
-    saveDB(nd);closeModal();showToast('发货成功','success');
-}
-function showMigrateModal(lid){
-    if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}
-    const loc=db.locations.find(l=>l.id===lid);
-    if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
-    const emptyLocs=db.locations.filter(l=>l.status==='normal');
-    if(emptyLocs.length===0){showToast('没有空库位','error');return;}
-    let opts=emptyLocs.map(l=>{
-        const zone=db.zones.find(z=>z.id===l.zoneId);
-        return '<option value="'+l.id+'">'+zone?.name+' '+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托</option>';
-    }).join('');
-    openModal('<h2>🔄 迁移产品</h2><p>将产品从当前库位迁移到目标空库位</p><div class="form-group"><label>目标库位</label><select id="migrateTarget">'+opts+'</select></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmMigrate('+lid+')">确认迁移</button></div>');
-}
-function confirmMigrate(lid){
-    const targetId=parseInt(document.getElementById('migrateTarget').value);
-    if(!targetId){showToast('请选择目标','error');return;}
-    const src=db.locations.find(l=>l.id===lid);
-    const dst=db.locations.find(l=>l.id===targetId);
-    if(!src||!dst||src.status!=='used'||dst.status!=='normal'){showToast('状态异常','error');return;}
-    const product=db.products.find(p=>p.id===src.productId);
-    const srcZone=db.zones.find(z=>z.id===src.zoneId);
-    const dstZone=db.zones.find(z=>z.id===dst.zoneId);
-    const nd=JSON.parse(JSON.stringify(db));
-    const ns=nd.locations.find(l=>l.id===lid);
-    const nt=nd.locations.find(l=>l.id===targetId);
-    nt.status='used'; nt.productId=ns.productId; nt.batchNo=ns.batchNo; nt.quantity=ns.quantity; nt.customPieces=ns.customPieces; nt.remark=ns.remark; nt.handAccount=ns.handAccount; nt.updatedAt=new Date().toISOString();
-    ns.status='normal'; ns.productId=null; ns.batchNo=null; ns.quantity=0; ns.customPieces=0; ns.remark=''; ns.handAccount=false; ns.updatedAt=null;
-    if(product){
-        addRecord(nd,'迁移',product,dst,srcZone,0,0,'从'+srcZone?.name+'迁移至'+dstZone?.name,dstZone?.name,getRowDisplayLabel(dstZone,dst.rowNum)+'排'+getDisplayColNumber(dstZone,dst.colNum)+'托',nt.id);
-    }
-    saveDB(nd);closeModal();showToast('迁移成功','success');
-}
-function deleteLocationProduct(lid){
-    if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}
-    const loc=db.locations.find(l=>l.id===lid);
-    if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
-    if(!confirm('删除该库位产品，并删除其入库记录？'))return;
-    const nd=JSON.parse(JSON.stringify(db));
-    const nl=nd.locations.find(l=>l.id===lid);
-    const product=db.products.find(p=>p.id===nl.productId);
-    const zone=db.zones.find(z=>z.id===nl.zoneId);
-    if(product){
-        nd.records=nd.records.filter(r=>!(r.locationId===lid&&r.type==='入库'&&r.productId===product.id));
-    }
-    nl.status='normal'; nl.productId=null; nl.batchNo=null; nl.quantity=0; nl.customPieces=0; nl.remark=''; nl.handAccount=false; nl.updatedAt=null;
-    saveDB(nd);closeModal();showToast('已删除产品及其入库记录','success');
-}
-// 加入中转仓（单个）
-function addToTransit(lid){
-    if(!db||!Array.isArray(db.locations)||!Array.isArray(db.transit)){showToast('数据未加载','info');return;}
-    const loc=db.locations.find(l=>l.id===lid);
-    if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
-    const product=db.products.find(p=>p.id===loc.productId);
-    const zone=db.zones.find(z=>z.id===loc.zoneId);
-    if(!product||!zone){showToast('数据错误','error');return;}
-    if(!confirm('确定将该产品加入中转仓？'))return;
-    const nd=JSON.parse(JSON.stringify(db));
-    const transitEntry={
-        id: nd.nextTransitId++,
-        productId: loc.productId,
-        batchNo: loc.batchNo,
-        quantity: loc.quantity,
-        customPieces: loc.customPieces,
-        remark: loc.remark,
-        handAccount: loc.handAccount,
-        updatedAt: new Date().toISOString(),
-        sourceLocationId: loc.id
-    };
-    nd.transit.push(transitEntry);
-    const nl=nd.locations.find(l=>l.id===lid);
-    nl.status='normal'; nl.productId=null; nl.batchNo=null; nl.quantity=0; nl.customPieces=0; nl.remark=''; nl.handAccount=false; nl.updatedAt=null;
-    addRecord(nd,'加入中转仓',product,{...loc,rowNum:loc.rowNum,colNum:loc.colNum},zone,loc.quantity,loc.customPieces,'加入中转仓',null,null,loc.id);
-    saveDB(nd);
-    closeModal();
-    showToast('已加入中转仓','success');
-}
+function toggleStockInType(){const t=document.getElementById('stockInType').value;document.getElementById('unitQtyGroup').style.display=t==='unit'?'block':'none';document.getElementById('customPiecesGroup').style.display=t==='custom'?'block':'none';}
+function stockIn(lid){if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}const loc=db.locations.find(l=>l.id===lid);if(!loc||loc.status!=='normal'){showToast('状态异常','error');closeModal();return;}const pid=parseInt(document.getElementById('stockInProduct').value);const batch=document.getElementById('stockInBatch').value;const remark=document.getElementById('stockInRemark').value.trim();const handAccount=document.getElementById('stockHandAccount')?.checked||false;if(!pid||!batch){showToast('信息不完整','error');return;}const product=db.products.find(p=>p.id===pid);if(!product){showToast('产品不存在','error');return;}const type=document.getElementById('stockInType').value;const nd=JSON.parse(JSON.stringify(db));const nl=nd.locations.find(l=>l.id===lid);const zone=db.zones.find(z=>z.id===nl.zoneId);nl.status='used';nl.productId=pid;nl.batchNo=batch;nl.remark=remark;nl.handAccount=handAccount;nl.updatedAt=new Date().toISOString();let qty=0,cp=0;if(type==='unit'){qty=parseFloat(document.getElementById('stockInQty').value);if(!qty||qty<=0){showToast('无效','error');return;}nl.quantity=qty;nl.customPieces=0;}else{cp=parseInt(document.getElementById('stockInCustomPieces').value);if(!Number.isInteger(cp)||cp<1){showToast('无效','error');return;}nl.quantity=0;nl.customPieces=cp;}addRecord(nd,'入库',product,nl,zone,qty,cp,remark,null,null,loc.id);saveDB(nd);closeModal();showToast('入库成功','success');}
+function showUsedLocationModal(loc,zone){if(!db||!Array.isArray(db.products)){showToast('数据未加载','info');return;}const product=db.products.find(p=>p.id===loc.productId);const rl=getRowDisplayLabel(zone,loc.rowNum),dc=getDisplayColNumber(zone,loc.colNum);const isCustom=loc.customPieces>0;const rp=loc.quantity*(product?.unitQuantity||1);const disp=isCustom?loc.customPieces+'件':loc.quantity+(product?.unit||'件')+' ('+rp.toFixed(2)+'件)';openModal('<h2>📤 仓位操作</h2><p>仓位:'+zone?.name+' '+rl+'排'+dc+'托</p><div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px"><p>产品:'+product?.name+'</p><p>型号:'+product?.model+'</p><p>批次:'+loc.batchNo+'</p><p>数量:'+disp+'</p><p>手帐:'+(loc.handAccount?'是':'否')+'</p><p>备注:'+(loc.remark||'-')+'</p></div>'+(isCustom?'<div class="form-group"><label>出库件数(最大'+loc.customPieces+')</label><input type="number" id="stockOutQty" min="1" max="'+loc.customPieces+'" step="1" value="'+loc.customPieces+'"></div>':'<div class="form-group"><label>出库单位数量(最大'+loc.quantity+')</label><input type="number" id="stockOutQty" min="0.01" max="'+loc.quantity+'" step="any" value="'+loc.quantity+'"></div>')+'<div class="form-actions" style="flex-wrap:wrap;gap:6px"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-danger" onclick="stockOut('+loc.id+')">出库</button><button class="btn btn-warning" onclick="shipOut('+loc.id+')">发货</button><button class="btn btn-primary" onclick="showMigrateModal('+loc.id+')">迁移</button><button class="btn btn-info" onclick="addToTransit('+loc.id+')">加入中转仓</button><button class="btn btn-danger" onclick="deleteLocationProduct('+loc.id+')">删除产品</button></div>');}
+function stockOut(lid){if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}const loc=db.locations.find(l=>l.id===lid);if(!loc||loc.status!=='used'){showToast('状态异常','error');closeModal();return;}const product=db.products.find(p=>p.id===loc.productId);const zone=db.zones.find(z=>z.id===loc.zoneId);const nd=JSON.parse(JSON.stringify(db));const nl=nd.locations.find(l=>l.id===lid);let oq=0,op=0;if(nl.customPieces>0){op=parseInt(document.getElementById('stockOutQty').value);if(!Number.isInteger(op)||op<1||op>nl.customPieces){showToast('无效','error');return;}const rem=nl.customPieces-op;if(rem>0)nl.customPieces=rem;else{nl.status='normal';nl.productId=null;nl.batchNo=null;nl.quantity=0;nl.customPieces=0;nl.remark='';nl.handAccount=false;nl.updatedAt=null;}}else{oq=parseFloat(document.getElementById('stockOutQty').value);if(!oq||oq<=0||oq>nl.quantity){showToast('无效','error');return;}const rem=nl.quantity-oq;if(rem>0)nl.quantity=rem;else{nl.status='normal';nl.productId=null;nl.batchNo=null;nl.quantity=0;nl.customPieces=0;nl.remark='';nl.handAccount=false;nl.updatedAt=null;}}if(product)addRecord(nd,'出库',product,loc,zone,oq,op,'出库',null,null,loc.id);saveDB(nd);closeModal();showToast('出库成功','success');}
+function shipOut(lid){if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}const loc=db.locations.find(l=>l.id===lid);if(!loc||loc.status!=='used'){showToast('状态异常','error');closeModal();return;}const product=db.products.find(p=>p.id===loc.productId);const zone=db.zones.find(z=>z.id===loc.zoneId);const nd=JSON.parse(JSON.stringify(db));const nl=nd.locations.find(l=>l.id===lid);if(product)addRecord(nd,'发货',product,loc,zone,nl.quantity,nl.customPieces,'发货',null,null,loc.id);nl.status='normal';nl.productId=null;nl.batchNo=null;nl.quantity=0;nl.customPieces=0;nl.remark='';nl.handAccount=false;nl.updatedAt=null;saveDB(nd);closeModal();showToast('发货成功','success');}
+function showMigrateModal(lid){if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}const loc=db.locations.find(l=>l.id===lid);if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}const emptyLocs=db.locations.filter(l=>l.status==='normal');if(emptyLocs.length===0){showToast('没有空库位','error');return;}let opts=emptyLocs.map(l=>{const zone=db.zones.find(z=>z.id===l.zoneId);return '<option value="'+l.id+'">'+zone?.name+' '+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托</option>';}).join('');openModal('<h2>🔄 迁移产品</h2><p>将产品从当前库位迁移到目标空库位</p><div class="form-group"><label>目标库位</label><select id="migrateTarget">'+opts+'</select></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmMigrate('+lid+')">确认迁移</button></div>');}
+function confirmMigrate(lid){const targetId=parseInt(document.getElementById('migrateTarget').value);if(!targetId){showToast('请选择目标','error');return;}const src=db.locations.find(l=>l.id===lid);const dst=db.locations.find(l=>l.id===targetId);if(!src||!dst||src.status!=='used'||dst.status!=='normal'){showToast('状态异常','error');return;}const product=db.products.find(p=>p.id===src.productId);const srcZone=db.zones.find(z=>z.id===src.zoneId);const dstZone=db.zones.find(z=>z.id===dst.zoneId);const nd=JSON.parse(JSON.stringify(db));const ns=nd.locations.find(l=>l.id===lid);const nt=nd.locations.find(l=>l.id===targetId);nt.status='used';nt.productId=ns.productId;nt.batchNo=ns.batchNo;nt.quantity=ns.quantity;nt.customPieces=ns.customPieces;nt.remark=ns.remark;nt.handAccount=ns.handAccount;nt.updatedAt=new Date().toISOString();ns.status='normal';ns.productId=null;ns.batchNo=null;ns.quantity=0;ns.customPieces=0;ns.remark='';ns.handAccount=false;ns.updatedAt=null;if(product){addRecord(nd,'迁移',product,dst,srcZone,0,0,'从'+srcZone?.name+'迁移至'+dstZone?.name,dstZone?.name,getRowDisplayLabel(dstZone,dst.rowNum)+'排'+getDisplayColNumber(dstZone,dst.colNum)+'托',nt.id);}saveDB(nd);closeModal();showToast('迁移成功','success');}
+function deleteLocationProduct(lid){if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}const loc=db.locations.find(l=>l.id===lid);if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}if(!confirm('删除该库位产品，并删除其入库记录？'))return;const nd=JSON.parse(JSON.stringify(db));const nl=nd.locations.find(l=>l.id===lid);const product=db.products.find(p=>p.id===nl.productId);const zone=db.zones.find(z=>z.id===nl.zoneId);if(product){nd.records=nd.records.filter(r=>!(r.locationId===lid&&r.type==='入库'&&r.productId===product.id));}nl.status='normal';nl.productId=null;nl.batchNo=null;nl.quantity=0;nl.customPieces=0;nl.remark='';nl.handAccount=false;nl.updatedAt=null;saveDB(nd);closeModal();showToast('已删除产品及其入库记录','success');}
+function addToTransit(lid){if(!db||!Array.isArray(db.locations)||!Array.isArray(db.transit)){showToast('数据未加载','info');return;}const loc=db.locations.find(l=>l.id===lid);if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}const product=db.products.find(p=>p.id===loc.productId);const zone=db.zones.find(z=>z.id===loc.zoneId);if(!product||!zone){showToast('数据错误','error');return;}if(!confirm('确定将该产品加入中转仓？'))return;const nd=JSON.parse(JSON.stringify(db));const transitEntry={id: nd.nextTransitId++,productId: loc.productId,batchNo: loc.batchNo,quantity: loc.quantity,customPieces: loc.customPieces,remark: loc.remark,handAccount: loc.handAccount,updatedAt: new Date().toISOString(),sourceLocationId: loc.id};nd.transit.push(transitEntry);const nl=nd.locations.find(l=>l.id===lid);nl.status='normal';nl.productId=null;nl.batchNo=null;nl.quantity=0;nl.customPieces=0;nl.remark='';nl.handAccount=false;nl.updatedAt=null;addRecord(nd,'加入中转仓',product,{...loc,rowNum:loc.rowNum,colNum:loc.colNum},zone,loc.quantity,loc.customPieces,'加入中转仓',null,null,loc.id);saveDB(nd);closeModal();showToast('已加入中转仓','success');}
 
-// ==================== 中转仓管理 ====================
-function renderTransitModal(){
-    if(!db||!Array.isArray(db.transit)){showToast('数据未加载','info');return;}
-    let productOpts='<option value="all">全部产品</option>';
-    db.products.forEach(p=>{productOpts+='<option value="'+p.id+'">'+p.name+' ('+p.model+')</option>';});
-    openModal('<h2>🚚 中转仓</h2>'+
-        '<div class="form-group"><label>筛选产品</label><select id="transitFilter" onchange="transitFilterProduct=this.value;renderTransitList();">'+productOpts+'</select></div>'+
-        '<div id="transitList"></div>'+
-        '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
-    if(transitFilterProduct!=='all')document.getElementById('transitFilter').value=transitFilterProduct;
-    renderTransitList();
-}
-function renderTransitList(){
-    const container=document.getElementById('transitList');
-    if(!container||!db||!Array.isArray(db.transit))return;
-    let items=db.transit;
-    if(transitFilterProduct!=='all'){
-        items=items.filter(t=>t.productId==parseInt(transitFilterProduct));
-    }
-    if(items.length===0){container.innerHTML='<p>中转仓为空</p>';return;}
-    let html='<table class="records-table"><thead><tr><th>产品</th><th>批次</th><th>数量</th><th>备注</th><th>时间</th><th>操作</th></tr></thead><tbody>';
-    items.forEach(t=>{
-        const p=db.products.find(x=>x.id===t.productId);
-        const qs=t.customPieces>0?t.customPieces+'件':t.quantity+(p?.unit||'件');
-        html+='<tr><td>'+(p?p.name:'?')+'</td><td>'+t.batchNo+'</td><td>'+qs+'</td><td>'+(t.remark||'-')+'</td><td>'+new Date(t.updatedAt).toLocaleString()+'</td><td><button class="btn btn-sm btn-primary" onclick="transitTransfer('+t.id+')">转移</button> <button class="btn btn-sm btn-warning" onclick="transitShipOut('+t.id+')">发货</button> <button class="btn btn-sm btn-danger" onclick="transitStockOut('+t.id+')">出库</button> <button class="btn btn-sm btn-outline" onclick="transitDeleteProduct('+t.id+')">删除产品</button></td></tr>';
-    });
-    html+='</tbody></table>';
-    container.innerHTML=html;
-}
-function transitTransfer(transitId){
-    const t=db.transit.find(x=>x.id===transitId);
-    if(!t){showToast('记录不存在','error');return;}
-    const emptyLocs=db.locations.filter(l=>l.status==='normal');
-    if(emptyLocs.length===0){showToast('没有空库位','error');return;}
-    let opts=emptyLocs.map(l=>{
-        const zone=db.zones.find(z=>z.id===l.zoneId);
-        return '<option value="'+l.id+'">'+zone?.name+' '+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托</option>';
-    }).join('');
-    openModal('<h2>🔄 中转转移</h2><p>选择目标库位</p><div class="form-group"><select id="transitTargetLoc">'+opts+'</select></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmTransitTransfer('+transitId+')">确认转移</button></div>');
-}
-function confirmTransitTransfer(transitId){
-    const targetId=parseInt(document.getElementById('transitTargetLoc').value);
-    if(!targetId){showToast('请选择目标','error');return;}
-    const t=db.transit.find(x=>x.id===transitId);
-    const dst=db.locations.find(l=>l.id===targetId);
-    if(!t||!dst||dst.status!=='normal'){showToast('状态异常','error');return;}
-    const product=db.products.find(p=>p.id===t.productId);
-    const zone=db.zones.find(z=>z.id===dst.zoneId);
-    if(!product||!zone){showToast('数据错误','error');return;}
-    const nd=JSON.parse(JSON.stringify(db));
-    const ndst=nd.locations.find(l=>l.id===targetId);
-    ndst.status='used'; ndst.productId=t.productId; ndst.batchNo=t.batchNo; ndst.quantity=t.quantity; ndst.customPieces=t.customPieces; ndst.remark=t.remark; ndst.handAccount=t.handAccount; ndst.updatedAt=new Date().toISOString();
-    nd.transit=nd.transit.filter(x=>x.id!==transitId);
-    addRecord(nd,'中转转移',product,ndst,zone,t.quantity,t.customPieces,'中转仓转移至库位',null,null,ndst.id);
-    saveDB(nd); closeModal(); showToast('转移成功','success');
-    if(document.getElementById('transitList'))renderTransitList();
-}
-function transitShipOut(transitId){
-    const t=db.transit.find(x=>x.id===transitId);
-    if(!t){showToast('记录不存在','error');return;}
-    const product=db.products.find(p=>p.id===t.productId);
-    if(!product){showToast('产品不存在','error');return;}
-    if(!confirm('确认直接发货？'))return;
-    const nd=JSON.parse(JSON.stringify(db));
-    nd.transit=nd.transit.filter(x=>x.id!==transitId);
-    const pseudoLoc={rowNum:0,colNum:0,batchNo:t.batchNo,quantity:t.quantity,customPieces:t.customPieces,remark:t.remark,handAccount:t.handAccount};
-    addRecord(nd,'发货',product,pseudoLoc,{name:'中转仓'},t.quantity,t.customPieces,'中转仓发货',null,null,null);
-    saveDB(nd); closeModal(); showToast('发货成功','success');
-}
-function transitStockOut(transitId){
-    const t=db.transit.find(x=>x.id===transitId);
-    if(!t){showToast('记录不存在','error');return;}
-    const product=db.products.find(p=>p.id===t.productId);
-    if(!product){showToast('产品不存在','error');return;}
-    const isCustom=t.customPieces>0;
-    const maxVal=isCustom?t.customPieces:t.quantity;
-    openModal('<h2>📤 中转仓出库</h2><div class="form-group"><label>出库数量</label><input type="number" id="transitOutQty" min="0.01" max="'+maxVal+'" step="'+(isCustom?'1':'any')+'" value="'+maxVal+'"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-danger" onclick="confirmTransitStockOut('+transitId+')">确认出库</button></div>');
-}
-function confirmTransitStockOut(transitId){
-    const t=db.transit.find(x=>x.id===transitId);
-    if(!t){showToast('记录不存在','error');return;}
-    const val=parseFloat(document.getElementById('transitOutQty').value);
-    if(!val||val<=0){showToast('无效','error');return;}
-    const nd=JSON.parse(JSON.stringify(db));
-    const nt=nd.transit.find(x=>x.id===transitId);
-    if(t.customPieces>0){
-        if(val>nt.customPieces){showToast('超出数量','error');return;}
-        nt.customPieces-=val;
-        if(nt.customPieces===0)nd.transit=nd.transit.filter(x=>x.id!==transitId);
-    }else{
-        if(val>nt.quantity){showToast('超出数量','error');return;}
-        nt.quantity-=val;
-        if(nt.quantity===0)nd.transit=nd.transit.filter(x=>x.id!==transitId);
-    }
-    const product=db.products.find(p=>p.id===t.productId);
-    const pseudoLoc={rowNum:0,colNum:0,batchNo:t.batchNo,quantity:val,customPieces:t.customPieces>0?val:0,remark:t.remark,handAccount:t.handAccount};
-    if(product)addRecord(nd,'出库',product,pseudoLoc,{name:'中转仓'},t.customPieces>0?0:val,t.customPieces>0?val:0,'中转仓出库',null,null,null);
-    saveDB(nd); closeModal(); showToast('出库成功','success');
-    if(document.getElementById('transitList'))renderTransitList();
-}
-function transitDeleteProduct(transitId){
-    const t=db.transit.find(x=>x.id===transitId);
-    if(!t){showToast('记录不存在','error');return;}
-    if(!confirm('确定删除该中转仓记录？'))return;
-    const nd=JSON.parse(JSON.stringify(db));
-    nd.transit=nd.transit.filter(x=>x.id!==transitId);
-    saveDB(nd); closeModal(); showToast('已删除','success');
-    if(document.getElementById('transitList'))renderTransitList();
-}
+// 中转仓
+function renderTransitModal(){if(!db||!Array.isArray(db.transit)){showToast('数据未加载','info');return;}let productOpts='<option value="all">全部产品</option>';db.products.forEach(p=>{productOpts+='<option value="'+p.id+'">'+p.name+' ('+p.model+')</option>';});openModal('<h2>🚚 中转仓</h2><div class="form-group"><label>筛选产品</label><select id="transitFilter" onchange="transitFilterProduct=this.value;renderTransitList();">'+productOpts+'</select></div><div id="transitList"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');if(transitFilterProduct!=='all')document.getElementById('transitFilter').value=transitFilterProduct;renderTransitList();}
+function renderTransitList(){const container=document.getElementById('transitList');if(!container||!db||!Array.isArray(db.transit))return;let items=db.transit;if(transitFilterProduct!=='all'){items=items.filter(t=>t.productId==parseInt(transitFilterProduct));}if(items.length===0){container.innerHTML='<p>中转仓为空</p>';return;}let html='<table class="records-table"><thead><tr><th>产品</th><th>批次</th><th>数量</th><th>备注</th><th>时间</th><th>操作</th></tr></thead><tbody>';items.forEach(t=>{const p=db.products.find(x=>x.id===t.productId);const qs=t.customPieces>0?t.customPieces+'件':t.quantity+(p?.unit||'件');html+='<tr><td>'+(p?p.name:'?')+'</td><td>'+t.batchNo+'</td><td>'+qs+'</td><td>'+(t.remark||'-')+'</td><td>'+new Date(t.updatedAt).toLocaleString()+'</td><td><button class="btn btn-sm btn-primary" onclick="transitTransfer('+t.id+')">转移</button> <button class="btn btn-sm btn-warning" onclick="transitShipOut('+t.id+')">发货</button> <button class="btn btn-sm btn-danger" onclick="transitStockOut('+t.id+')">出库</button> <button class="btn btn-sm btn-outline" onclick="transitDeleteProduct('+t.id+')">删除产品</button></td></tr>';});html+='</tbody></table>';container.innerHTML=html;}
+function transitTransfer(transitId){const t=db.transit.find(x=>x.id===transitId);if(!t){showToast('记录不存在','error');return;}const emptyLocs=db.locations.filter(l=>l.status==='normal');if(emptyLocs.length===0){showToast('没有空库位','error');return;}let opts=emptyLocs.map(l=>{const zone=db.zones.find(z=>z.id===l.zoneId);return '<option value="'+l.id+'">'+zone?.name+' '+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托</option>';}).join('');openModal('<h2>🔄 中转转移</h2><p>选择目标库位</p><div class="form-group"><select id="transitTargetLoc">'+opts+'</select></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmTransitTransfer('+transitId+')">确认转移</button></div>');}
+function confirmTransitTransfer(transitId){const targetId=parseInt(document.getElementById('transitTargetLoc').value);if(!targetId){showToast('请选择目标','error');return;}const t=db.transit.find(x=>x.id===transitId);const dst=db.locations.find(l=>l.id===targetId);if(!t||!dst||dst.status!=='normal'){showToast('状态异常','error');return;}const product=db.products.find(p=>p.id===t.productId);const zone=db.zones.find(z=>z.id===dst.zoneId);if(!product||!zone){showToast('数据错误','error');return;}const nd=JSON.parse(JSON.stringify(db));const ndst=nd.locations.find(l=>l.id===targetId);ndst.status='used';ndst.productId=t.productId;ndst.batchNo=t.batchNo;ndst.quantity=t.quantity;ndst.customPieces=t.customPieces;ndst.remark=t.remark;ndst.handAccount=t.handAccount;ndst.updatedAt=new Date().toISOString();nd.transit=nd.transit.filter(x=>x.id!==transitId);addRecord(nd,'中转转移',product,ndst,zone,t.quantity,t.customPieces,'中转仓转移至库位',null,null,ndst.id);saveDB(nd);closeModal();showToast('转移成功','success');if(document.getElementById('transitList'))renderTransitList();}
+function transitShipOut(transitId){const t=db.transit.find(x=>x.id===transitId);if(!t){showToast('记录不存在','error');return;}const product=db.products.find(p=>p.id===t.productId);if(!product){showToast('产品不存在','error');return;}if(!confirm('确认直接发货？'))return;const nd=JSON.parse(JSON.stringify(db));nd.transit=nd.transit.filter(x=>x.id!==transitId);const pseudoLoc={rowNum:0,colNum:0,batchNo:t.batchNo,quantity:t.quantity,customPieces:t.customPieces,remark:t.remark,handAccount:t.handAccount};addRecord(nd,'发货',product,pseudoLoc,{name:'中转仓'},t.quantity,t.customPieces,'中转仓发货',null,null,null);saveDB(nd);closeModal();showToast('发货成功','success');}
+function transitStockOut(transitId){const t=db.transit.find(x=>x.id===transitId);if(!t){showToast('记录不存在','error');return;}const product=db.products.find(p=>p.id===t.productId);if(!product){showToast('产品不存在','error');return;}const isCustom=t.customPieces>0;const maxVal=isCustom?t.customPieces:t.quantity;openModal('<h2>📤 中转仓出库</h2><div class="form-group"><label>出库数量</label><input type="number" id="transitOutQty" min="0.01" max="'+maxVal+'" step="'+(isCustom?'1':'any')+'" value="'+maxVal+'"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-danger" onclick="confirmTransitStockOut('+transitId+')">确认出库</button></div>');}
+function confirmTransitStockOut(transitId){const t=db.transit.find(x=>x.id===transitId);if(!t){showToast('记录不存在','error');return;}const val=parseFloat(document.getElementById('transitOutQty').value);if(!val||val<=0){showToast('无效','error');return;}const nd=JSON.parse(JSON.stringify(db));const nt=nd.transit.find(x=>x.id===transitId);if(t.customPieces>0){if(val>nt.customPieces){showToast('超出数量','error');return;}nt.customPieces-=val;if(nt.customPieces===0)nd.transit=nd.transit.filter(x=>x.id!==transitId);}else{if(val>nt.quantity){showToast('超出数量','error');return;}nt.quantity-=val;if(nt.quantity===0)nd.transit=nd.transit.filter(x=>x.id!==transitId);}const product=db.products.find(p=>p.id===t.productId);const pseudoLoc={rowNum:0,colNum:0,batchNo:t.batchNo,quantity:val,customPieces:t.customPieces>0?val:0,remark:t.remark,handAccount:t.handAccount};if(product)addRecord(nd,'出库',product,pseudoLoc,{name:'中转仓'},t.customPieces>0?0:val,t.customPieces>0?val:0,'中转仓出库',null,null,null);saveDB(nd);closeModal();showToast('出库成功','success');if(document.getElementById('transitList'))renderTransitList();}
+function transitDeleteProduct(transitId){const t=db.transit.find(x=>x.id===transitId);if(!t){showToast('记录不存在','error');return;}if(!confirm('确定删除该中转仓记录？'))return;const nd=JSON.parse(JSON.stringify(db));nd.transit=nd.transit.filter(x=>x.id!==transitId);saveDB(nd);closeModal();showToast('已删除','success');if(document.getElementById('transitList'))renderTransitList();}
 
-// ==================== 记录、统计、FIFO等（未修改，保留） ====================
-// ... 为避免超长，以下函数与之前版本完全相同，此处省略展示，实际使用请务必包含完整代码。
-// 由于消息长度限制，我无法在此展示全部2000行代码。请确保您使用的版本包含上述所有函数以及以下函数：
-// showRecords, deleteRecord, updateDailyStatsIfNeeded, getDailyStatsItems, showDailyStats, showDailyStatsContent, compareDailyStats,
-// showZoneSortModal, initZoneDragEvents, onZoneDragStart, onZoneDragOver, onZoneDrop, onZoneDragEnd, saveZoneOrder,
-// exportExcel, exportProductsData, importProductsData, exportData, importData, init
-// 这些函数与您之前提供的代码保持一致，未做修改。
-// 同时，初始化函数init中需要添加 btnShowTransit 的监听。
+// 记录
+function showRecords(){if(!db||!Array.isArray(db.records)||db.records.length===0){showToast('暂无记录','info');return;}let filtered=db.records.filter(r=>{if(recordFilter!=='all'&&r.type!==recordFilter)return false;const d=new Date(r.timestamp);const ds=d.toISOString().split('T')[0];if(recordStartDate&&ds<recordStartDate)return false;if(recordEndDate&&ds>recordEndDate)return false;return true;}).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));let productOptions='<option value="all">全部产品</option>';const productNames=[...new Set(db.products.map(p=>p.name))];productNames.forEach(n=>productOptions+='<option value="'+n+'"'+(recordProductFilter===n?' selected':'')+'>'+n+'</option>');let rows=filtered.map(r=>{const qs=r.customPieces>0?r.customPieces+'件':r.quantity+r.productUnit;return '<tr><td><button class="btn btn-danger btn-sm" onclick="deleteRecord('+r.id+')">删除</button></td><td>'+r.type+'</td><td>'+r.productName+'</td><td>'+r.productModel+'</td><td>'+qs+'</td><td>'+r.zoneName+'</td><td>'+r.locationLabel+'</td><td>'+r.batchNo+'</td><td>'+(r.remark||'-')+'</td><td>'+new Date(r.timestamp).toLocaleString()+'</td></tr>';}).join('');openModal('<h2>📋 出入库记录</h2><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><select onchange="recordFilter=this.value;showRecords();"><option value="all"'+(recordFilter==='all'?' selected':'')+'>全部类型</option><option value="入库">入库</option><option value="出库">出库</option><option value="发货">发货</option><option value="迁移">迁移</option><option value="加入中转仓">加入中转仓</option><option value="中转转移">中转转移</option></select><select onchange="recordProductFilter=this.value;showRecords();">'+productOptions+'</select><input type="date" value="'+recordStartDate+'" onchange="recordStartDate=this.value;showRecords();"><input type="date" value="'+recordEndDate+'" onchange="recordEndDate=this.value;showRecords();"></div><table class="records-table"><thead><tr><th>操作</th><th>类型</th><th>产品</th><th>型号</th><th>数量</th><th>区域</th><th>仓位</th><th>批次</th><th>备注</th><th>时间</th></tr></thead><tbody>'+rows+'</tbody></table><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');}
+function deleteRecord(recordId){if(!db||!Array.isArray(db.records))return;if(!confirm('确定删除这条记录吗？'))return;const nd=JSON.parse(JSON.stringify(db));nd.records=nd.records.filter(r=>r.id!==recordId);saveDB(nd);showToast('记录已删除','success');showRecords();}
 
-// 最终初始化
+// 统计
+function renderZoneStats(){const c=document.getElementById('zoneStats');if(!c||!db)return;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){c.textContent='请选择区域';return;}const locs=db.locations.filter(l=>l.zoneId===zone.id);const n=locs.filter(l=>l.status==='normal').length,u=locs.filter(l=>l.status==='unavailable').length,s=locs.filter(l=>l.status==='used').length;const tp=locs.filter(l=>l.status==='used').reduce((sum,l)=>{const p=db.products.find(x=>x.id===l.productId);return sum+(l.quantity||0)*(p?.unitQuantity||1)+(l.customPieces||0);},0);c.innerHTML='<div>正常:'+n+' 不可用:'+u+' 已用:'+s+' 总件数:'+tp+'</div>';}
+function updateHeaderStats(){if(!db||!Array.isArray(db.locations))return;const all=db.locations;document.getElementById('statNormal').textContent=all.filter(l=>l.status==='normal').length;document.getElementById('statUnavailable').textContent=all.filter(l=>l.status==='unavailable').length;document.getElementById('statUsed').textContent=all.filter(l=>l.status==='used').length;document.getElementById('statProducts').textContent=db.products.length;}
+
+// 数据备份
+function exportData(){if(!db||!Array.isArray(db.zones)){showToast('数据未加载','info');return;}const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();showToast('导出成功','success');}
+function importData(file){if(!db||!Array.isArray(db.zones)){showToast('数据未加载','info');return;}const reader=new FileReader();reader.onload=e=>{try{const imported=JSON.parse(e.target.result);if(!imported.zones||!imported.locations||!imported.products){showToast('格式错误','error');return;}if(!confirm('覆盖？'))return;saveDB(imported);if(!imported.zones.some(z=>z.id===currentZoneId))currentZoneId=imported.zones[0]?.id||null;renderAll();showToast('导入成功','success');}catch(err){showToast('解析失败','error');}};reader.readAsText(file);}
+
+// 初始化事件
 function init(){
     document.getElementById('btnAddZone').addEventListener('click',showAddZoneModal);
     document.getElementById('btnAddProduct').addEventListener('click',showAddProductModal);
     document.getElementById('btnToggleBatch').addEventListener('click',toggleBatchMode);
-    document.getElementById('btnShowFifo').addEventListener('click',()=>renderFifoOrderModal());
-    document.getElementById('btnShowStats').addEventListener('click',()=>renderStatsModal());
     document.getElementById('btnShowRecords').addEventListener('click',()=>showRecords());
-    document.getElementById('btnShowDailyStats').addEventListener('click',showDailyStats);
     document.getElementById('btnShowTransit').addEventListener('click',renderTransitModal);
-    document.getElementById('btnExportExcel').addEventListener('click',exportExcel);
-    document.getElementById('btnExportProducts').addEventListener('click',exportProductsData);
-    document.getElementById('btnImportProducts').addEventListener('click',()=>{
-        const i=document.createElement('input');i.type='file';
-        i.onchange=e=>{if(e.target.files[0])importProductsData(e.target.files[0]);};
-        i.click();
-    });
     document.getElementById('btnExportData').addEventListener('click',exportData);
-    document.getElementById('btnImportData').addEventListener('click',()=>{
-        const i=document.createElement('input');i.type='file';
-        i.onchange=e=>{if(e.target.files[0])importData(e.target.files[0]);};
-        i.click();
-    });
+    document.getElementById('btnImportData').addEventListener('click',()=>{const i=document.createElement('input');i.type='file';i.onchange=e=>{if(e.target.files[0])importData(e.target.files[0]);};i.click();});
     document.getElementById('btnToggleLocationBatch').addEventListener('click',toggleLocationBatchMode);
     document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
     initFromFirebase();
