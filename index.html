@@ -40,8 +40,6 @@
         .grid-container{background:var(--card-bg);border-radius:var(--radius);padding:6px;box-shadow:var(--shadow);overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%}
         .grid-side-by-side{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding-bottom:4px;width:100%}
         .grid-table{display:flex;flex-direction:column;gap:3px;flex-shrink:0;min-width:max-content}
-        .grid-col-label-row{display:flex;align-items:center;gap:var(--cell-gap);margin-bottom:2px;padding-left:calc(var(--row-label-width) + var(--cell-gap))}
-        .grid-col-label{width:var(--cell-size);text-align:center;font-size:9px;font-weight:600;color:var(--text-secondary)}
         .grid-row{display:flex;align-items:center;gap:var(--cell-gap)}
         .grid-row-label{width:var(--row-label-width);font-size:9px;font-weight:600;color:var(--text-secondary);text-align:right}
         .cell{width:var(--cell-size);height:48px;border-radius:4px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:8px;text-align:center;position:relative;flex-shrink:0;user-select:none;overflow:hidden;touch-action:manipulation}
@@ -112,7 +110,6 @@
             .center-panel{padding:16px 20px}
             .cell{width:60px;height:52px;font-size:9px}
             .cell .cell-label{font-size:8px}
-            .grid-col-label{width:60px;font-size:10px}
             .grid-row-label{font-size:10px;width:50px}
             .right-panel{width:280px;flex-direction:column;border-left:1px solid var(--border);border-top:none;overflow-y:auto;overflow-x:hidden;padding:12px;gap:8px}
             .right-section{min-width:auto;max-width:none}
@@ -129,7 +126,6 @@
             .cell .cell-qty{font-size:8px;top:2px;right:3px}
             .cell .fifo-rank{font-size:7px;top:2px;left:3px}
             .cell .new-badge,.cell .yesterday-badge,.cell .hand-badge,.cell .transfer-badge,.cell .priority-badge{font-size:7px;padding:0 3px}
-            .grid-col-label{width:var(--cell-size);font-size:11px}
             .grid-row-label{width:var(--row-label-width);font-size:11px}
             .center-header h2{font-size:20px}
             .right-panel{width:320px}
@@ -207,7 +203,7 @@ let recordFilter='all',recordStartDate='',recordEndDate='',recordProductFilter='
 let selectedProductFilters = new Set();
 let transitFilterProduct = 'all';
 let lastBatchNo = '';
-let selectedTransitItems = new Set(); // 中转仓批量选择
+let selectedTransitItems = new Set();
 
 // ==================== 数据初始化与工具 ====================
 function createDefaultDB(){
@@ -348,7 +344,7 @@ function openModal(html){
     document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
 }
 function closeModal(){document.getElementById('modalContainer').innerHTML='';}
-// ...（后续函数将在第二段提供）
+// ...（后续函数在第二段）
 // ==================== 渲染函数 ====================
 function renderAll(){
     if(!db||!Array.isArray(db.zones)||!Array.isArray(db.locations)||!Array.isArray(db.products))return;
@@ -569,8 +565,6 @@ function deleteProduct(id){if(db.locations.some(l=>l.productId===id&&l.status===
 function toggleLocationBatchMode(){locationBatchMode=!locationBatchMode;if(!locationBatchMode){selectedLocations.clear();document.getElementById('locationBatchToolbar').classList.remove('active');}else document.getElementById('locationBatchToolbar').classList.add('active');renderGrid();}
 function toggleLocationSelect(id,ev){if(ev)ev.stopPropagation();if(selectedLocations.has(id))selectedLocations.delete(id);else selectedLocations.add(id);renderGrid();}
 function exitLocationBatchMode(){selectedLocations.clear();locationBatchMode=false;document.getElementById('locationBatchToolbar').classList.remove('active');renderGrid();}
-
-// 批量入库（支持每个库位单独设置批次号）
 function batchStockInLocations(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
     const empty=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='normal');
@@ -592,7 +586,6 @@ function confirmBatchStockIn(){
     sortedEmpty.forEach(loc=>{const batchInput=document.getElementById('batchNo_'+loc.id);const batch=batchInput?batchInput.value:(lastBatchNo||new Date().toISOString().slice(0,10));if(!batch){showToast('批次号不能为空','error');return;}lastBatchNo=batch;const nl=nd.locations.find(l=>l.id===loc.id);const zone=db.zones.find(z=>z.id===loc.zoneId);nl.status='used';nl.productId=pid;nl.batchNo=batch;nl.remark=remark;nl.handAccount=handAccount;nl.updatedAt=new Date().toISOString();if(type==='unit'){nl.quantity=qty;nl.customPieces=0;}else{nl.quantity=0;nl.customPieces=cp;}addRecord(nd,'入库',product,nl,zone,qty,cp,remark,null,null,loc.id);});
     saveDB(nd);closeModal();exitLocationBatchMode();showToast('批量入库成功','success');
 }
-// 批量删除（与删除产品一致）
 function batchDeleteLocations(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
     const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');
@@ -602,7 +595,6 @@ function batchDeleteLocations(){
     used.forEach(lid=>{const loc=nd.locations.find(l=>l.id===lid);const orig=db.locations.find(l=>l.id===lid);const product=db.products.find(p=>p.id===orig.productId);if(product){nd.records=nd.records.filter(r=>!(r.locationId===lid && r.type==='入库' && r.productId===product.id));}loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;});
     saveDB(nd);exitLocationBatchMode();showToast('批量删除成功','success');
 }
-// 批量加入中转仓
 function batchAddToTransit(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
     const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');
@@ -695,10 +687,26 @@ function showRecords(){
 }
 function deleteRecord(recordId){if(!db||!Array.isArray(db.records))return;if(!confirm('确定删除这条记录吗？'))return;const nd=JSON.parse(JSON.stringify(db));nd.records=nd.records.filter(r=>r.id!==recordId);saveDB(nd);showToast('记录已删除','success');showRecords();}
 
-// ==================== 每日统计（按日期统计占用库位数量） ====================
-function updateDailyStatsIfNeeded(){if(!db)return;const today=new Date().toISOString().split('T')[0];if(!db.dailyStats)db.dailyStats=[];const items=getDailyStatsItems();const last=db.dailyStats[db.dailyStats.length-1];if(last&&last.date===today){last.items=items;if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);saveDB(db);return;}db.dailyStats.push({date:today,items:items});if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);saveDB(db);}
-function getDailyStatsItems(){const nameMap=new Map();db.products.forEach(p=>{if(!nameMap.has(p.name))nameMap.set(p.name,{pieces:0,units:new Set(),models:new Set()});const e=nameMap.get(p.name);const info=getProductDisplayInfo(p.id);e.pieces+=info.pieces;e.units.add(p.unit);e.models.add(p.model||'无型号');});const items=[];nameMap.forEach((data,name)=>{const specs=[...data.models].join('、');const unitStr=data.units.size===1?[...data.units][0]:'多单位';items.push({name,specs,pieces:data.pieces,unit:unitStr});});return items;}
-function showDailyStats(){if(!db||!Array.isArray(db.dailyStats)||db.dailyStats.length===0){showToast('暂无每日统计','info');return;}const dates=db.dailyStats.map(d=>d.date);let options='';dates.forEach(d=>{options+='<option value="'+d+'">'+d+'</option>';});let compareOptions=options;openModal('<h2>📅 每日统计</h2>'+
+// ==================== 每日统计（改为统计占用库位数量） ====================
+function updateDailyStatsIfNeeded(){if(!db)return;const today=new Date().toISOString().split('T')[0];if(!db.dailyStats)db.dailyStats=[];const items=getDailyStatsItemsByLocationCount();const last=db.dailyStats[db.dailyStats.length-1];if(last&&last.date===today){last.items=items;if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);saveDB(db);return;}db.dailyStats.push({date:today,items:items});if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);saveDB(db);}
+function getDailyStatsItemsByLocationCount(){
+    const productCountMap = new Map();
+    db.products.forEach(p => {
+        const count = db.locations.filter(l => l.productId === p.id && l.status === 'used').length;
+        if (!productCountMap.has(p.name)) {
+            productCountMap.set(p.name, { specs: new Set(), count: 0, unit: p.unit });
+        }
+        const entry = productCountMap.get(p.name);
+        entry.specs.add(p.model || '无型号');
+        entry.count += count;
+    });
+    const items = [];
+    productCountMap.forEach((data, name) => {
+        items.push({ name, specs: [...data.specs].join('、'), count: data.count, unit: data.unit });
+    });
+    return items;
+}
+function showDailyStats(){if(!db||!Array.isArray(db.dailyStats)||db.dailyStats.length===0){showToast('暂无每日统计','info');return;}const dates=db.dailyStats.map(d=>d.date);let options='';dates.forEach(d=>{options+='<option value="'+d+'">'+d+'</option>';});let compareOptions=options;openModal('<h2>📅 每日统计（占用库位数量）</h2>'+
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><label>单日查看：</label><select id="dailyDateSelect" onchange="showDailyStatsContent(this.value)">'+options+'</select></div>'+
     '<div id="dailyStatsContent"></div>'+
     '<hr style="margin:16px 0">'+
@@ -708,8 +716,8 @@ function showDailyStats(){if(!db||!Array.isArray(db.dailyStats)||db.dailyStats.l
     showDailyStatsContent(dates[dates.length-1]);
     if(dates.length>=2){document.getElementById('compareStartDate').value=dates[dates.length-2];document.getElementById('compareEndDate').value=dates[dates.length-1];}else{document.getElementById('compareStartDate').value=dates[0];document.getElementById('compareEndDate').value=dates[0];}
 }
-function showDailyStatsContent(dateStr){if(!db||!Array.isArray(db.dailyStats))return;const day=db.dailyStats.find(d=>d.date===dateStr);if(!day){document.getElementById('dailyStatsContent').innerHTML='<p>无数据</p>';return;}let rows=day.items.map(item=>'<tr><td>'+item.name+'</td><td>'+item.specs+'</td><td>'+item.pieces+'</td><td>'+item.unit+'</td></tr>').join('');document.getElementById('dailyStatsContent').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}
-function compareDailyStats(){const startDate=document.getElementById('compareStartDate').value;const endDate=document.getElementById('compareEndDate').value;if(!startDate||!endDate){return;}if(startDate===endDate){showToast('请选择不同日期','error');return;}const startDay=db.dailyStats.find(d=>d.date===startDate);const endDay=db.dailyStats.find(d=>d.date===endDate);if(!startDay||!endDay){showToast('日期数据不存在','error');return;}const startMap=new Map();startDay.items.forEach(item=>{startMap.set(item.name,item.pieces);});const endMap=new Map();endDay.items.forEach(item=>{endMap.set(item.name,item.pieces);});const allNames=new Set([...startMap.keys(),...endMap.keys()]);let rows='';allNames.forEach(name=>{const sPieces=startMap.get(name)||0;const ePieces=endMap.get(name)||0;const diff=ePieces-sPieces;const color=diff>0?'#34a853':(diff<0?'#ea4335':'#333');const itemInfo=endDay.items.find(i=>i.name===name)||startDay.items.find(i=>i.name===name);const unit=itemInfo?itemInfo.unit:'';const specs=itemInfo?itemInfo.specs:'';rows+='<tr><td>'+name+'</td><td>'+specs+'</td><td>'+sPieces+'</td><td>'+ePieces+'</td><td style="color:'+color+';font-weight:600">'+(diff>0?'+'+diff:diff)+'</td><td>'+unit+'</td></tr>';});document.getElementById('compareResult').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>起始数量</th><th>结束数量</th><th>变化</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}
+function showDailyStatsContent(dateStr){if(!db||!Array.isArray(db.dailyStats))return;const day=db.dailyStats.find(d=>d.date===dateStr);if(!day){document.getElementById('dailyStatsContent').innerHTML='<p>无数据</p>';return;}let rows=day.items.map(item=>'<tr><td>'+item.name+'</td><td>'+item.specs+'</td><td>'+item.count+'</td><td>'+item.unit+'</td></tr>').join('');document.getElementById('dailyStatsContent').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>占用库位</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}
+function compareDailyStats(){const startDate=document.getElementById('compareStartDate').value;const endDate=document.getElementById('compareEndDate').value;if(!startDate||!endDate){return;}if(startDate===endDate){showToast('请选择不同日期','error');return;}const startDay=db.dailyStats.find(d=>d.date===startDate);const endDay=db.dailyStats.find(d=>d.date===endDate);if(!startDay||!endDay){showToast('日期数据不存在','error');return;}const startMap=new Map();startDay.items.forEach(item=>{startMap.set(item.name,item.count);});const endMap=new Map();endDay.items.forEach(item=>{endMap.set(item.name,item.count);});const allNames=new Set([...startMap.keys(),...endMap.keys()]);let rows='';allNames.forEach(name=>{const sCount=startMap.get(name)||0;const eCount=endMap.get(name)||0;const diff=eCount-sCount;const color=diff>0?'#34a853':(diff<0?'#ea4335':'#333');const itemInfo=endDay.items.find(i=>i.name===name)||startDay.items.find(i=>i.name===name);const unit=itemInfo?itemInfo.unit:'';const specs=itemInfo?itemInfo.specs:'';rows+='<tr><td>'+name+'</td><td>'+specs+'</td><td>'+sCount+'</td><td>'+eCount+'</td><td style="color:'+color+';font-weight:600">'+(diff>0?'+'+diff:diff)+'</td><td>'+unit+'</td></tr>';});document.getElementById('compareResult').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>起始库位</th><th>结束库位</th><th>变化</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}
 
 // ==================== 库存统计 ====================
 function renderStatsModal(){if(!db||!Array.isArray(db.products)||db.products.length===0){showToast('暂无产品','info');return;}let table='';if(statsGroupBy==='name'){const m=new Map();db.products.forEach(p=>{if(!m.has(p.name))m.set(p.name,{pieces:0,units:new Set(),models:new Set()});const e=m.get(p.name);const info=getProductDisplayInfo(p.id);e.pieces+=info.pieces;e.units.add(p.unit);e.models.add(p.model||'无型号');});let rows=[...m.entries()].map(([n,d])=>{const specs=[...d.models].join('、');const unitStr=d.units.size===1?[...d.units][0]:'多单位';return '<tr><td>'+n+'</td><td>'+specs+'</td><td>'+d.pieces+'</td><td>'+unitStr+'</td></tr>';}).join('');table='<table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}else{const m=new Map();db.products.forEach(p=>{const key=p.model||'无型号';if(!m.has(key))m.set(key,{pieces:0,units:new Set(),names:new Set(),pn:[]});const e=m.get(key);const info=getProductDisplayInfo(p.id);e.pieces+=info.pieces;e.units.add(p.unit);e.names.add(p.name);e.pn.push(p.name);});let rows=[...m.entries()].map(([mod,d])=>{const unitStr=d.units.size===1?[...d.units][0]:'多单位';return '<tr><td>'+d.pn.join('、')+'</td><td>'+mod+'</td><td>'+d.names.size+'</td><td>'+d.pieces+'</td><td>'+unitStr+'</td></tr>';}).join('');table='<table class="stats-table"><thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}openModal('<h2>📈 库存统计</h2><div class="form-group"><label>分组方式</label><select onchange="statsGroupBy=this.value;renderStatsModal();"><option value="name"'+(statsGroupBy==='name'?' selected':'')+'>按名称</option><option value="model"'+(statsGroupBy==='model'?' selected':'')+'>按型号</option></select></div>'+table+'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');}
@@ -772,7 +780,7 @@ function updateFifoContent(){
     let content='';
     sortedKeys.forEach(key=>{
         const items=grouped[key];
-        // 先发产品排在最前
+        // 先发产品排在最前，其余按批次升序
         items.sort((a,b)=>{
             if(a.p.isPriority && !b.p.isPriority) return -1;
             if(!a.p.isPriority && b.p.isPriority) return 1;
@@ -901,9 +909,300 @@ function importData(file){if(!db||!Array.isArray(db.zones)){showToast('数据未
 function renderZoneStats(){const c=document.getElementById('zoneStats');if(!c||!db)return;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){c.textContent='请选择区域';return;}const locs=db.locations.filter(l=>l.zoneId===zone.id);const n=locs.filter(l=>l.status==='normal').length,u=locs.filter(l=>l.status==='unavailable').length,s=locs.filter(l=>l.status==='used').length;const tp=locs.filter(l=>l.status==='used').reduce((sum,l)=>{const p=db.products.find(x=>x.id===l.productId);return sum+(l.quantity||0)*(p?.unitQuantity||1)+(l.customPieces||0);},0);c.innerHTML='<div>正常:'+n+' 不可用:'+u+' 已用:'+s+' 总件数:'+tp+'</div>';}
 function updateHeaderStats(){if(!db||!Array.isArray(db.locations))return;const all=db.locations;document.getElementById('statNormal').textContent=all.filter(l=>l.status==='normal').length;document.getElementById('statUnavailable').textContent=all.filter(l=>l.status==='unavailable').length;document.getElementById('statUsed').textContent=all.filter(l=>l.status==='used').length;document.getElementById('statProducts').textContent=db.products.length;}
 
-// ==================== 智能排序功能 ====================
-// （智能排序相关函数保持不变，此处省略，用户可参考之前代码）
-// ... 为节约篇幅，此处不再重复智能排序函数，用户可自行从之前版本复制
+// ==================== 智能排序功能（完整） ====================
+function showSmartSortModal() {
+    let zoneCards = '';
+    db.zones.forEach(z => {
+        zoneCards += `<div class="smart-select-card" data-value="${z.id}" data-type="target">${z.name}</div>`;
+    });
+    let auxCards = '';
+    db.zones.forEach(z => {
+        auxCards += `<div class="smart-select-card" data-value="${z.id}" data-type="aux">${z.name}</div>`;
+    });
+    openModal(`
+        <h2>🧹 智能排序</h2>
+        <div class="form-group">
+            <label>目标区域（可多选，主要整理）</label>
+            <div class="smart-select-cards" id="targetZoneCards">${zoneCards}</div>
+            <select multiple size="4" class="smart-sort-target-multi" style="display:none;">
+                ${db.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>辅助区域（可多选，用于临时存放）</label>
+            <div class="smart-select-cards" id="auxZoneCards">${auxCards}</div>
+            <select multiple size="4" class="smart-sort-aux-multi" style="display:none;">
+                ${db.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>排序规则</label>
+            <select id="sortRule">
+                <option value="same_product_per_row">每排尽量同产品，新批次放高托号</option>
+                <option value="fifo_only">仅按批次日期顺序排列</option>
+            </select>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-outline" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="executeSmartSort()">执行排序</button>
+        </div>
+    `);
+    document.querySelectorAll('.smart-select-card').forEach(card=>{
+        card.addEventListener('click', function(e){
+            e.stopPropagation();
+            this.classList.toggle('active');
+        });
+    });
+}
+
+function executeSmartSort() {
+    let targetZoneIds, auxZoneIds;
+    const targetCards = document.querySelectorAll('.smart-select-card[data-type="target"]');
+    if (targetCards.length > 0 && targetCards[0].offsetParent !== null) {
+        targetZoneIds = [...document.querySelectorAll('.smart-select-card[data-type="target"].active')].map(card => parseInt(card.dataset.value));
+        auxZoneIds = [...document.querySelectorAll('.smart-select-card[data-type="aux"].active')].map(card => parseInt(card.dataset.value));
+    } else {
+        const targetMulti = document.querySelector('.smart-sort-target-multi');
+        const auxMulti = document.querySelector('.smart-sort-aux-multi');
+        targetZoneIds = [...targetMulti.selectedOptions].map(o => parseInt(o.value));
+        auxZoneIds = [...auxMulti.selectedOptions].map(o => parseInt(o.value));
+    }
+
+    if (targetZoneIds.length === 0) { showToast('请至少选择一个目标区域', 'error'); return; }
+
+    const auxEmptyLocs = db.locations.filter(l => auxZoneIds.includes(l.zoneId) && l.status === 'normal');
+    let allAssignments = [];
+    let allMoves = [];
+
+    targetZoneIds.forEach(targetZoneId => {
+        const targetZone = db.zones.find(z => z.id === targetZoneId);
+        if (!targetZone) return;
+
+        const allLocs = db.locations
+            .filter(l => l.zoneId === targetZoneId)
+            .sort((a, b) => {
+                if (a.rowNum !== b.rowNum) return a.rowNum - b.rowNum;
+                return getDisplayColNumber(targetZone, a.colNum) - getDisplayColNumber(targetZone, b.colNum);
+            });
+
+        const usedLocs = allLocs.filter(l => l.status === 'used');
+        if (usedLocs.length === 0) return;
+
+        // 产品分组
+        const productGroups = {};
+        usedLocs.forEach(loc => {
+            if (!productGroups[loc.productId]) productGroups[loc.productId] = [];
+            productGroups[loc.productId].push(loc);
+        });
+
+        // 产品按数量降序
+        const productEntries = Object.keys(productGroups).map(pid => ({
+            productId: parseInt(pid),
+            locs: productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo)),
+            count: productGroups[pid].length
+        }));
+        productEntries.sort((a, b) => b.count - a.count);
+
+        const finalAssignments = [];
+        const occupied = new Set();
+
+        // 优先保留原有排中占多数的产品
+        const rows = [...new Set(allLocs.map(l => l.rowNum))].sort((a, b) => a - b);
+        rows.forEach(row => {
+            const rowLocs = allLocs.filter(l => l.rowNum === row);
+            const rowUsed = rowLocs.filter(l => l.status === 'used');
+            if (rowUsed.length === 0) return;
+            const rowProductCount = {};
+            rowUsed.forEach(loc => {
+                rowProductCount[loc.productId] = (rowProductCount[loc.productId] || 0) + 1;
+            });
+            const totalUsed = rowUsed.length;
+            for (const pid in rowProductCount) {
+                const ratio = rowProductCount[pid] / totalUsed;
+                const product = productEntries.find(p => p.productId === parseInt(pid));
+                if (ratio >= 0.6 && product && product.count <= rowLocs.length) {
+                    const productLocs = product.locs;
+                    const availableSlots = rowLocs.filter(l => !occupied.has(l.id));
+                    for (let i = 0; i < productLocs.length && i < availableSlots.length; i++) {
+                        finalAssignments.push({
+                            toLocId: availableSlots[i].id,
+                            productId: product.productId,
+                            batchNo: productLocs[i].batchNo,
+                            sourceLocId: productLocs[i].id
+                        });
+                        occupied.add(availableSlots[i].id);
+                    }
+                    product.locs = product.locs.slice(productLocs.length);
+                }
+            }
+        });
+
+        // 处理剩余产品，填充空余排
+        for (const entry of productEntries) {
+            if (entry.locs.length === 0) continue;
+            for (const loc of entry.locs) {
+                const rowFree = {};
+                allLocs.forEach(l => {
+                    if (!occupied.has(l.id)) {
+                        rowFree[l.rowNum] = (rowFree[l.rowNum] || 0) + 1;
+                    }
+                });
+                let bestRow = null, maxFree = -1;
+                for (const row in rowFree) {
+                    if (rowFree[row] > maxFree) {
+                        maxFree = rowFree[row];
+                        bestRow = parseInt(row);
+                    }
+                }
+                if (bestRow === null) break;
+                const targetLoc = allLocs.find(l => l.rowNum === bestRow && !occupied.has(l.id));
+                if (targetLoc) {
+                    finalAssignments.push({
+                        toLocId: targetLoc.id,
+                        productId: entry.productId,
+                        batchNo: loc.batchNo,
+                        sourceLocId: loc.id
+                    });
+                    occupied.add(targetLoc.id);
+                }
+            }
+        }
+
+        // 防御：未分配的产品放入剩余空位
+        const assignedSourceIds = new Set(finalAssignments.map(a => a.sourceLocId));
+        usedLocs.forEach(loc => {
+            if (!assignedSourceIds.has(loc.id)) {
+                const anyLoc = allLocs.find(l => !occupied.has(l.id));
+                if (anyLoc) {
+                    finalAssignments.push({
+                        toLocId: anyLoc.id,
+                        productId: loc.productId,
+                        batchNo: loc.batchNo,
+                        sourceLocId: loc.id
+                    });
+                    occupied.add(anyLoc.id);
+                }
+            }
+        });
+
+        // 生成移动步骤
+        const currentState = new Map();
+        allLocs.forEach(loc => {
+            currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null);
+        });
+        const finalState = new Map();
+        finalAssignments.forEach(assign => {
+            finalState.set(assign.toLocId, { productId: assign.productId, batchNo: assign.batchNo });
+        });
+        allLocs.forEach(loc => {
+            if (!finalState.has(loc.id)) finalState.set(loc.id, null);
+        });
+
+        const tempMoves = [];
+        for (const loc of allLocs) {
+            const cur = currentState.get(loc.id);
+            const fin = finalState.get(loc.id);
+            if (cur && (!fin || cur.productId !== fin.productId || cur.batchNo !== fin.batchNo)) {
+                if (auxEmptyLocs.length > 0) {
+                    const tempLoc = auxEmptyLocs.shift();
+                    tempMoves.push({ type: '移到辅助区', from: loc, to: tempLoc, productId: cur.productId, reason: '腾出目标位置' });
+                } else {
+                    tempMoves.push({ type: '错误', message: '辅助区域空位不足' });
+                }
+            }
+        }
+        for (const assign of finalAssignments) {
+            const targetLoc = allLocs.find(l => l.id === assign.toLocId);
+            const cur = currentState.get(assign.toLocId);
+            if (!cur || cur.productId !== assign.productId || cur.batchNo !== assign.batchNo) {
+                tempMoves.push({ type: '移动产品', from: db.locations.find(l => l.id === assign.sourceLocId), to: targetLoc, productId: assign.productId, reason: '按布局优化移动' });
+            }
+        }
+
+        allAssignments = allAssignments.concat(finalAssignments);
+        allMoves = allMoves.concat(tempMoves);
+    });
+
+    showSmartSortResult(allAssignments, allMoves);
+}
+
+function showSmartSortResult(assignments, moves) {
+    const targetZoneIds = [...new Set(assignments.map(a => {
+        const loc = db.locations.find(l => l.id === a.toLocId);
+        return loc ? loc.zoneId : null;
+    }).filter(Boolean))];
+
+    let html = `<h2>排序结果（最终状态）</h2>`;
+    html += `<div id="smartSortResultContent">`;
+
+    targetZoneIds.forEach(zoneId => {
+        const zone = db.zones.find(z => z.id === zoneId);
+        if (!zone) return;
+        html += `<h3>${zone.name}</h3>`;
+        html += `<div class="grid-container" style="overflow:auto;">`;
+        const rows = [...new Set(db.locations.filter(l => l.zoneId === zoneId).map(l => l.rowNum))].sort((a, b) => a - b);
+        html += `<div class="grid-table">`;
+        rows.forEach(row => {
+            const rowCols = zone.rowDetails ? (zone.rowDetails[row-1] || zone.cols) : zone.cols;
+            const cols = getDisplayColArray({ ...zone, cols: rowCols }, row);
+            html += `<div class="grid-row">`;
+            html += `<div class="grid-row-label">${getRowDisplayLabel(zone, row)}</div>`;
+            cols.forEach((col, idx) => {
+                const loc = db.locations.find(l => l.zoneId === zoneId && l.rowNum === row && l.colNum === col);
+                if (loc) {
+                    const assign = assignments.find(a => a.toLocId === loc.id);
+                    const product = assign ? db.products.find(p => p.id === assign.productId) : null;
+                    let style = 'background:#fff;border-color:#ddd;';
+                    let label = '空';
+                    if (assign && product) {
+                        style = 'background:#a5d6a7;border-color:#4caf50;';
+                        label = `${product.name || '未知'} (${assign.batchNo})`;
+                    }
+                    html += `<div class="cell" style="${style}">${label}</div>`;
+                } else {
+                    html += `<div class="cell" style="border-style:dashed;opacity:.3;">-</div>`;
+                }
+            });
+            html += `</div>`;
+        });
+        html += `</div></div>`;
+    });
+
+    html += `<h3>移动步骤（共${moves.length}步）</h3>`;
+    html += `<table class="records-table"><thead><tr><th>步骤</th><th>操作</th><th>从</th><th>到</th><th>产品</th><th>原因</th></tr></thead><tbody>`;
+    moves.forEach((move, idx) => {
+        const fromLabel = move.from ? (db.zones.find(z => z.id === move.from.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.from.zoneId), move.from.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.from.zoneId), move.from.colNum) + '托') : '-';
+        const toLabel = move.to ? (db.zones.find(z => z.id === move.to.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.to.zoneId), move.to.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.to.zoneId), move.to.colNum) + '托') : '-';
+        const prod = move.productId ? (db.products.find(p => p.id === move.productId)?.name || '未知产品') : '-';
+        html += `<tr><td>${idx+1}</td><td>${move.type}</td><td>${fromLabel}</td><td>${toLabel}</td><td>${prod}</td><td>${move.reason || ''}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    html += `</div>`;
+    html += `<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-primary" onclick="exportSmartSortImage()">输出图片</button></div>`;
+    openModal(html);
+}
+
+function exportSmartSortImage() {
+    const content = document.getElementById('smartSortResultContent');
+    if (!content) { showToast('没有内容可输出', 'error'); return; }
+    html2canvas(content, {
+        scale: 2,
+        width: content.scrollWidth,
+        height: content.scrollHeight,
+        windowWidth: content.scrollWidth,
+        windowHeight: content.scrollHeight,
+        useCORS: true
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = '智能排序结果_' + new Date().toISOString().slice(0, 10) + '.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('图片已生成', 'success');
+    }).catch(err => {
+        console.error(err);
+        showToast('图片生成失败', 'error');
+    });
+}
 
 // ==================== 初始化 ====================
 function init(){
