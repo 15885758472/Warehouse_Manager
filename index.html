@@ -179,7 +179,7 @@
             <button class="btn btn-outline btn-sm" id="btnShowStats">库存统计</button>
             <button class="btn btn-outline btn-sm" id="btnShowRecords">出入库记录</button>
             <button class="btn btn-outline btn-sm" id="btnShowDailyStats">每日统计</button>
-            <button class="btn btn-outline btn-sm" id="btnShowDailyDateStats">每日日期统计</button>
+            <button class="btn btn-outline btn-sm" id="btnShowDailyBatchStats">每日批次统计</button>
         </div>
         <div class="right-section"><h3>🚚 中转仓</h3><button class="btn btn-outline btn-sm" id="btnShowTransit">查看中转仓</button></div>
         <div class="right-section"><h3>🧹 智能排序</h3><button class="btn btn-outline btn-sm" id="btnSmartSort">开始排序</button></div>
@@ -566,8 +566,6 @@ function deleteProduct(id){if(db.locations.some(l=>l.productId===id&&l.status===
 function toggleLocationBatchMode(){locationBatchMode=!locationBatchMode;if(!locationBatchMode){selectedLocations.clear();document.getElementById('locationBatchToolbar').classList.remove('active');}else document.getElementById('locationBatchToolbar').classList.add('active');renderGrid();}
 function toggleLocationSelect(id,ev){if(ev)ev.stopPropagation();if(selectedLocations.has(id))selectedLocations.delete(id);else selectedLocations.add(id);renderGrid();}
 function exitLocationBatchMode(){selectedLocations.clear();locationBatchMode=false;document.getElementById('locationBatchToolbar').classList.remove('active');renderGrid();}
-
-// 批量入库（支持每个库位单独设置批次号）
 function batchStockInLocations(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
     const empty=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='normal');
@@ -589,7 +587,6 @@ function confirmBatchStockIn(){
     sortedEmpty.forEach(loc=>{const batchInput=document.getElementById('batchNo_'+loc.id);const batch=batchInput?batchInput.value:(lastBatchNo||new Date().toISOString().slice(0,10));if(!batch){showToast('批次号不能为空','error');return;}lastBatchNo=batch;const nl=nd.locations.find(l=>l.id===loc.id);const zone=db.zones.find(z=>z.id===loc.zoneId);nl.status='used';nl.productId=pid;nl.batchNo=batch;nl.remark=remark;nl.handAccount=handAccount;nl.updatedAt=new Date().toISOString();if(type==='unit'){nl.quantity=qty;nl.customPieces=0;}else{nl.quantity=0;nl.customPieces=cp;}addRecord(nd,'入库',product,nl,zone,qty,cp,remark,null,null,loc.id);});
     saveDB(nd);closeModal();exitLocationBatchMode();showToast('批量入库成功','success');
 }
-// 批量删除（与删除产品一致）
 function batchDeleteLocations(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
     const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');
@@ -599,7 +596,6 @@ function batchDeleteLocations(){
     used.forEach(lid=>{const loc=nd.locations.find(l=>l.id===lid);const orig=db.locations.find(l=>l.id===lid);const product=db.products.find(p=>p.id===orig.productId);if(product){nd.records=nd.records.filter(r=>!(r.locationId===lid && r.type==='入库' && r.productId===product.id));}loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;});
     saveDB(nd);exitLocationBatchMode();showToast('批量删除成功','success');
 }
-// 批量加入中转仓
 function batchAddToTransit(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
     const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');
@@ -692,7 +688,7 @@ function showRecords(){
 }
 function deleteRecord(recordId){if(!db||!Array.isArray(db.records))return;if(!confirm('确定删除这条记录吗？'))return;const nd=JSON.parse(JSON.stringify(db));nd.records=nd.records.filter(r=>r.id!==recordId);saveDB(nd);showToast('记录已删除','success');showRecords();}
 
-// ==================== 每日统计（原逻辑恢复） ====================
+// ==================== 每日统计（恢复为总件数） ====================
 function updateDailyStatsIfNeeded(){if(!db)return;const today=new Date().toISOString().split('T')[0];if(!db.dailyStats)db.dailyStats=[];const items=getDailyStatsItems();const last=db.dailyStats[db.dailyStats.length-1];if(last&&last.date===today){last.items=items;if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);saveDB(db);return;}db.dailyStats.push({date:today,items:items});if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);saveDB(db);}
 function getDailyStatsItems(){const nameMap=new Map();db.products.forEach(p=>{if(!nameMap.has(p.name))nameMap.set(p.name,{pieces:0,units:new Set(),models:new Set()});const e=nameMap.get(p.name);const info=getProductDisplayInfo(p.id);e.pieces+=info.pieces;e.units.add(p.unit);e.models.add(p.model||'无型号');});const items=[];nameMap.forEach((data,name)=>{const specs=[...data.models].join('、');const unitStr=data.units.size===1?[...data.units][0]:'多单位';items.push({name,specs,pieces:data.pieces,unit:unitStr});});return items;}
 function showDailyStats(){if(!db||!Array.isArray(db.dailyStats)||db.dailyStats.length===0){showToast('暂无每日统计','info');return;}const dates=db.dailyStats.map(d=>d.date);let options='';dates.forEach(d=>{options+='<option value="'+d+'">'+d+'</option>';});let compareOptions=options;openModal('<h2>📅 每日统计（总件数）</h2>'+
@@ -708,29 +704,26 @@ function showDailyStats(){if(!db||!Array.isArray(db.dailyStats)||db.dailyStats.l
 function showDailyStatsContent(dateStr){if(!db||!Array.isArray(db.dailyStats))return;const day=db.dailyStats.find(d=>d.date===dateStr);if(!day){document.getElementById('dailyStatsContent').innerHTML='<p>无数据</p>';return;}let rows=day.items.map(item=>'<tr><td>'+item.name+'</td><td>'+item.specs+'</td><td>'+item.pieces+'</td><td>'+item.unit+'</td></tr>').join('');document.getElementById('dailyStatsContent').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}
 function compareDailyStats(){const startDate=document.getElementById('compareStartDate').value;const endDate=document.getElementById('compareEndDate').value;if(!startDate||!endDate){return;}if(startDate===endDate){showToast('请选择不同日期','error');return;}const startDay=db.dailyStats.find(d=>d.date===startDate);const endDay=db.dailyStats.find(d=>d.date===endDate);if(!startDay||!endDay){showToast('日期数据不存在','error');return;}const startMap=new Map();startDay.items.forEach(item=>{startMap.set(item.name,item.pieces);});const endMap=new Map();endDay.items.forEach(item=>{endMap.set(item.name,item.pieces);});const allNames=new Set([...startMap.keys(),...endMap.keys()]);let rows='';allNames.forEach(name=>{const sPieces=startMap.get(name)||0;const ePieces=endMap.get(name)||0;const diff=ePieces-sPieces;const color=diff>0?'#34a853':(diff<0?'#ea4335':'#333');const itemInfo=endDay.items.find(i=>i.name===name)||startDay.items.find(i=>i.name===name);const unit=itemInfo?itemInfo.unit:'';const specs=itemInfo?itemInfo.specs:'';rows+='<tr><td>'+name+'</td><td>'+specs+'</td><td>'+sPieces+'</td><td>'+ePieces+'</td><td style="color:'+color+';font-weight:600">'+(diff>0?'+'+diff:diff)+'</td><td>'+unit+'</td></tr>';});document.getElementById('compareResult').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>起始件数</th><th>结束件数</th><th>变化</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}
 
-// ==================== 每日日期统计（按产品不同批次日期占用库位数量） ====================
-function showDailyDateStats(){
-    // 统计当前所有已用库位中，每个产品在不同批次日期下占用的库位数量
-    const dateMap = new Map(); // 产品名 -> Map(批次日期 -> 库位数量)
+// ==================== 每日批次统计（按产品+批次日期统计占用库位数量） ====================
+function showDailyBatchStats(){
+    const dateMap = new Map();
     db.locations.filter(l => l.status === 'used').forEach(loc => {
         const p = db.products.find(x => x.id === loc.productId);
         if (!p || !loc.batchNo) return;
         const name = p.name || '未知产品';
         if (!dateMap.has(name)) dateMap.set(name, new Map());
         const inner = dateMap.get(name);
-        const dateKey = loc.batchNo; // 批次日期字符串
-        inner.set(dateKey, (inner.get(dateKey) || 0) + 1);
+        inner.set(loc.batchNo, (inner.get(loc.batchNo) || 0) + 1);
     });
     if (dateMap.size === 0) { showToast('暂无已用库位', 'info'); return; }
     let rows = '';
     dateMap.forEach((innerMap, productName) => {
-        // 对日期排序
         const sortedDates = [...innerMap.keys()].sort();
         sortedDates.forEach(date => {
             rows += `<tr><td>${productName}</td><td>${date}</td><td>${innerMap.get(date)}</td></tr>`;
         });
     });
-    openModal(`<h2>📅 每日日期统计（按批次日期占用库位）</h2>
+    openModal(`<h2>📅 每日批次统计（按批次日期占用库位）</h2>
         <table class="daily-table"><thead><tr><th>产品名称</th><th>批次日期</th><th>占用库位数量</th></tr></thead><tbody>${rows}</tbody></table>
         <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>`);
 }
@@ -1003,14 +996,12 @@ function executeSmartSort() {
         const usedLocs = allLocs.filter(l => l.status === 'used');
         if (usedLocs.length === 0) return;
 
-        // 产品分组
         const productGroups = {};
         usedLocs.forEach(loc => {
             if (!productGroups[loc.productId]) productGroups[loc.productId] = [];
             productGroups[loc.productId].push(loc);
         });
 
-        // 产品按数量降序
         const productEntries = Object.keys(productGroups).map(pid => ({
             productId: parseInt(pid),
             locs: productGroups[pid].sort((a, b) => a.batchNo.localeCompare(b.batchNo)),
@@ -1052,7 +1043,6 @@ function executeSmartSort() {
             }
         });
 
-        // 处理剩余产品，填充空余排
         for (const entry of productEntries) {
             if (entry.locs.length === 0) continue;
             for (const loc of entry.locs) {
@@ -1083,7 +1073,6 @@ function executeSmartSort() {
             }
         }
 
-        // 防御：未分配的产品放入剩余空位
         const assignedSourceIds = new Set(finalAssignments.map(a => a.sourceLocId));
         usedLocs.forEach(loc => {
             if (!assignedSourceIds.has(loc.id)) {
@@ -1100,7 +1089,6 @@ function executeSmartSort() {
             }
         });
 
-        // 生成移动步骤
         const currentState = new Map();
         allLocs.forEach(loc => {
             currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null);
@@ -1218,6 +1206,7 @@ function exportSmartSortImage() {
         showToast('图片生成失败', 'error');
     });
 }
+
 // ==================== 初始化 ====================
 function init(){
     document.getElementById('btnAddZone').addEventListener('click',showAddZoneModal);
@@ -1227,7 +1216,7 @@ function init(){
     document.getElementById('btnShowStats').addEventListener('click',()=>renderStatsModal());
     document.getElementById('btnShowRecords').addEventListener('click',()=>showRecords());
     document.getElementById('btnShowDailyStats').addEventListener('click',showDailyStats);
-    document.getElementById('btnShowDailyDateStats').addEventListener('click',showDailyDateStats);
+    document.getElementById('btnShowDailyBatchStats').addEventListener('click',showDailyBatchStats);
     document.getElementById('btnShowTransit').addEventListener('click',renderTransitModal);
     document.getElementById('btnSmartSort').addEventListener('click',showSmartSortModal);
     document.getElementById('btnExportExcel').addEventListener('click',exportExcel);
