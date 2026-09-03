@@ -8,6 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
+        /* 样式与前几版一致，此处省略以节省篇幅，请使用之前提供的CSS */
         :root{--bg:#f0f2f5;--card-bg:#fff;--primary:#1a73e8;--success:#34a853;--danger:#ea4335;--warning:#fbbc04;--text:#202124;--text-secondary:#5f6368;--border:#dadce0;--shadow:0 1px 3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--cell-size:56px;--cell-gap:4px;--row-label-width:44px}
         *{margin:0;padding:0;box-sizing:border-box}
         body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
@@ -348,6 +349,7 @@ function openModal(html){
     document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
 }
 function closeModal(){document.getElementById('modalContainer').innerHTML='';}
+// ...（后续函数在第二段）
 // ==================== 渲染函数 ====================
 function renderAll(){
     if(!db||!Array.isArray(db.zones)||!Array.isArray(db.locations)||!Array.isArray(db.products))return;
@@ -690,7 +692,7 @@ function showRecords(){
 }
 function deleteRecord(recordId){if(!db||!Array.isArray(db.records))return;if(!confirm('确定删除这条记录吗？'))return;const nd=JSON.parse(JSON.stringify(db));nd.records=nd.records.filter(r=>r.id!==recordId);saveDB(nd);showToast('记录已删除','success');showRecords();}
 
-// ==================== 每日统计（总件数，恢复原逻辑） ====================
+// ==================== 每日统计（总件数） ====================
 function updateDailyStatsIfNeeded(){if(!db)return;const today=new Date().toISOString().split('T')[0];if(!db.dailyStats)db.dailyStats=[];const items=getDailyStatsItems();const last=db.dailyStats[db.dailyStats.length-1];if(last&&last.date===today){last.items=items;if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);saveDB(db);return;}db.dailyStats.push({date:today,items:items});if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);saveDB(db);}
 function getDailyStatsItems(){const nameMap=new Map();db.products.forEach(p=>{if(!nameMap.has(p.name))nameMap.set(p.name,{pieces:0,units:new Set(),models:new Set()});const e=nameMap.get(p.name);const info=getProductDisplayInfo(p.id);e.pieces+=info.pieces;e.units.add(p.unit);e.models.add(p.model||'无型号');});const items=[];nameMap.forEach((data,name)=>{const specs=[...data.models].join('、');const unitStr=data.units.size===1?[...data.units][0]:'多单位';items.push({name,specs,pieces:data.pieces,unit:unitStr});});return items;}
 function showDailyStats(){if(!db||!Array.isArray(db.dailyStats)||db.dailyStats.length===0){showToast('暂无每日统计','info');return;}const dates=db.dailyStats.map(d=>d.date);let options='';dates.forEach(d=>{options+='<option value="'+d+'">'+d+'</option>';});let compareOptions=options;openModal('<h2>📅 每日统计（总件数）</h2>'+
@@ -706,7 +708,7 @@ function showDailyStats(){if(!db||!Array.isArray(db.dailyStats)||db.dailyStats.l
 function showDailyStatsContent(dateStr){if(!db||!Array.isArray(db.dailyStats))return;const day=db.dailyStats.find(d=>d.date===dateStr);if(!day){document.getElementById('dailyStatsContent').innerHTML='<p>无数据</p>';return;}let rows=day.items.map(item=>'<tr><td>'+item.name+'</td><td>'+item.specs+'</td><td>'+item.pieces+'</td><td>'+item.unit+'</td></tr>').join('');document.getElementById('dailyStatsContent').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}
 function compareDailyStats(){const startDate=document.getElementById('compareStartDate').value;const endDate=document.getElementById('compareEndDate').value;if(!startDate||!endDate){return;}if(startDate===endDate){showToast('请选择不同日期','error');return;}const startDay=db.dailyStats.find(d=>d.date===startDate);const endDay=db.dailyStats.find(d=>d.date===endDate);if(!startDay||!endDay){showToast('日期数据不存在','error');return;}const startMap=new Map();startDay.items.forEach(item=>{startMap.set(item.name,item.pieces);});const endMap=new Map();endDay.items.forEach(item=>{endMap.set(item.name,item.pieces);});const allNames=new Set([...startMap.keys(),...endMap.keys()]);let rows='';allNames.forEach(name=>{const sPieces=startMap.get(name)||0;const ePieces=endMap.get(name)||0;const diff=ePieces-sPieces;const color=diff>0?'#34a853':(diff<0?'#ea4335':'#333');const itemInfo=endDay.items.find(i=>i.name===name)||startDay.items.find(i=>i.name===name);const unit=itemInfo?itemInfo.unit:'';const specs=itemInfo?itemInfo.specs:'';rows+='<tr><td>'+name+'</td><td>'+specs+'</td><td>'+sPieces+'</td><td>'+ePieces+'</td><td style="color:'+color+';font-weight:600">'+(diff>0?'+'+diff:diff)+'</td><td>'+unit+'</td></tr>';});document.getElementById('compareResult').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>起始件数</th><th>结束件数</th><th>变化</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}
 
-// ==================== 每日批次统计（历史快照 + 对比功能） ====================
+// ==================== 每日批次统计（历史快照 + 对比） ====================
 function updateDailyBatchStatsIfNeeded(){
     if(!db)return;
     const today=new Date().toISOString().split('T')[0];
@@ -724,7 +726,6 @@ function updateDailyBatchStatsIfNeeded(){
     saveDB(db);
 }
 function getDailyBatchStatsItems(){
-    // 统计当前所有已用库位：产品名称 -> 批次日期 -> 占用库位数量
     const map = new Map();
     db.locations.filter(l => l.status === 'used').forEach(loc => {
         const p = db.products.find(x => x.id === loc.productId);
@@ -978,7 +979,7 @@ function importData(file){if(!db||!Array.isArray(db.zones)){showToast('数据未
 function renderZoneStats(){const c=document.getElementById('zoneStats');if(!c||!db)return;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){c.textContent='请选择区域';return;}const locs=db.locations.filter(l=>l.zoneId===zone.id);const n=locs.filter(l=>l.status==='normal').length,u=locs.filter(l=>l.status==='unavailable').length,s=locs.filter(l=>l.status==='used').length;const tp=locs.filter(l=>l.status==='used').reduce((sum,l)=>{const p=db.products.find(x=>x.id===l.productId);return sum+(l.quantity||0)*(p?.unitQuantity||1)+(l.customPieces||0);},0);c.innerHTML='<div>正常:'+n+' 不可用:'+u+' 已用:'+s+' 总件数:'+tp+'</div>';}
 function updateHeaderStats(){if(!db||!Array.isArray(db.locations))return;const all=db.locations;document.getElementById('statNormal').textContent=all.filter(l=>l.status==='normal').length;document.getElementById('statUnavailable').textContent=all.filter(l=>l.status==='unavailable').length;document.getElementById('statUsed').textContent=all.filter(l=>l.status==='used').length;document.getElementById('statProducts').textContent=db.products.length;}
 
-// ==================== 智能排序（按产品列表顺序，批次升序，忽略空位） ====================
+// ==================== 智能排序（按产品列表顺序、批次升序、忽略空位） ====================
 function showSmartSortModal() {
     let zoneCards = '';
     db.zones.forEach(z => {
