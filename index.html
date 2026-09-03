@@ -724,6 +724,7 @@ function updateDailyBatchStatsIfNeeded(){
     saveDB(db);
 }
 function getDailyBatchStatsItems(){
+    // 构建产品名称到批次日期的映射
     const map = new Map();
     db.locations.filter(l => l.status === 'used').forEach(loc => {
         const p = db.products.find(x => x.id === loc.productId);
@@ -733,12 +734,31 @@ function getDailyBatchStatsItems(){
         const inner = map.get(name);
         inner.set(loc.batchNo, (inner.get(loc.batchNo) || 0) + 1);
     });
+
+    // 按产品列表顺序生成 items
     const items = [];
-    map.forEach((innerMap, productName) => {
-        innerMap.forEach((count, date) => {
-            items.push({ name: productName, batchDate: date, count: count });
-        });
+    const productNames = db.products.map(p => p.name || '未知产品');
+    productNames.forEach(name => {
+        if (map.has(name)) {
+            const innerMap = map.get(name);
+            // 批次日期升序
+            const sortedDates = [...innerMap.keys()].sort();
+            sortedDates.forEach(date => {
+                items.push({ name: name, batchDate: date, count: innerMap.get(date) });
+            });
+        }
     });
+
+    // 处理可能不在产品列表中的产品（防御）
+    map.forEach((innerMap, name) => {
+        if (!productNames.includes(name)) {
+            const sortedDates = [...innerMap.keys()].sort();
+            sortedDates.forEach(date => {
+                items.push({ name: name, batchDate: date, count: innerMap.get(date) });
+            });
+        }
+    });
+
     return items;
 }
 function showDailyBatchStats(){
