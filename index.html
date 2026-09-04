@@ -656,12 +656,128 @@ function showUsedLocationModal(loc,zone){
 }
 function togglePriorityFlag(lid){if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}const nd=JSON.parse(JSON.stringify(db));const nl=nd.locations.find(l=>l.id===lid);if(!nl||nl.status!=='used'){showToast('仅已用库位可标记','error');return;}nl.priorityFlag=!nl.priorityFlag;saveDB(nd);closeModal();showToast(nl.priorityFlag?'已标记先发出':'已取消先发出','success');}
 // 替换产品
+// 替换产品入口：弹出选择框
 function replaceProduct(lid){
     if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
     const loc=db.locations.find(l=>l.id===lid);
     if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
+    openModal(`
+        <h2>🔄 替换产品</h2>
+        <p>当前库位：${db.zones.find(z=>z.id===loc.zoneId)?.name} ${getRowDisplayLabel(db.zones.find(z=>z.id===loc.zoneId),loc.rowNum)}排${getDisplayColNumber(db.zones.find(z=>z.id===loc.zoneId),loc.colNum)}托</p>
+        <p>当前产品：${db.products.find(p=>p.id===loc.productId)?.name||'未知'}</p>
+        <div class="form-actions" style="flex-direction:column;gap:6px;">
+            <button class="btn btn-primary" onclick="replaceWithNewProduct(${lid})">更换新产品</button>
+            <button class="btn btn-outline" onclick="swapWithAnotherLocation(${lid})">交换两个产品位置</button>
+            <button class="btn btn-outline" onclick="closeModal()">取消</button>
+        </div>
+    `);
+}
+
+// 情况1：更换新产品
+function replaceWithNewProduct(lid){
+    if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
+    const loc=db.locations.find(l=>l.id===lid);
+    if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
     let opts=db.products.map(p=>'<option value="'+p.id+'">'+(p.name||'未知产品')+' ('+(p.model||'')+')</option>').join('');
-    openModal('<h2>🔄 替换产品</h2><p>当前产品:'+(db.products.find(p=>p.id===loc.productId)?.name||'未知')+'</p><div class="form-group"><label>新产品</label><select id="replaceProductSelect">'+opts+'</select></div><div class="form-group"><label>批次日期</label><input type="date" id="replaceBatch" value="'+loc.batchNo+'"></div><div class="form-group"><label>数量</label><input type="number" id="replaceQty" min="0.01" step="any" value="'+loc.quantity+'"></div><div class="form-group"><label>备注</label><textarea id="replaceRemark">'+loc.remark+'</textarea></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmReplaceProduct('+lid+')">确认替换</button></div>');
+    openModal(`
+        <h2>🔄 更换新产品</h2>
+        <div class="form-group"><label>新产品</label><select id="replaceProductSelect">${opts}</select></div>
+        <div class="form-group"><label>批次日期</label><input type="date" id="replaceBatch" value="${loc.batchNo}"></div>
+        <div class="form-group"><label>数量</label><input type="number" id="replaceQty" min="0.01" step="any" value="${loc.quantity}"></div>
+        <div class="form-group"><label>备注</label><textarea id="replaceRemark">${loc.remark}</textarea></div>
+        <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmReplaceWithNewProduct(${lid})">确认替换</button></div>
+    `);
+}
+
+function confirmReplaceWithNewProduct(lid){
+    const nd=JSON.parse(JSON.stringify(db));
+    const loc=nd.locations.find(l=>l.id===lid);
+    if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
+    const newPid=parseInt(document.getElementById('replaceProductSelect').value);
+    const newBatch=document.getElementById('replaceBatch').value;
+    const newQty=parseFloat(document.getElementById('replaceQty').value);
+    const newRemark=document.getElementById('replaceRemark').value.trim();
+    if(!newPid||!newBatch||!newQty||newQty<=0){showToast('信息不完整或无效','error');return;}
+    const oldProduct=db.products.find(p=>p.id===loc.productId);
+    const newProduct=db.products.find(p=>p.id===newPid);
+    const zone=db.zones.find(z=>z.id===loc.zoneId);
+    if(oldProduct) addRecord(nd,'替换产品',oldProduct,loc,zone,loc.quantity,loc.customPieces,'替换为 '+newProduct.name,null,null,loc.id);
+    if(newProduct) addRecord(nd,'替换产品',newProduct,loc,zone,newQty,0,'替换入库',null,null,loc.id);
+    loc.productId=newPid;
+    loc.batchNo=newBatch;
+    loc.quantity=newQty;
+    loc.customPieces=0;
+    loc.remark=newRemark;
+    loc.updatedAt=new Date().toISOString();
+    loc.transferFlag=true; // 替换后标记转移标签
+    saveDB(nd);closeModal();showToast('替换成功','success');
+}
+
+// 情况2：交换两个产品位置
+function swapWithAnotherLocation(lid){
+    if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
+    const loc=db.locations.find(l=>l.id===lid);
+    if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
+    // 获取所有其他已用库位
+    const otherUsedLocs=db.locations.filter(l=>l.id!==lid && l.status==='used');
+    if(otherUsedLocs.length===0){showToast('没有其他已用库位可交换','error');return;}
+    let opts=otherUsedLocs.map(l=>{
+        const zone=db.zones.find(z=>z.id===l.zoneId);
+        return '<option value="'+l.id+'">'+zone.name+' '+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托 - '+(db.products.find(p=>p.id===l.productId)?.name||'未知')+'</option>';
+    }).join('');
+    openModal(`
+        <h2>🔄 交换产品位置</h2>
+        <p>当前库位：${db.zones.find(z=>z.id===loc.zoneId)?.name} ${getRowDisplayLabel(db.zones.find(z=>z.id===loc.zoneId),loc.rowNum)}排${getDisplayColNumber(db.zones.find(z=>z.id===loc.zoneId),loc.colNum)}托</p>
+        <div class="form-group"><label>选择要交换的库位</label><select id="swapTargetLoc">${opts}</select></div>
+        <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmSwapProducts(${lid})">确认交换</button></div>
+    `);
+}
+
+function confirmSwapProducts(lid1){
+    const lid2=parseInt(document.getElementById('swapTargetLoc').value);
+    if(!lid2){showToast('请选择交换库位','error');return;}
+    const nd=JSON.parse(JSON.stringify(db));
+    const loc1=nd.locations.find(l=>l.id===lid1);
+    const loc2=nd.locations.find(l=>l.id===lid2);
+    if(!loc1||!loc2||loc1.status!=='used'||loc2.status!=='used'){showToast('状态异常','error');return;}
+    // 交换所有产品相关字段
+    const temp={
+        productId:loc1.productId,
+        batchNo:loc1.batchNo,
+        quantity:loc1.quantity,
+        customPieces:loc1.customPieces,
+        remark:loc1.remark,
+        handAccount:loc1.handAccount,
+        updatedAt:loc1.updatedAt,
+        transferFlag:loc1.transferFlag,
+        priorityFlag:loc1.priorityFlag
+    };
+    loc1.productId=loc2.productId;
+    loc1.batchNo=loc2.batchNo;
+    loc1.quantity=loc2.quantity;
+    loc1.customPieces=loc2.customPieces;
+    loc1.remark=loc2.remark;
+    loc1.handAccount=loc2.handAccount;
+    loc1.updatedAt=new Date().toISOString();
+    loc1.transferFlag=true;
+    loc1.priorityFlag=loc2.priorityFlag;
+    loc2.productId=temp.productId;
+    loc2.batchNo=temp.batchNo;
+    loc2.quantity=temp.quantity;
+    loc2.customPieces=temp.customPieces;
+    loc2.remark=temp.remark;
+    loc2.handAccount=temp.handAccount;
+    loc2.updatedAt=new Date().toISOString();
+    loc2.transferFlag=true;
+    loc2.priorityFlag=temp.priorityFlag;
+    // 记录
+    const product1=db.products.find(p=>p.id===loc1.productId);
+    const product2=db.products.find(p=>p.id===loc2.productId);
+    const zone1=db.zones.find(z=>z.id===loc1.zoneId);
+    const zone2=db.zones.find(z=>z.id===loc2.zoneId);
+    if(product1) addRecord(nd,'交换位置',product1,loc1,zone1,0,0,'与'+zone2.name+'交换',null,null,loc1.id);
+    if(product2) addRecord(nd,'交换位置',product2,loc2,zone2,0,0,'与'+zone1.name+'交换',null,null,loc2.id);
+    saveDB(nd);closeModal();showToast('交换成功','success');
 }
 function confirmReplaceProduct(lid){
     const nd=JSON.parse(JSON.stringify(db));
