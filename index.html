@@ -853,16 +853,14 @@ function compareDailyStats(){
     if(filterProduct!=='all') allNames=new Set([filterProduct]);
     let rows='';
     allNames.forEach(name=>{
-        const s=startMap.get(name)||{pieces:0,locations:0};
-        const e=endMap.get(name)||{pieces:0,locations:0};
+        const s=startMap.get(name)||{pieces:0};
+        const e=endMap.get(name)||{pieces:0};
         const diffPieces=e.pieces-s.pieces;
-        const diffLocations=e.locations-s.locations;
         const colorP=diffPieces>0?'#34a853':(diffPieces<0?'#ea4335':'#333');
-        const colorL=diffLocations>0?'#34a853':(diffLocations<0?'#ea4335':'#333');
-        const unit=s.unit||e.unit||''; const specs=s.specs||e.specs||'';
-        rows+='<tr><td>'+name+'</td><td>'+specs+'</td><td>'+s.pieces+'</td><td>'+e.pieces+'</td><td style="color:'+colorP+';font-weight:600">'+(diffPieces>0?'+'+diffPieces:diffPieces)+'</td><td>'+s.locations+'</td><td>'+e.locations+'</td><td style="color:'+colorL+';font-weight:600">'+(diffLocations>0?'+'+diffLocations:diffLocations)+'</td><td>'+unit+'</td></tr>';
+        const specs=s.specs||e.specs||'';
+        rows+='<tr><td>'+name+'</td><td>'+specs+'</td><td>'+s.pieces+'</td><td>'+e.pieces+'</td><td style="color:'+colorP+';font-weight:600">'+(diffPieces>0?'+'+diffPieces:diffPieces)+'</td></tr>';
     });
-    document.getElementById('compareResult').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>起始件数</th><th>结束件数</th><th>件数变化</th><th>起始位置</th><th>结束位置</th><th>位置变化</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    document.getElementById('compareResult').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>起始件数</th><th>结束件数</th><th>件数变化</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
 
 // ==================== 每日批次统计（含占用位置、产品筛选对比） ====================
