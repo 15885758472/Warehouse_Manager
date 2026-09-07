@@ -1001,6 +1001,7 @@ function compareDailyBatchStats(){
 
 // ==================== 库存统计（含占用位置数量列） ====================
 function renderStatsModal(){
+    if(!productLocationCountCache) productLocationCountCache = {};
     if(!db||!Array.isArray(db.products)||db.products.length===0){showToast('暂无产品','info');return;}
     let table='';
     if(statsGroupBy==='name'){
@@ -1059,6 +1060,7 @@ function renderFifoOrderModal(){
     if(fifoCombinedItems.length===0){showToast('无已用仓位或中转仓产品','info');return;}
     // 计算每个产品的占用位置数量
     fifoProductLocationCount = {};
+    productLocationCountCache = {};
     fifoCombinedItems.forEach(item=>{
         const pid = item.productId;
         fifoProductLocationCount[pid] = (fifoProductLocationCount[pid] || 0) + 1;
