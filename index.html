@@ -208,6 +208,7 @@ let transitFilterProduct = 'all';
 let lastBatchNo = '';
 let selectedTransitItems = new Set();
 let fifoCombinedItems = []; // 用于FIFO排序，合并库位和中转仓
+let fifoProductLocationCount = {}; // 新增：记录每个产品占用位置数量
 
 // ==================== 数据初始化与工具 ====================
 function createDefaultDB(){
@@ -736,38 +737,12 @@ function confirmSwapProducts(lid1){
     const loc2=nd.locations.find(l=>l.id===lid2);
     if(!loc1||!loc2||loc1.status!=='used'||loc2.status!=='used'){showToast('状态异常','error');return;}
     const temp={
-        productId:loc1.productId,
-        batchNo:loc1.batchNo,
-        quantity:loc1.quantity,
-        customPieces:loc1.customPieces,
-        remark:loc1.remark,
-        handAccount:loc1.handAccount,
-        updatedAt:loc1.updatedAt,
-        transferFlag:loc1.transferFlag,
-        priorityFlag:loc1.priorityFlag
+        productId:loc1.productId,batchNo:loc1.batchNo,quantity:loc1.quantity,customPieces:loc1.customPieces,remark:loc1.remark,handAccount:loc1.handAccount,updatedAt:loc1.updatedAt,transferFlag:loc1.transferFlag,priorityFlag:loc1.priorityFlag
     };
-    loc1.productId=loc2.productId;
-    loc1.batchNo=loc2.batchNo;
-    loc1.quantity=loc2.quantity;
-    loc1.customPieces=loc2.customPieces;
-    loc1.remark=loc2.remark;
-    loc1.handAccount=loc2.handAccount;
-    loc1.updatedAt=new Date().toISOString();
-    loc1.transferFlag=true;
-    loc1.priorityFlag=loc2.priorityFlag;
-    loc2.productId=temp.productId;
-    loc2.batchNo=temp.batchNo;
-    loc2.quantity=temp.quantity;
-    loc2.customPieces=temp.customPieces;
-    loc2.remark=temp.remark;
-    loc2.handAccount=temp.handAccount;
-    loc2.updatedAt=new Date().toISOString();
-    loc2.transferFlag=true;
-    loc2.priorityFlag=temp.priorityFlag;
-    const product1=db.products.find(p=>p.id===loc1.productId);
-    const product2=db.products.find(p=>p.id===loc2.productId);
-    const zone1=db.zones.find(z=>z.id===loc1.zoneId);
-    const zone2=db.zones.find(z=>z.id===loc2.zoneId);
+    loc1.productId=loc2.productId; loc1.batchNo=loc2.batchNo; loc1.quantity=loc2.quantity; loc1.customPieces=loc2.customPieces; loc1.remark=loc2.remark; loc1.handAccount=loc2.handAccount; loc1.updatedAt=new Date().toISOString(); loc1.transferFlag=true; loc1.priorityFlag=loc2.priorityFlag;
+    loc2.productId=temp.productId; loc2.batchNo=temp.batchNo; loc2.quantity=temp.quantity; loc2.customPieces=temp.customPieces; loc2.remark=temp.remark; loc2.handAccount=temp.handAccount; loc2.updatedAt=new Date().toISOString(); loc2.transferFlag=true; loc2.priorityFlag=temp.priorityFlag;
+    const product1=db.products.find(p=>p.id===loc1.productId); const product2=db.products.find(p=>p.id===loc2.productId);
+    const zone1=db.zones.find(z=>z.id===loc1.zoneId); const zone2=db.zones.find(z=>z.id===loc2.zoneId);
     if(product1) addRecord(nd,'交换位置',product1,loc1,zone1,0,0,'与'+zone2.name+'交换',null,null,loc1.id);
     if(product2) addRecord(nd,'交换位置',product2,loc2,zone2,0,0,'与'+zone1.name+'交换',null,null,loc2.id);
     saveDB(nd);closeModal();showToast('交换成功','success');
@@ -807,14 +782,10 @@ function confirmShipOut(lid){
     if(product)addRecord(nd,'发货',product,{...loc,rowNum:loc.rowNum,colNum:loc.colNum},zone,isCustom?0:qty,isCustom?qty:0,'发货',null,null,loc.id);
     if(isCustom){
         loc.customPieces-=qty;
-        if(loc.customPieces<=0){
-            loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;
-        }
+        if(loc.customPieces<=0){loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;}
     } else {
         loc.quantity-=qty;
-        if(loc.quantity<=0){
-            loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;
-        }
+        if(loc.quantity<=0){loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;}
     }
     saveDB(nd);closeModal();showToast('发货成功','success');
 }
@@ -901,6 +872,7 @@ function updateDailyBatchStatsIfNeeded(){
 }
 function getDailyBatchStatsItems(){
     const map = new Map();
+    // 库位
     db.locations.filter(l => l.status === 'used').forEach(loc => {
         const p = db.products.find(x => x.id === loc.productId);
         if (!p || !loc.batchNo) return;
@@ -909,7 +881,7 @@ function getDailyBatchStatsItems(){
         const inner = map.get(name);
         inner.set(loc.batchNo, (inner.get(loc.batchNo) || 0) + 1);
     });
-    // 加入中转仓数据
+    // 中转仓
     db.transit.forEach(t => {
         const p = db.products.find(x => x.id === t.productId);
         if (!p || !t.batchNo) return;
@@ -989,7 +961,7 @@ function compareDailyBatchStats(){
 // ==================== 库存统计 ====================
 function renderStatsModal(){if(!db||!Array.isArray(db.products)||db.products.length===0){showToast('暂无产品','info');return;}let table='';if(statsGroupBy==='name'){const m=new Map();db.products.forEach(p=>{if(!m.has(p.name))m.set(p.name,{pieces:0,units:new Set(),models:new Set()});const e=m.get(p.name);const info=getProductDisplayInfo(p.id);e.pieces+=info.pieces;e.units.add(p.unit);e.models.add(p.model||'无型号');});let rows=[...m.entries()].map(([n,d])=>{const specs=[...d.models].join('、');const unitStr=d.units.size===1?[...d.units][0]:'多单位';return '<tr><td>'+n+'</td><td>'+specs+'</td><td>'+d.pieces+'</td><td>'+unitStr+'</td></tr>';}).join('');table='<table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}else{const m=new Map();db.products.forEach(p=>{const key=p.model||'无型号';if(!m.has(key))m.set(key,{pieces:0,units:new Set(),names:new Set(),pn:[]});const e=m.get(key);const info=getProductDisplayInfo(p.id);e.pieces+=info.pieces;e.units.add(p.unit);e.names.add(p.name);e.pn.push(p.name);});let rows=[...m.entries()].map(([mod,d])=>{const unitStr=d.units.size===1?[...d.units][0]:'多单位';return '<tr><td>'+d.pn.join('、')+'</td><td>'+mod+'</td><td>'+d.names.size+'</td><td>'+d.pieces+'</td><td>'+unitStr+'</td></tr>';}).join('');table='<table class="stats-table"><thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}openModal('<h2>📈 库存统计</h2><div class="form-group"><label>分组方式</label><select onchange="statsGroupBy=this.value;renderStatsModal();"><option value="name"'+(statsGroupBy==='name'?' selected':'')+'>按名称</option><option value="model"'+(statsGroupBy==='model'?' selected':'')+'>按型号</option></select></div>'+table+'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');}
 
-// ==================== FIFO排序（含中转仓） ====================
+// ==================== FIFO排序（含中转仓，增加占用位置列） ====================
 function getFifoRankMap(zoneId){if(!db||!Array.isArray(db.locations))return{};const used=db.locations.filter(l=>l.zoneId===zoneId&&l.status==='used'&&l.batchNo);const pg={};used.forEach(loc=>{const pid=loc.productId;if(!pid)return;if(!pg[pid])pg[pid]=[];pg[pid].push(loc);});const rm={};Object.keys(pg).forEach(pid=>{const locs=pg[pid];locs.sort((a,b)=>{if(a.priorityFlag&&!b.priorityFlag)return -1;if(!a.priorityFlag&&b.priorityFlag)return 1;return a.batchNo.localeCompare(b.batchNo);});locs.forEach((loc,i)=>{rm[loc.id]={rank:i,total:locs.length,productId:pid,isPriority:!!(db.products.find(p=>p.id===pid)?.isPriority),priorityFlag:loc.priorityFlag};});});return rm;}
 function getFifoColor(rank,total){if(total<=1)return'#1e88e5';const l=80-(rank/(total-1))*50;return'hsl(210,80%,'+l+'%)';}
 function getFifoBorderColor(rank,total){if(total<=1)return'#0d47a1';const l=60-(rank/(total-1))*25;return'hsl(210,90%,'+l+'%)';}
@@ -1004,6 +976,12 @@ function renderFifoOrderModal(){
         fifoCombinedItems.push({productId:t.productId,batchNo:t.batchNo,locationType:'transit',locationId:t.id,zoneId:null,rowNum:0,colNum:0,quantity:t.quantity,customPieces:t.customPieces,handAccount:t.handAccount,priorityFlag:t.priorityFlag,transferFlag:t.transferFlag,remark:t.remark});
     });
     if(fifoCombinedItems.length===0){showToast('无已用仓位或中转仓产品','info');return;}
+    // 计算每个产品的占用位置数量
+    fifoProductLocationCount = {};
+    fifoCombinedItems.forEach(item=>{
+        const pid = item.productId;
+        fifoProductLocationCount[pid] = (fifoProductLocationCount[pid] || 0) + 1;
+    });
     let productOptions = '<option value="all">全部产品</option>';
     db.products.forEach(p=>{productOptions += `<option value="${p.id}">${p.name||'未知产品'}${p.isPriority?'【产先】':''}(${p.model||'无型号'})</option>`;});
     openModal('<h2>⏱️ FIFO排序（全局，含中转仓）</h2>'+
@@ -1062,9 +1040,10 @@ function updateFifoContent(){
             const handBtnClass=item.handAccount?'btn-outline':'btn-primary';
             const priorityTag=item.priorityFlag?'【先】':(p.isPriority?'【产先】':'');
             const handBtnHtml = (item.locationType==='location') ? `<button class="btn btn-sm ${handBtnClass}" onclick="toggleHandAccountInline(${item.locationId})">${handBtn}</button>` : '—';
-            return '<tr><td>'+(i+1)+'</td><td>'+priorityTag+' '+item.batchNo+'</td><td>'+locationText+'</td><td>'+qs+'</td><td>'+handBtnHtml+'</td></tr>';
+            const locationCount = fifoProductLocationCount[item.productId] || 0;
+            return '<tr><td>'+(i+1)+'</td><td>'+priorityTag+' '+item.batchNo+'</td><td>'+locationText+'</td><td>'+qs+'</td><td>'+handBtnHtml+'</td><td>'+locationCount+'</td></tr>';
         }).join('');
-        content+='<div style="margin-bottom:16px"><h3>📦 '+title+'</h3><table class="fifo-table"><thead><tr><th>优先级</th><th>批次</th><th>位置</th><th>数量</th><th>手帐标记</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+        content+='<div style="margin-bottom:16px"><h3>📦 '+title+'</h3><table class="fifo-table"><thead><tr><th>优先级</th><th>批次</th><th>位置</th><th>数量</th><th>手帐标记</th><th>占用位置</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
     });
     container.innerHTML=content;
 }
