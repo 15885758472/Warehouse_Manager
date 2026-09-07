@@ -207,6 +207,7 @@ let selectedProductFilters = new Set();
 let transitFilterProduct = 'all';
 let lastBatchNo = '';
 let selectedTransitItems = new Set();
+let fifoCombinedItems = []; // 用于FIFO排序，合并库位和中转仓
 
 // ==================== 数据初始化与工具 ====================
 function createDefaultDB(){
@@ -655,8 +656,7 @@ function showUsedLocationModal(loc,zone){
     '<div class="form-actions" style="flex-wrap:wrap;gap:6px"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-danger" onclick="stockOut('+loc.id+')">出库</button><button class="btn btn-warning" onclick="shipOut('+loc.id+')">发货</button><button class="btn btn-primary" onclick="showMigrateModal('+loc.id+')">迁移</button><button class="btn btn-info" onclick="addToTransit('+loc.id+')">加入中转仓</button><button class="btn btn-outline" onclick="replaceProduct('+loc.id+')">替换产品</button><button class="btn btn-outline" onclick="editLocationRemark('+loc.id+')">编辑备注</button><button class="btn btn-outline" onclick="togglePriorityFlag('+loc.id+')">标记先发出</button><button class="btn btn-danger" onclick="deleteLocationProduct('+loc.id+')">删除产品</button></div>');
 }
 function togglePriorityFlag(lid){if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}const nd=JSON.parse(JSON.stringify(db));const nl=nd.locations.find(l=>l.id===lid);if(!nl||nl.status!=='used'){showToast('仅已用库位可标记','error');return;}nl.priorityFlag=!nl.priorityFlag;saveDB(nd);closeModal();showToast(nl.priorityFlag?'已标记先发出':'已取消先发出','success');}
-// 替换产品
-// 替换产品入口：弹出选择框
+// 替换产品入口
 function replaceProduct(lid){
     if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
     const loc=db.locations.find(l=>l.id===lid);
@@ -672,7 +672,6 @@ function replaceProduct(lid){
         </div>
     `);
 }
-
 // 情况1：更换新产品
 function replaceWithNewProduct(lid){
     if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
@@ -688,7 +687,6 @@ function replaceWithNewProduct(lid){
         <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmReplaceWithNewProduct(${lid})">确认替换</button></div>
     `);
 }
-
 function confirmReplaceWithNewProduct(lid){
     const nd=JSON.parse(JSON.stringify(db));
     const loc=nd.locations.find(l=>l.id===lid);
@@ -709,16 +707,14 @@ function confirmReplaceWithNewProduct(lid){
     loc.customPieces=0;
     loc.remark=newRemark;
     loc.updatedAt=new Date().toISOString();
-    loc.transferFlag=true; // 替换后标记转移标签
+    loc.transferFlag=true;
     saveDB(nd);closeModal();showToast('替换成功','success');
 }
-
 // 情况2：交换两个产品位置
 function swapWithAnotherLocation(lid){
     if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
     const loc=db.locations.find(l=>l.id===lid);
     if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
-    // 获取所有其他已用库位
     const otherUsedLocs=db.locations.filter(l=>l.id!==lid && l.status==='used');
     if(otherUsedLocs.length===0){showToast('没有其他已用库位可交换','error');return;}
     let opts=otherUsedLocs.map(l=>{
@@ -732,7 +728,6 @@ function swapWithAnotherLocation(lid){
         <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmSwapProducts(${lid})">确认交换</button></div>
     `);
 }
-
 function confirmSwapProducts(lid1){
     const lid2=parseInt(document.getElementById('swapTargetLoc').value);
     if(!lid2){showToast('请选择交换库位','error');return;}
@@ -740,7 +735,6 @@ function confirmSwapProducts(lid1){
     const loc1=nd.locations.find(l=>l.id===lid1);
     const loc2=nd.locations.find(l=>l.id===lid2);
     if(!loc1||!loc2||loc1.status!=='used'||loc2.status!=='used'){showToast('状态异常','error');return;}
-    // 交换所有产品相关字段
     const temp={
         productId:loc1.productId,
         batchNo:loc1.batchNo,
@@ -770,7 +764,6 @@ function confirmSwapProducts(lid1){
     loc2.updatedAt=new Date().toISOString();
     loc2.transferFlag=true;
     loc2.priorityFlag=temp.priorityFlag;
-    // 记录
     const product1=db.products.find(p=>p.id===loc1.productId);
     const product2=db.products.find(p=>p.id===loc2.productId);
     const zone1=db.zones.find(z=>z.id===loc1.zoneId);
@@ -778,30 +771,6 @@ function confirmSwapProducts(lid1){
     if(product1) addRecord(nd,'交换位置',product1,loc1,zone1,0,0,'与'+zone2.name+'交换',null,null,loc1.id);
     if(product2) addRecord(nd,'交换位置',product2,loc2,zone2,0,0,'与'+zone1.name+'交换',null,null,loc2.id);
     saveDB(nd);closeModal();showToast('交换成功','success');
-}
-function confirmReplaceProduct(lid){
-    const nd=JSON.parse(JSON.stringify(db));
-    const loc=nd.locations.find(l=>l.id===lid);
-    if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
-    const newPid=parseInt(document.getElementById('replaceProductSelect').value);
-    const newBatch=document.getElementById('replaceBatch').value;
-    const newQty=parseFloat(document.getElementById('replaceQty').value);
-    const newRemark=document.getElementById('replaceRemark').value.trim();
-    if(!newPid||!newBatch||!newQty||newQty<=0){showToast('信息不完整或无效','error');return;}
-    const oldProduct=db.products.find(p=>p.id===loc.productId);
-    const newProduct=db.products.find(p=>p.id===newPid);
-    const zone=db.zones.find(z=>z.id===loc.zoneId);
-    // 记录替换操作
-    if(oldProduct) addRecord(nd,'替换产品',oldProduct,loc,zone,loc.quantity,loc.customPieces,'替换为 '+newProduct.name,null,null,loc.id);
-    if(newProduct) addRecord(nd,'替换产品',newProduct,loc,zone,newQty,0,'替换入库',null,null,loc.id);
-    loc.productId=newPid;
-    loc.batchNo=newBatch;
-    loc.quantity=newQty;
-    loc.customPieces=0;
-    loc.remark=newRemark;
-    loc.updatedAt=new Date().toISOString();
-    loc.transferFlag=true; // 替换后标记转移标签
-    saveDB(nd);closeModal();showToast('替换成功','success');
 }
 // 编辑备注
 function editLocationRemark(lid){
@@ -889,11 +858,11 @@ function showRecords(){
     productModels.forEach(m=>modelOptions+='<option value="'+m+'"'+(recordModelFilter===m?' selected':'')+'>'+m+'</option>');
     let rows=filtered.map(r=>{
         const qs=r.customPieces>0?r.customPieces+'件':r.quantity+r.productUnit;
-        const color=r.type==='入库'?'#34a853':(r.type==='发货'?'#f57c00':(r.type==='迁移'?'#9c27b0':(r.type==='加入中转仓'||r.type==='中转转移'||r.type==='替换产品'?'#2196f3':'#ea4335')));
+        const color=r.type==='入库'?'#34a853':(r.type==='发货'?'#f57c00':(r.type==='迁移'?'#9c27b0':(r.type==='加入中转仓'||r.type==='中转转移'||r.type==='替换产品'||r.type==='交换位置'?'#2196f3':'#ea4335')));
         const target=r.type==='迁移'?((r.targetZoneName||'')+' '+(r.targetLocationLabel||'')):'-';
         return '<tr><td><button class="btn btn-danger btn-sm" onclick="deleteRecord('+r.id+')">删除</button></td><td style="color:'+color+';font-weight:600">'+r.type+'</td><td>'+r.productName+'</td><td>'+r.productModel+'</td><td>'+qs+'</td><td>'+r.zoneName+'</td><td>'+r.locationLabel+'</td><td>'+r.batchNo+'</td><td>'+target+'</td><td>'+(r.remark||'-')+'</td><td>'+new Date(r.timestamp).toLocaleString()+'</td></tr>';
     }).join('');
-    openModal('<h2>📋 出入库记录</h2><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-group"><label>类型</label><select onchange="recordFilter=this.value;showRecords();"><option value="all"'+(recordFilter==='all'?' selected':'')+'>全部</option><option value="入库"'+(recordFilter==='入库'?' selected':'')+'>入库</option><option value="出库"'+(recordFilter==='出库'?' selected':'')+'>出库</option><option value="发货"'+(recordFilter==='发货'?' selected':'')+'>发货</option><option value="迁移"'+(recordFilter==='迁移'?' selected':'')+'>迁移</option><option value="加入中转仓"'+(recordFilter==='加入中转仓'?' selected':'')+'>加入中转仓</option><option value="中转转移"'+(recordFilter==='中转转移'?' selected':'')+'>中转转移</option><option value="替换产品"'+(recordFilter==='替换产品'?' selected':'')+'>替换产品</option></select></div><div class="form-group"><label>产品</label><select onchange="recordProductFilter=this.value;showRecords();">'+productOptions+'</select></div><div class="form-group"><label>型号</label><select onchange="recordModelFilter=this.value;showRecords();">'+modelOptions+'</select></div><div class="form-group"><label>开始日期</label><input type="date" value="'+recordStartDate+'" onchange="recordStartDate=this.value;showRecords();"></div><div class="form-group"><label>结束日期</label><input type="date" value="'+recordEndDate+'" onchange="recordEndDate=this.value;showRecords();"></div></div><p>共 '+filtered.length+' 条记录</p><table class="records-table"><thead><tr><th>操作</th><th>类型</th><th>产品</th><th>型号</th><th>数量</th><th>区域</th><th>仓位</th><th>批次</th><th>去向</th><th>备注</th><th>时间</th></tr></thead><tbody>'+rows+'</tbody></table><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
+    openModal('<h2>📋 出入库记录</h2><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="form-group"><label>类型</label><select onchange="recordFilter=this.value;showRecords();"><option value="all"'+(recordFilter==='all'?' selected':'')+'>全部</option><option value="入库"'+(recordFilter==='入库'?' selected':'')+'>入库</option><option value="出库"'+(recordFilter==='出库'?' selected':'')+'>出库</option><option value="发货"'+(recordFilter==='发货'?' selected':'')+'>发货</option><option value="迁移"'+(recordFilter==='迁移'?' selected':'')+'>迁移</option><option value="加入中转仓"'+(recordFilter==='加入中转仓'?' selected':'')+'>加入中转仓</option><option value="中转转移"'+(recordFilter==='中转转移'?' selected':'')+'>中转转移</option><option value="替换产品"'+(recordFilter==='替换产品'?' selected':'')+'>替换产品</option><option value="交换位置"'+(recordFilter==='交换位置'?' selected':'')+'>交换位置</option></select></div><div class="form-group"><label>产品</label><select onchange="recordProductFilter=this.value;showRecords();">'+productOptions+'</select></div><div class="form-group"><label>型号</label><select onchange="recordModelFilter=this.value;showRecords();">'+modelOptions+'</select></div><div class="form-group"><label>开始日期</label><input type="date" value="'+recordStartDate+'" onchange="recordStartDate=this.value;showRecords();"></div><div class="form-group"><label>结束日期</label><input type="date" value="'+recordEndDate+'" onchange="recordEndDate=this.value;showRecords();"></div></div><p>共 '+filtered.length+' 条记录</p><table class="records-table"><thead><tr><th>操作</th><th>类型</th><th>产品</th><th>型号</th><th>数量</th><th>区域</th><th>仓位</th><th>批次</th><th>去向</th><th>备注</th><th>时间</th></tr></thead><tbody>'+rows+'</tbody></table><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
 }
 function deleteRecord(recordId){if(!db||!Array.isArray(db.records))return;if(!confirm('确定删除这条记录吗？'))return;const nd=JSON.parse(JSON.stringify(db));nd.records=nd.records.filter(r=>r.id!==recordId);saveDB(nd);showToast('记录已删除','success');showRecords();}
 
@@ -940,8 +909,16 @@ function getDailyBatchStatsItems(){
         const inner = map.get(name);
         inner.set(loc.batchNo, (inner.get(loc.batchNo) || 0) + 1);
     });
+    // 加入中转仓数据
+    db.transit.forEach(t => {
+        const p = db.products.find(x => x.id === t.productId);
+        if (!p || !t.batchNo) return;
+        const name = p.name || '未知产品';
+        if (!map.has(name)) map.set(name, new Map());
+        const inner = map.get(name);
+        inner.set(t.batchNo, (inner.get(t.batchNo) || 0) + 1);
+    });
     const items = [];
-    // 按产品列表顺序
     db.products.forEach(p => {
         const name = p.name || '未知产品';
         if (map.has(name)) {
@@ -952,7 +929,6 @@ function getDailyBatchStatsItems(){
             });
         }
     });
-    // 防御不在产品列表中的产品
     map.forEach((innerMap, name) => {
         if (!db.products.some(p => (p.name||'未知产品') === name)) {
             const sortedDates = [...innerMap.keys()].sort();
@@ -1013,32 +989,29 @@ function compareDailyBatchStats(){
 // ==================== 库存统计 ====================
 function renderStatsModal(){if(!db||!Array.isArray(db.products)||db.products.length===0){showToast('暂无产品','info');return;}let table='';if(statsGroupBy==='name'){const m=new Map();db.products.forEach(p=>{if(!m.has(p.name))m.set(p.name,{pieces:0,units:new Set(),models:new Set()});const e=m.get(p.name);const info=getProductDisplayInfo(p.id);e.pieces+=info.pieces;e.units.add(p.unit);e.models.add(p.model||'无型号');});let rows=[...m.entries()].map(([n,d])=>{const specs=[...d.models].join('、');const unitStr=d.units.size===1?[...d.units][0]:'多单位';return '<tr><td>'+n+'</td><td>'+specs+'</td><td>'+d.pieces+'</td><td>'+unitStr+'</td></tr>';}).join('');table='<table class="stats-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}else{const m=new Map();db.products.forEach(p=>{const key=p.model||'无型号';if(!m.has(key))m.set(key,{pieces:0,units:new Set(),names:new Set(),pn:[]});const e=m.get(key);const info=getProductDisplayInfo(p.id);e.pieces+=info.pieces;e.units.add(p.unit);e.names.add(p.name);e.pn.push(p.name);});let rows=[...m.entries()].map(([mod,d])=>{const unitStr=d.units.size===1?[...d.units][0]:'多单位';return '<tr><td>'+d.pn.join('、')+'</td><td>'+mod+'</td><td>'+d.names.size+'</td><td>'+d.pieces+'</td><td>'+unitStr+'</td></tr>';}).join('');table='<table class="stats-table"><thead><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}openModal('<h2>📈 库存统计</h2><div class="form-group"><label>分组方式</label><select onchange="statsGroupBy=this.value;renderStatsModal();"><option value="name"'+(statsGroupBy==='name'?' selected':'')+'>按名称</option><option value="model"'+(statsGroupBy==='model'?' selected':'')+'>按型号</option></select></div>'+table+'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');}
 
-// ==================== FIFO排序 ====================
+// ==================== FIFO排序（含中转仓） ====================
 function getFifoRankMap(zoneId){if(!db||!Array.isArray(db.locations))return{};const used=db.locations.filter(l=>l.zoneId===zoneId&&l.status==='used'&&l.batchNo);const pg={};used.forEach(loc=>{const pid=loc.productId;if(!pid)return;if(!pg[pid])pg[pid]=[];pg[pid].push(loc);});const rm={};Object.keys(pg).forEach(pid=>{const locs=pg[pid];locs.sort((a,b)=>{if(a.priorityFlag&&!b.priorityFlag)return -1;if(!a.priorityFlag&&b.priorityFlag)return 1;return a.batchNo.localeCompare(b.batchNo);});locs.forEach((loc,i)=>{rm[loc.id]={rank:i,total:locs.length,productId:pid,isPriority:!!(db.products.find(p=>p.id===pid)?.isPriority),priorityFlag:loc.priorityFlag};});});return rm;}
 function getFifoColor(rank,total){if(total<=1)return'#1e88e5';const l=80-(rank/(total-1))*50;return'hsl(210,80%,'+l+'%)';}
 function getFifoBorderColor(rank,total){if(total<=1)return'#0d47a1';const l=60-(rank/(total-1))*25;return'hsl(210,90%,'+l+'%)';}
 function renderFifoOrderModal(){
-    if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
-    const used=db.locations.filter(l=>l.status==='used'&&l.batchNo);
-    if(used.length===0){showToast('无已用仓位','info');return;}
-    let productOptions = '<option value="all">全部产品</option>';
-    db.products.forEach(p=>{
-        productOptions += `<option value="${p.id}">${p.name||'未知产品'}${p.isPriority?'【产先】':''}(${p.model||'无型号'})</option>`;
+    if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)||!Array.isArray(db.transit)){showToast('数据未加载','info');return;}
+    // 合并库位和中转仓
+    fifoCombinedItems = [];
+    db.locations.filter(l=>l.status==='used'&&l.batchNo).forEach(loc=>{
+        fifoCombinedItems.push({productId:loc.productId,batchNo:loc.batchNo,locationType:'location',locationId:loc.id,zoneId:loc.zoneId,rowNum:loc.rowNum,colNum:loc.colNum,quantity:loc.quantity,customPieces:loc.customPieces,handAccount:loc.handAccount,priorityFlag:loc.priorityFlag,transferFlag:loc.transferFlag,remark:loc.remark});
     });
-    openModal('<h2>⏱️ FIFO排序（全局）</h2>'+
+    db.transit.filter(t=>t.batchNo).forEach(t=>{
+        fifoCombinedItems.push({productId:t.productId,batchNo:t.batchNo,locationType:'transit',locationId:t.id,zoneId:null,rowNum:0,colNum:0,quantity:t.quantity,customPieces:t.customPieces,handAccount:t.handAccount,priorityFlag:t.priorityFlag,transferFlag:t.transferFlag,remark:t.remark});
+    });
+    if(fifoCombinedItems.length===0){showToast('无已用仓位或中转仓产品','info');return;}
+    let productOptions = '<option value="all">全部产品</option>';
+    db.products.forEach(p=>{productOptions += `<option value="${p.id}">${p.name||'未知产品'}${p.isPriority?'【产先】':''}(${p.model||'无型号'})</option>`;});
+    openModal('<h2>⏱️ FIFO排序（全局，含中转仓）</h2>'+
         '<div class="form-group"><label>分组方式</label><select id="fifoGroupSelect" onchange="fifoGroupBy=this.value;updateFifoContent()"><option value="name"'+(fifoGroupBy==='name'?' selected':'')+'>按名称</option><option value="model"'+(fifoGroupBy==='model'?' selected':'')+'>按型号</option></select></div>'+
         '<div class="form-group"><label>筛选产品（可多选）</label><select id="fifoProductFilter" multiple size="4" onchange="updateFifoContent()">'+productOptions+'</select></div>'+
         '<div id="fifoContent"></div>'+
         '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
-    if(selectedProductFilters.size>0){
-        const select=document.getElementById('fifoProductFilter');
-        Array.from(select.options).forEach(opt=>{
-            if(opt.value!=='all' && selectedProductFilters.has(parseInt(opt.value))) opt.selected=true;
-            else opt.selected=false;
-        });
-    }else{
-        document.getElementById('fifoProductFilter').value='all';
-    }
+    if(selectedProductFilters.size>0){const select=document.getElementById('fifoProductFilter');Array.from(select.options).forEach(opt=>{if(opt.value!=='all' && selectedProductFilters.has(parseInt(opt.value))) opt.selected=true;else opt.selected=false;});}else{document.getElementById('fifoProductFilter').value='all';}
     updateFifoContent();
 }
 function updateFifoContent(){
@@ -1047,22 +1020,17 @@ function updateFifoContent(){
     const select=document.getElementById('fifoProductFilter');
     if(!select)return;
     selectedProductFilters.clear();
-    for(let i=0;i<select.options.length;i++){
-        if(select.options[i].selected && select.options[i].value!=='all'){
-            selectedProductFilters.add(parseInt(select.options[i].value));
-        }
-    }
-    if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products))return;
-    const used=db.locations.filter(l=>l.status==='used'&&l.batchNo);
-    if(used.length===0){container.innerHTML='<p>无已用仓位</p>';return;}
+    for(let i=0;i<select.options.length;i++){if(select.options[i].selected && select.options[i].value!=='all'){selectedProductFilters.add(parseInt(select.options[i].value));}}
+    const combinedItems = fifoCombinedItems || [];
+    if(combinedItems.length===0){container.innerHTML='<p>无数据</p>';return;}
     const grouped={};
-    used.forEach(loc=>{
-        const p=db.products.find(x=>x.id===loc.productId);
+    combinedItems.forEach(item=>{
+        const p=db.products.find(x=>x.id===item.productId);
         if(!p)return;
         if(selectedProductFilters.size>0 && !selectedProductFilters.has(p.id))return;
         const key=fifoGroupBy==='name'?p.name:(p.model||'无型号');
         if(!grouped[key])grouped[key]=[];
-        grouped[key].push({loc,p});
+        grouped[key].push({item,p});
     });
     if(Object.keys(grouped).length===0){container.innerHTML='<p>无匹配产品</p>';return;}
     const orderMap=new Map();
@@ -1072,27 +1040,31 @@ function updateFifoContent(){
     sortedKeys.forEach(key=>{
         const items=grouped[key];
         items.sort((a,b)=>{
-            if(a.loc.priorityFlag && !b.loc.priorityFlag) return -1;
-            if(!a.loc.priorityFlag && b.loc.priorityFlag) return 1;
+            if(a.item.priorityFlag && !b.item.priorityFlag) return -1;
+            if(!a.item.priorityFlag && b.item.priorityFlag) return 1;
             if(a.p.isPriority && !b.p.isPriority) return -1;
             if(!a.p.isPriority && b.p.isPriority) return 1;
-            return a.loc.batchNo.localeCompare(b.loc.batchNo);
+            return a.item.batchNo.localeCompare(b.item.batchNo);
         });
         const pn=items[0].p.name,pm=items[0].p.model||'无型号';
         const title=fifoGroupBy==='name'?pn+' ('+pm+')':pm+' ('+pn+')';
         let rows=items.map((it,i)=>{
-            const loc=it.loc,p=it.p;
-            const zone=db.zones.find(z=>z.id===loc.zoneId);
-            const rl=getRowDisplayLabel(zone,loc.rowNum),dc=getDisplayColNumber(zone,loc.colNum);
+            const item=it.item,p=it.p;
+            let locationText;
+            if(item.locationType==='location'){
+                const zone=db.zones.find(z=>z.id===item.zoneId);
+                locationText=zone?zone.name+' '+getRowDisplayLabel(zone,item.rowNum)+'排'+getDisplayColNumber(zone,item.colNum)+'托':'未知位置';
+            }else{locationText='中转仓';}
             let qs;
-            if(loc.customPieces>0)qs=loc.customPieces+'件';
-            else{const pc=loc.quantity*(p.unitQuantity||1);qs=loc.quantity+p.unit+' ('+pc.toFixed(2)+'件)';}
-            const handBtn=loc.handAccount?'取消标记':'标记';
-            const handBtnClass=loc.handAccount?'btn-outline':'btn-primary';
-            const priorityTag=loc.priorityFlag?'【先】':(p.isPriority?'【产先】':'');
-            return '<tr><td>'+(i+1)+'</td><td>'+priorityTag+' '+loc.batchNo+'</td><td>'+zone?.name+' '+rl+'排'+dc+'托</td><td>'+qs+'</td><td><button class="btn btn-sm '+handBtnClass+'" onclick="toggleHandAccountInline('+loc.id+')">'+handBtn+'</button></td></tr>';
+            if(item.customPieces>0)qs=item.customPieces+'件';
+            else{const pc=item.quantity*(p.unitQuantity||1);qs=item.quantity+p.unit+' ('+pc.toFixed(2)+'件)';}
+            const handBtn=item.handAccount?'取消标记':'标记';
+            const handBtnClass=item.handAccount?'btn-outline':'btn-primary';
+            const priorityTag=item.priorityFlag?'【先】':(p.isPriority?'【产先】':'');
+            const handBtnHtml = (item.locationType==='location') ? `<button class="btn btn-sm ${handBtnClass}" onclick="toggleHandAccountInline(${item.locationId})">${handBtn}</button>` : '—';
+            return '<tr><td>'+(i+1)+'</td><td>'+priorityTag+' '+item.batchNo+'</td><td>'+locationText+'</td><td>'+qs+'</td><td>'+handBtnHtml+'</td></tr>';
         }).join('');
-        content+='<div style="margin-bottom:16px"><h3>📦 '+title+'</h3><table class="fifo-table"><thead><tr><th>优先级</th><th>批次</th><th>仓位</th><th>数量</th><th>手帐标记</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+        content+='<div style="margin-bottom:16px"><h3>📦 '+title+'</h3><table class="fifo-table"><thead><tr><th>优先级</th><th>批次</th><th>位置</th><th>数量</th><th>手帐标记</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
     });
     container.innerHTML=content;
 }
@@ -1111,84 +1083,18 @@ function toggleHandAccountInline(locId){
 function showZoneSortModal(){
     if(!db||!Array.isArray(db.zones)){showToast('数据未加载','info');return;}
     let listHtml = '<div class="zone-sort-list" id="zoneSortList">';
-    db.zones.forEach((zone,index)=>{
-        listHtml += `<div class="zone-sort-item" draggable="true" data-zone-id="${zone.id}" ondragstart="onZoneDragStart(event)" ondragover="onZoneDragOver(event)" ondrop="onZoneDrop(event)" ondragend="onZoneDragEnd(event)">
-            <span>☰</span>
-            <span>${zone.name}${zone.isBase?' (基础)':''}</span>
-        </div>`;
-    });
+    db.zones.forEach((zone,index)=>{listHtml += `<div class="zone-sort-item" draggable="true" data-zone-id="${zone.id}" ondragstart="onZoneDragStart(event)" ondragover="onZoneDragOver(event)" ondrop="onZoneDrop(event)" ondragend="onZoneDragEnd(event)"><span>☰</span><span>${zone.name}${zone.isBase?' (基础)':''}</span></div>`;});
     listHtml += '</div>';
     openModal(`<h2>🔄 区域排序</h2><p>拖动区域调整顺序</p>${listHtml}<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveZoneOrder()">保存顺序</button></div>`);
     initZoneDragEvents();
 }
 let draggedZoneId = null;
-function initZoneDragEvents(){
-    const items = document.querySelectorAll('.zone-sort-item');
-    items.forEach(item=>{
-        item.addEventListener('dragstart', onZoneDragStart);
-        item.addEventListener('dragover', onZoneDragOver);
-        item.addEventListener('drop', onZoneDrop);
-        item.addEventListener('dragend', onZoneDragEnd);
-    });
-}
-function onZoneDragStart(e){
-    draggedZoneId = e.target.dataset.zoneId;
-    e.target.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', draggedZoneId);
-}
-function onZoneDragOver(e){
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const target = e.target.closest('.zone-sort-item');
-    if(!target) return;
-    const container = document.getElementById('zoneSortList');
-    const items = [...container.querySelectorAll('.zone-sort-item:not(.dragging)')];
-    const afterElement = items.find(item => {
-        const rect = item.getBoundingClientRect();
-        return e.clientY < rect.top + rect.height / 2;
-    });
-    if(afterElement == null){
-        container.appendChild(document.querySelector('.dragging'));
-    }else{
-        container.insertBefore(document.querySelector('.dragging'), afterElement);
-    }
-}
-function onZoneDrop(e){
-    e.preventDefault();
-    const target = e.target.closest('.zone-sort-item');
-    if(!target) return;
-    const container = document.getElementById('zoneSortList');
-    const dragging = document.querySelector('.dragging');
-    if(dragging && target !== dragging){
-        const items = [...container.querySelectorAll('.zone-sort-item:not(.dragging)')];
-        const afterElement = items.find(item => {
-            const rect = item.getBoundingClientRect();
-            return e.clientY < rect.top + rect.height / 2;
-        });
-        if(afterElement == null){
-            container.appendChild(dragging);
-        }else{
-            container.insertBefore(dragging, afterElement);
-        }
-    }
-}
-function onZoneDragEnd(e){
-    e.target.classList.remove('dragging');
-    draggedZoneId = null;
-}
-function saveZoneOrder(){
-    const container = document.getElementById('zoneSortList');
-    if(!container) return;
-    const items = [...container.querySelectorAll('.zone-sort-item')];
-    const newOrder = items.map(item=>parseInt(item.dataset.zoneId));
-    const nd = JSON.parse(JSON.stringify(db));
-    nd.zones = newOrder.map(id=>db.zones.find(z=>z.id===id)).filter(Boolean);
-    saveDB(nd);
-    closeModal();
-    renderZoneList();
-    showToast('区域顺序已保存','success');
-}
+function initZoneDragEvents(){const items = document.querySelectorAll('.zone-sort-item');items.forEach(item=>{item.addEventListener('dragstart', onZoneDragStart);item.addEventListener('dragover', onZoneDragOver);item.addEventListener('drop', onZoneDrop);item.addEventListener('dragend', onZoneDragEnd);});}
+function onZoneDragStart(e){draggedZoneId = e.target.dataset.zoneId;e.target.classList.add('dragging');e.dataTransfer.effectAllowed = 'move';e.dataTransfer.setData('text/plain', draggedZoneId);}
+function onZoneDragOver(e){e.preventDefault();e.dataTransfer.dropEffect = 'move';const target = e.target.closest('.zone-sort-item');if(!target) return;const container = document.getElementById('zoneSortList');const items = [...container.querySelectorAll('.zone-sort-item:not(.dragging)')];const afterElement = items.find(item => {const rect = item.getBoundingClientRect();return e.clientY < rect.top + rect.height / 2;});if(afterElement == null){container.appendChild(document.querySelector('.dragging'));}else{container.insertBefore(document.querySelector('.dragging'), afterElement);}}
+function onZoneDrop(e){e.preventDefault();const target = e.target.closest('.zone-sort-item');if(!target) return;const container = document.getElementById('zoneSortList');const dragging = document.querySelector('.dragging');if(dragging && target !== dragging){const items = [...container.querySelectorAll('.zone-sort-item:not(.dragging)')];const afterElement = items.find(item => {const rect = item.getBoundingClientRect();return e.clientY < rect.top + rect.height / 2;});if(afterElement == null){container.appendChild(dragging);}else{container.insertBefore(dragging, afterElement);}}}
+function onZoneDragEnd(e){e.target.classList.remove('dragging');draggedZoneId = null;}
+function saveZoneOrder(){const container = document.getElementById('zoneSortList');if(!container) return;const items = [...container.querySelectorAll('.zone-sort-item')];const newOrder = items.map(item=>parseInt(item.dataset.zoneId));const nd = JSON.parse(JSON.stringify(db));nd.zones = newOrder.map(id=>db.zones.find(z=>z.id===id)).filter(Boolean);saveDB(nd);closeModal();renderZoneList();showToast('区域顺序已保存','success');}
 
 // ==================== 数据导出导入 ====================
 function exportExcel(){if(!db||!Array.isArray(db.products)||db.products.length===0){showToast('暂无数据','info');return;}const nm=new Map(),mm=new Map();db.products.forEach(p=>{if(!nm.has(p.name))nm.set(p.name,{pieces:0,units:new Set(),models:new Set()});const e=nm.get(p.name);const info=getProductDisplayInfo(p.id);e.pieces+=info.pieces;e.units.add(p.unit);e.models.add(p.model||'无型号');const key=p.model||'无型号';if(!mm.has(key))mm.set(key,{pieces:0,units:new Set(),names:new Set(),pn:[]});const m=mm.get(key);m.pieces+=info.pieces;m.units.add(p.unit);m.names.add(p.name);m.pn.push(p.name);});let html='<html><head><meta charset="UTF-8"></head><body><table><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th></tr>';nm.forEach((d,n)=>{html+='<tr><td>'+n+'</td><td>'+[...d.models].join('、')+'</td><td>'+d.pieces+'</td><td>'+([...d.units].length===1?[...d.units][0]:'多单位')+'</td></tr>';});html+='</table><table><tr><th>产品名称</th><th>型号</th><th>产品数</th><th>总件数</th><th>单位</th></tr>';mm.forEach((d,m)=>{html+='<tr><td>'+d.pn.join('、')+'</td><td>'+m+'</td><td>'+d.names.size+'</td><td>'+d.pieces+'</td><td>'+([...d.units].length===1?[...d.units][0]:'多单位')+'</td></tr>';});html+='</table></body></html>';const blob=new Blob(['\ufeff'+html],{type:'application/vnd.ms-excel;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='统计_'+new Date().toISOString().slice(0,10)+'.xls';a.click();showToast('导出成功','success');}
@@ -1201,43 +1107,14 @@ function importData(file){if(!db||!Array.isArray(db.zones)){showToast('数据未
 function renderZoneStats(){const c=document.getElementById('zoneStats');if(!c||!db)return;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){c.textContent='请选择区域';return;}const locs=db.locations.filter(l=>l.zoneId===zone.id);const n=locs.filter(l=>l.status==='normal').length,u=locs.filter(l=>l.status==='unavailable').length,s=locs.filter(l=>l.status==='used').length;const tp=locs.filter(l=>l.status==='used').reduce((sum,l)=>{const p=db.products.find(x=>x.id===l.productId);return sum+(l.quantity||0)*(p?.unitQuantity||1)+(l.customPieces||0);},0);c.innerHTML='<div>正常:'+n+' 不可用:'+u+' 已用:'+s+' 总件数:'+tp+'</div>';}
 function updateHeaderStats(){if(!db||!Array.isArray(db.locations))return;const all=db.locations;document.getElementById('statNormal').textContent=all.filter(l=>l.status==='normal').length;document.getElementById('statUnavailable').textContent=all.filter(l=>l.status==='unavailable').length;document.getElementById('statUsed').textContent=all.filter(l=>l.status==='used').length;document.getElementById('statProducts').textContent=db.products.length;}
 
-// ==================== 智能排序（按产品列表顺序、批次升序、优先标记先发出） ====================
+// ==================== 智能排序（按产品列表顺序、批次升序、优先先发标记） ====================
 function showSmartSortModal() {
     let zoneCards = '';
-    db.zones.forEach(z => {
-        zoneCards += `<div class="smart-select-card" data-value="${z.id}" data-type="target">${z.name}</div>`;
-    });
+    db.zones.forEach(z => {zoneCards += `<div class="smart-select-card" data-value="${z.id}" data-type="target">${z.name}</div>`;});
     let auxCards = '';
-    db.zones.forEach(z => {
-        auxCards += `<div class="smart-select-card" data-value="${z.id}" data-type="aux">${z.name}</div>`;
-    });
-    openModal(`
-        <h2>🧹 智能排序</h2>
-        <div class="form-group">
-            <label>目标区域（可多选，主要整理）</label>
-            <div class="smart-select-cards" id="targetZoneCards">${zoneCards}</div>
-            <select multiple size="4" class="smart-sort-target-multi" style="display:none;">
-                ${db.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}
-            </select>
-        </div>
-        <div class="form-group">
-            <label>辅助区域（可多选，用于临时存放）</label>
-            <div class="smart-select-cards" id="auxZoneCards">${auxCards}</div>
-            <select multiple size="4" class="smart-sort-aux-multi" style="display:none;">
-                ${db.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}
-            </select>
-        </div>
-        <div class="form-actions">
-            <button class="btn btn-outline" onclick="closeModal()">取消</button>
-            <button class="btn btn-primary" onclick="executeSmartSort()">执行排序</button>
-        </div>
-    `);
-    document.querySelectorAll('.smart-select-card').forEach(card=>{
-        card.addEventListener('click', function(e){
-            e.stopPropagation();
-            this.classList.toggle('active');
-        });
-    });
+    db.zones.forEach(z => {auxCards += `<div class="smart-select-card" data-value="${z.id}" data-type="aux">${z.name}</div>`;});
+    openModal(`<h2>🧹 智能排序</h2><div class="form-group"><label>目标区域（可多选，主要整理）</label><div class="smart-select-cards" id="targetZoneCards">${zoneCards}</div><select multiple size="4" class="smart-sort-target-multi" style="display:none;">${db.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}</select></div><div class="form-group"><label>辅助区域（可多选，用于临时存放）</label><div class="smart-select-cards" id="auxZoneCards">${auxCards}</div><select multiple size="4" class="smart-sort-aux-multi" style="display:none;">${db.zones.map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}</select></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="executeSmartSort()">执行排序</button></div>`);
+    document.querySelectorAll('.smart-select-card').forEach(card=>{card.addEventListener('click', function(e){e.stopPropagation();this.classList.toggle('active');});});
 }
 function executeSmartSort() {
     let targetZoneIds, auxZoneIds;
@@ -1246,183 +1123,51 @@ function executeSmartSort() {
         targetZoneIds = [...document.querySelectorAll('.smart-select-card[data-type="target"].active')].map(card => parseInt(card.dataset.value));
         auxZoneIds = [...document.querySelectorAll('.smart-select-card[data-type="aux"].active')].map(card => parseInt(card.dataset.value));
     } else {
-        const targetMulti = document.querySelector('.smart-sort-target-multi');
-        const auxMulti = document.querySelector('.smart-sort-aux-multi');
-        targetZoneIds = [...targetMulti.selectedOptions].map(o => parseInt(o.value));
-        auxZoneIds = [...auxMulti.selectedOptions].map(o => parseInt(o.value));
+        const targetMulti = document.querySelector('.smart-sort-target-multi'); const auxMulti = document.querySelector('.smart-sort-aux-multi');
+        targetZoneIds = [...targetMulti.selectedOptions].map(o => parseInt(o.value)); auxZoneIds = [...auxMulti.selectedOptions].map(o => parseInt(o.value));
     }
-
     if (targetZoneIds.length === 0) { showToast('请至少选择一个目标区域', 'error'); return; }
-
     const auxEmptyLocs = db.locations.filter(l => auxZoneIds.includes(l.zoneId) && l.status === 'normal');
-    let allAssignments = [];
-    let allMoves = [];
-
+    let allAssignments = []; let allMoves = [];
     targetZoneIds.forEach(targetZoneId => {
-        const targetZone = db.zones.find(z => z.id === targetZoneId);
-        if (!targetZone) return;
-
-        const allLocs = db.locations
-            .filter(l => l.zoneId === targetZoneId)
-            .sort((a, b) => {
-                if (a.rowNum !== b.rowNum) return a.rowNum - b.rowNum;
-                return getDisplayColNumber(targetZone, a.colNum) - getDisplayColNumber(targetZone, b.colNum);
-            });
-
-        const usedLocs = allLocs.filter(l => l.status === 'used');
-        if (usedLocs.length === 0) return;
-
-        const productOrder = db.products.map(p => p.id);
-        const productGroups = {};
-        usedLocs.forEach(loc => {
-            const pid = loc.productId;
-            if (!productGroups[pid]) productGroups[pid] = [];
-            productGroups[pid].push(loc);
-        });
-
+        const targetZone = db.zones.find(z => z.id === targetZoneId); if (!targetZone) return;
+        const allLocs = db.locations.filter(l => l.zoneId === targetZoneId).sort((a, b) => { if (a.rowNum !== b.rowNum) return a.rowNum - b.rowNum; return getDisplayColNumber(targetZone, a.colNum) - getDisplayColNumber(targetZone, b.colNum); });
+        const usedLocs = allLocs.filter(l => l.status === 'used'); if (usedLocs.length === 0) return;
+        const productOrder = db.products.map(p => p.id); const productGroups = {};
+        usedLocs.forEach(loc => { const pid = loc.productId; if (!productGroups[pid]) productGroups[pid] = []; productGroups[pid].push(loc); });
         const sortedProductLocs = [];
-        for (const pid of productOrder) {
-            if (productGroups[pid]) {
-                productGroups[pid].sort((a,b)=>{
-                    if(a.priorityFlag && !b.priorityFlag) return -1;
-                    if(!a.priorityFlag && b.priorityFlag) return 1;
-                    return a.batchNo.localeCompare(b.batchNo);
-                });
-                sortedProductLocs.push(...productGroups[pid]);
-            }
-        }
+        for (const pid of productOrder) { if (productGroups[pid]) { productGroups[pid].sort((a,b)=>{ if(a.priorityFlag && !b.priorityFlag) return -1; if(!a.priorityFlag && b.priorityFlag) return 1; return a.batchNo.localeCompare(b.batchNo); }); sortedProductLocs.push(...productGroups[pid]); } }
         const assignedPids = new Set(sortedProductLocs.map(l => l.productId));
-        usedLocs.forEach(loc => {
-            if (!assignedPids.has(loc.productId)) {
-                sortedProductLocs.push(loc);
-            }
-        });
-
+        usedLocs.forEach(loc => { if (!assignedPids.has(loc.productId)) sortedProductLocs.push(loc); });
         const finalAssignments = [];
-        for (let i = 0; i < sortedProductLocs.length && i < allLocs.length; i++) {
-            finalAssignments.push({
-                toLocId: allLocs[i].id,
-                productId: sortedProductLocs[i].productId,
-                batchNo: sortedProductLocs[i].batchNo,
-                sourceLocId: sortedProductLocs[i].id
-            });
-        }
-
-        const currentState = new Map();
-        allLocs.forEach(loc => {
-            currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null);
-        });
-        const finalState = new Map();
-        finalAssignments.forEach(assign => {
-            finalState.set(assign.toLocId, { productId: assign.productId, batchNo: assign.batchNo });
-        });
-        allLocs.forEach(loc => {
-            if (!finalState.has(loc.id)) finalState.set(loc.id, null);
-        });
-
+        for (let i = 0; i < sortedProductLocs.length && i < allLocs.length; i++) { finalAssignments.push({ toLocId: allLocs[i].id, productId: sortedProductLocs[i].productId, batchNo: sortedProductLocs[i].batchNo, sourceLocId: sortedProductLocs[i].id }); }
+        const currentState = new Map(); allLocs.forEach(loc => { currentState.set(loc.id, loc.status === 'used' ? { productId: loc.productId, batchNo: loc.batchNo } : null); });
+        const finalState = new Map(); finalAssignments.forEach(assign => { finalState.set(assign.toLocId, { productId: assign.productId, batchNo: assign.batchNo }); });
+        allLocs.forEach(loc => { if (!finalState.has(loc.id)) finalState.set(loc.id, null); });
         const tempMoves = [];
-        for (const loc of allLocs) {
-            const cur = currentState.get(loc.id);
-            const fin = finalState.get(loc.id);
-            if (cur && (!fin || cur.productId !== fin.productId || cur.batchNo !== fin.batchNo)) {
-                if (auxEmptyLocs.length > 0) {
-                    const tempLoc = auxEmptyLocs.shift();
-                    tempMoves.push({ type: '移到辅助区', from: loc, to: tempLoc, productId: cur.productId, reason: '腾出目标位置' });
-                } else {
-                    tempMoves.push({ type: '错误', message: '辅助区域空位不足' });
-                }
-            }
-        }
-        for (const assign of finalAssignments) {
-            const targetLoc = allLocs.find(l => l.id === assign.toLocId);
-            const cur = currentState.get(assign.toLocId);
-            if (!cur || cur.productId !== assign.productId || cur.batchNo !== assign.batchNo) {
-                tempMoves.push({ type: '移动产品', from: db.locations.find(l => l.id === assign.sourceLocId), to: targetLoc, productId: assign.productId, reason: '按产品列表顺序排列' });
-            }
-        }
-
-        allAssignments = allAssignments.concat(finalAssignments);
-        allMoves = allMoves.concat(tempMoves);
+        for (const loc of allLocs) { const cur = currentState.get(loc.id); const fin = finalState.get(loc.id); if (cur && (!fin || cur.productId !== fin.productId || cur.batchNo !== fin.batchNo)) { if (auxEmptyLocs.length > 0) { const tempLoc = auxEmptyLocs.shift(); tempMoves.push({ type: '移到辅助区', from: loc, to: tempLoc, productId: cur.productId, reason: '腾出目标位置' }); } else { tempMoves.push({ type: '错误', message: '辅助区域空位不足' }); } } }
+        for (const assign of finalAssignments) { const targetLoc = allLocs.find(l => l.id === assign.toLocId); const cur = currentState.get(assign.toLocId); if (!cur || cur.productId !== assign.productId || cur.batchNo !== assign.batchNo) { tempMoves.push({ type: '移动产品', from: db.locations.find(l => l.id === assign.sourceLocId), to: targetLoc, productId: assign.productId, reason: '按产品列表顺序排列' }); } }
+        allAssignments = allAssignments.concat(finalAssignments); allMoves = allMoves.concat(tempMoves);
     });
-
     showSmartSortResult(allAssignments, allMoves);
 }
 function showSmartSortResult(assignments, moves) {
-    const targetZoneIds = [...new Set(assignments.map(a => {
-        const loc = db.locations.find(l => l.id === a.toLocId);
-        return loc ? loc.zoneId : null;
-    }).filter(Boolean))];
-
-    let html = `<h2>排序结果（最终状态）</h2>`;
-    html += `<div id="smartSortResultContent">`;
-
+    const targetZoneIds = [...new Set(assignments.map(a => { const loc = db.locations.find(l => l.id === a.toLocId); return loc ? loc.zoneId : null; }).filter(Boolean))];
+    let html = `<h2>排序结果（最终状态）</h2><div id="smartSortResultContent">`;
     targetZoneIds.forEach(zoneId => {
-        const zone = db.zones.find(z => z.id === zoneId);
-        if (!zone) return;
-        html += `<h3>${zone.name}</h3>`;
-        html += `<div class="grid-container" style="overflow:auto;">`;
+        const zone = db.zones.find(z => z.id === zoneId); if (!zone) return;
+        html += `<h3>${zone.name}</h3><div class="grid-container" style="overflow:auto;">`;
         const rows = [...new Set(db.locations.filter(l => l.zoneId === zoneId).map(l => l.rowNum))].sort((a, b) => a - b);
         html += `<div class="grid-table">`;
-        rows.forEach(row => {
-            const rowCols = zone.rowDetails ? (zone.rowDetails[row-1] || zone.cols) : zone.cols;
-            const cols = getDisplayColArray({ ...zone, cols: rowCols }, row);
-            html += `<div class="grid-row">`;
-            html += `<div class="grid-row-label">${getRowDisplayLabel(zone, row)}</div>`;
-            cols.forEach((col, idx) => {
-                const loc = db.locations.find(l => l.zoneId === zoneId && l.rowNum === row && l.colNum === col);
-                if (loc) {
-                    const assign = assignments.find(a => a.toLocId === loc.id);
-                    const product = assign ? db.products.find(p => p.id === assign.productId) : null;
-                    let style = 'background:#fff;border-color:#ddd;';
-                    let label = '空';
-                    if (assign && product) {
-                        style = 'background:#a5d6a7;border-color:#4caf50;';
-                        label = `${product.name || '未知'} (${assign.batchNo})`;
-                    }
-                    html += `<div class="cell" style="${style}">${label}</div>`;
-                } else {
-                    html += `<div class="cell" style="border-style:dashed;opacity:.3;">-</div>`;
-                }
-            });
-            html += `</div>`;
-        });
+        rows.forEach(row => { const rowCols = zone.rowDetails ? (zone.rowDetails[row-1] || zone.cols) : zone.cols; const cols = getDisplayColArray({ ...zone, cols: rowCols }, row); html += `<div class="grid-row"><div class="grid-row-label">${getRowDisplayLabel(zone, row)}</div>`; cols.forEach((col, idx) => { const loc = db.locations.find(l => l.zoneId === zoneId && l.rowNum === row && l.colNum === col); if (loc) { const assign = assignments.find(a => a.toLocId === loc.id); const product = assign ? db.products.find(p => p.id === assign.productId) : null; let style = 'background:#fff;border-color:#ddd;'; let label = '空'; if (assign && product) { style = 'background:#a5d6a7;border-color:#4caf50;'; label = `${product.name || '未知'} (${assign.batchNo})`; } html += `<div class="cell" style="${style}">${label}</div>`; } else { html += `<div class="cell" style="border-style:dashed;opacity:.3;">-</div>`; } }); html += `</div>`; });
         html += `</div></div>`;
     });
-
-    html += `<h3>移动步骤（共${moves.length}步）</h3>`;
-    html += `<table class="records-table"><thead><tr><th>步骤</th><th>操作</th><th>从</th><th>到</th><th>产品</th><th>原因</th></tr></thead><tbody>`;
-    moves.forEach((move, idx) => {
-        const fromLabel = move.from ? (db.zones.find(z => z.id === move.from.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.from.zoneId), move.from.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.from.zoneId), move.from.colNum) + '托') : '-';
-        const toLabel = move.to ? (db.zones.find(z => z.id === move.to.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.to.zoneId), move.to.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.to.zoneId), move.to.colNum) + '托') : '-';
-        const prod = move.productId ? (db.products.find(p => p.id === move.productId)?.name || '未知产品') : '-';
-        html += `<tr><td>${idx+1}</td><td>${move.type}</td><td>${fromLabel}</td><td>${toLabel}</td><td>${prod}</td><td>${move.reason || ''}</td></tr>`;
-    });
-    html += `</tbody></table>`;
-    html += `</div>`;
-    html += `<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-primary" onclick="exportSmartSortImage()">输出图片</button></div>`;
+    html += `<h3>移动步骤（共${moves.length}步）</h3><table class="records-table"><thead><tr><th>步骤</th><th>操作</th><th>从</th><th>到</th><th>产品</th><th>原因</th></tr></thead><tbody>`;
+    moves.forEach((move, idx) => { const fromLabel = move.from ? (db.zones.find(z => z.id === move.from.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.from.zoneId), move.from.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.from.zoneId), move.from.colNum) + '托') : '-'; const toLabel = move.to ? (db.zones.find(z => z.id === move.to.zoneId)?.name + ' ' + getRowDisplayLabel(db.zones.find(z => z.id === move.to.zoneId), move.to.rowNum) + '排' + getDisplayColNumber(db.zones.find(z => z.id === move.to.zoneId), move.to.colNum) + '托') : '-'; const prod = move.productId ? (db.products.find(p => p.id === move.productId)?.name || '未知产品') : '-'; html += `<tr><td>${idx+1}</td><td>${move.type}</td><td>${fromLabel}</td><td>${toLabel}</td><td>${prod}</td><td>${move.reason || ''}</td></tr>`; });
+    html += `</tbody></table></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-primary" onclick="exportSmartSortImage()">输出图片</button></div>`;
     openModal(html);
 }
-function exportSmartSortImage() {
-    const content = document.getElementById('smartSortResultContent');
-    if (!content) { showToast('没有内容可输出', 'error'); return; }
-    html2canvas(content, {
-        scale: 2,
-        width: content.scrollWidth,
-        height: content.scrollHeight,
-        windowWidth: content.scrollWidth,
-        windowHeight: content.scrollHeight,
-        useCORS: true
-    }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = '智能排序结果_' + new Date().toISOString().slice(0, 10) + '.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        showToast('图片已生成', 'success');
-    }).catch(err => {
-        console.error(err);
-        showToast('图片生成失败', 'error');
-    });
-}
+function exportSmartSortImage() { const content = document.getElementById('smartSortResultContent'); if (!content) { showToast('没有内容可输出', 'error'); return; } html2canvas(content, { scale: 2, width: content.scrollWidth, height: content.scrollHeight, windowWidth: content.scrollWidth, windowHeight: content.scrollHeight, useCORS: true }).then(canvas => { const link = document.createElement('a'); link.download = '智能排序结果_' + new Date().toISOString().slice(0, 10) + '.png'; link.href = canvas.toDataURL('image/png'); link.click(); showToast('图片已生成', 'success'); }).catch(err => { console.error(err); showToast('图片生成失败', 'error'); }); }
 
 // ==================== 初始化 ====================
 function init(){
@@ -1438,17 +1183,9 @@ function init(){
     document.getElementById('btnSmartSort').addEventListener('click',showSmartSortModal);
     document.getElementById('btnExportExcel').addEventListener('click',exportExcel);
     document.getElementById('btnExportProducts').addEventListener('click',exportProductsData);
-    document.getElementById('btnImportProducts').addEventListener('click',()=>{
-        const i=document.createElement('input');i.type='file';
-        i.onchange=e=>{if(e.target.files[0])importProductsData(e.target.files[0]);};
-        i.click();
-    });
+    document.getElementById('btnImportProducts').addEventListener('click',()=>{const i=document.createElement('input');i.type='file';i.onchange=e=>{if(e.target.files[0])importProductsData(e.target.files[0]);};i.click();});
     document.getElementById('btnExportData').addEventListener('click',exportData);
-    document.getElementById('btnImportData').addEventListener('click',()=>{
-        const i=document.createElement('input');i.type='file';
-        i.onchange=e=>{if(e.target.files[0])importData(e.target.files[0]);};
-        i.click();
-    });
+    document.getElementById('btnImportData').addEventListener('click',()=>{const i=document.createElement('input');i.type='file';i.onchange=e=>{if(e.target.files[0])importData(e.target.files[0]);};i.click();});
     document.getElementById('btnToggleLocationBatch').addEventListener('click',toggleLocationBatchMode);
     document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
     initFromFirebase();
