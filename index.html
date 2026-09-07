@@ -867,7 +867,35 @@ function showDailyStats(){if(!db||!Array.isArray(db.dailyStats)||db.dailyStats.l
     if(dates.length>=2){document.getElementById('compareStartDate').value=dates[dates.length-2];document.getElementById('compareEndDate').value=dates[dates.length-1];}else{document.getElementById('compareStartDate').value=dates[0];document.getElementById('compareEndDate').value=dates[0];}
 }
 function showDailyStatsContent(dateStr){if(!db||!Array.isArray(db.dailyStats))return;const day=db.dailyStats.find(d=>d.date===dateStr);if(!day){document.getElementById('dailyStatsContent').innerHTML='<p>无数据</p>';return;}let rows=day.items.map(item=>'<tr><td>'+item.name+'</td><td>'+item.specs+'</td><td>'+item.pieces+'</td><td>'+item.unit+'</td><td>'+item.locations+'</td></tr>').join('');document.getElementById('dailyStatsContent').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>总件数</th><th>单位</th><th>占用位置</th></tr></thead><tbody>'+rows+'</tbody></table>';}
-function compareDailyStats(){const startDate=document.getElementById('compareStartDate').value;const endDate=document.getElementById('compareEndDate').value;if(!startDate||!endDate){return;}if(startDate===endDate){showToast('请选择不同日期','error');return;}const startDay=db.dailyStats.find(d=>d.date===startDate);const endDay=db.dailyStats.find(d=>d.date===endDate);if(!startDay||!endDay){showToast('日期数据不存在','error');return;}const startMap=new Map();startDay.items.forEach(item=>{startMap.set(item.name,item);});const endMap=new Map();endDay.items.forEach(item=>{endMap.set(item.name,item);});const allNames=new Set([...startMap.keys(),...endMap.keys()]);let rows='';allNames.forEach(name=>{const s=startMap.get(name)||{pieces:0,locations:0};const e=endMap.get(name)||{pieces:0,locations:0};const diffPieces=e.pieces-s.pieces;const diffLocations=e.locations-s.locations;const colorP=diffPieces>0?'#34a853':(diffPieces<0?'#ea4335':'#333');const colorL=diffLocations>0?'#34a853':(diffLocations<0?'#ea4335':'#333');const unit=s.unit||e.unit||'';const specs=s.specs||e.specs||'';rows+='<tr><td>'+name+'</td><td>'+specs+'</td><td>'+s.pieces+'</td><td>'+e.pieces+'</td><td style="color:'+colorP+';font-weight:600">'+(diffPieces>0?'+'+diffPieces:diffPieces)+'</td><td>'+s.locations+'</td><td>'+e.locations+'</td><td style="color:'+colorL+';font-weight:600">'+(diffLocations>0?'+'+diffLocations:diffLocations)+'</td><td>'+unit+'</td></tr>';});document.getElementById('compareResult').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>起始件数</th><th>结束件数</th><th>件数变化</th><th>起始位置</th><th>结束位置</th><th>位置变化</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';}
+function compareDailyStats(){
+    const startDate=document.getElementById('compareStartDate').value;
+    const endDate=document.getElementById('compareEndDate').value;
+    const filterProduct=document.getElementById('dailyCompareProductFilter')?.value || 'all';
+    if(!startDate||!endDate){return;}
+    if(startDate===endDate){showToast('请选择不同日期','error');return;}
+    const startDay=db.dailyStats.find(d=>d.date===startDate);
+    const endDay=db.dailyStats.find(d=>d.date===endDate);
+    if(!startDay||!endDay){showToast('日期数据不存在','error');return;}
+    const startMap=new Map();
+    startDay.items.forEach(item=>{startMap.set(item.name,item);});
+    const endMap=new Map();
+    endDay.items.forEach(item=>{endMap.set(item.name,item);});
+    let allNames=new Set([...startMap.keys(),...endMap.keys()]);
+    if(filterProduct!=='all') allNames=new Set([filterProduct]);
+    let rows='';
+    allNames.forEach(name=>{
+        const s=startMap.get(name)||{pieces:0,locations:0};
+        const e=endMap.get(name)||{pieces:0,locations:0};
+        const diffPieces=e.pieces-s.pieces;
+        const diffLocations=e.locations-s.locations;
+        const colorP=diffPieces>0?'#34a853':(diffPieces<0?'#ea4335':'#333');
+        const colorL=diffLocations>0?'#34a853':(diffLocations<0?'#ea4335':'#333');
+        const unit=s.unit||e.unit||'';
+        const specs=s.specs||e.specs||'';
+        rows+='<tr><td>'+name+'</td><td>'+specs+'</td><td>'+s.pieces+'</td><td>'+e.pieces+'</td><td style="color:'+colorP+';font-weight:600">'+(diffPieces>0?'+'+diffPieces:diffPieces)+'</td><td>'+s.locations+'</td><td>'+e.locations+'</td><td style="color:'+colorL+';font-weight:600">'+(diffLocations>0?'+'+diffLocations:diffLocations)+'</td><td>'+unit+'</td></tr>';
+    });
+    document.getElementById('compareResult').innerHTML='<table class="daily-table"><thead><tr><th>名称</th><th>规格</th><th>起始件数</th><th>结束件数</th><th>件数变化</th><th>起始位置</th><th>结束位置</th><th>位置变化</th><th>单位</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
 
 // ==================== 每日批次统计（含占用位置数量列） ====================
 function updateDailyBatchStatsIfNeeded(){
