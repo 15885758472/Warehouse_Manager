@@ -571,7 +571,37 @@ function batchDeleteProducts(){if(selectedProducts.size===0){showToast('请先�
 function showAddProductModal(){if(!db||!Array.isArray(db.products)){showToast('数据未加载','info');return;}let opts='<option value="">-- 复制 --</option>';db.products.forEach(p=>opts+='<option value="'+p.id+'">'+p.name+'</option>');openModal('<h2>📦 新建产品</h2>'+(db.products.length?'<div class="form-group"><label>复制</label><select id="existingProductSelect" onchange="fillProductFields(this.value)">'+opts+'</select></div>':'')+'<div class="form-group"><label>名称</label><input id="pName" required></div><div class="form-group"><label>型号</label><input id="pModel"></div><div class="form-group"><label>单位</label><input id="pUnit" value="件" required></div><div class="form-group"><label>单位数量</label><input type="number" id="pUnitQuantity" value="1" min="1"></div><div class="form-group"><label>备注</label><textarea id="pRemark"></textarea></div><div class="form-group"><label>先发标识</label><input type="checkbox" id="pPriority"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addProduct()">确认</button></div>');}
 function fillProductFields(pid){if(!pid)return;const p=db.products.find(x=>x.id==pid);if(p){document.getElementById('pName').value=p.name||'';document.getElementById('pModel').value=p.model||'';document.getElementById('pUnit').value=p.unit||'件';document.getElementById('pUnitQuantity').value=p.unitQuantity||1;document.getElementById('pRemark').value=p.remark||'';document.getElementById('pPriority').checked=!!p.isPriority;}}
 function addProduct(){const name=document.getElementById('pName').value.trim(),model=document.getElementById('pModel').value.trim(),unit=document.getElementById('pUnit').value.trim(),uq=parseInt(document.getElementById('pUnitQuantity').value)||1,remark=document.getElementById('pRemark').value.trim(),isPriority=document.getElementById('pPriority')?.checked||false;if(!name||!unit){showToast('必填','error');return;}const nd=JSON.parse(JSON.stringify(db));nd.products.push({id:nd.nextProductId++,name,model,unit,unitQuantity:uq,remark,isPriority,createdAt:new Date().toISOString()});saveDB(nd);closeModal();showToast('已添加','success');}
-function showProductDetail(id){const p=db.products.find(x=>x.id===id);if(!p)return;const info=getProductDisplayInfo(id);const usedLocs=db.locations.filter(l=>l.productId===id&&l.status==='used');const transitCount=db.transit.filter(t=>t.productId===id).length;openModal('<h2>📦 '+(p.name||'未知产品')+'</h2><p>型号:'+(p.model||'')+' | 单位:'+(p.unit||'件')+' | 单位数量:'+p.unitQuantity+'</p><p>备注:'+(p.remark||'')+'</p><p>先发标识:'+(p.isPriority?'是':'否')+'</p><p>总件数:'+info.pieces+(p.unit||'件')+'</p><p>存储仓位:'+usedLocs.length+' | 中转仓:'+transitCount+'</p><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-primary" onclick="closeModal();showEditProductModal('+p.id+')">编辑</button><button class="btn btn-danger" onclick="closeModal();deleteProduct('+p.id+')">删除</button></div>');}
+function showProductDetail(id){
+    const p=db.products.find(x=>x.id===id);
+    if(!p)return;
+    const info=getProductDisplayInfo(id);
+    const usedLocs=db.locations.filter(l=>l.productId===id&&l.status==='used');
+    const transitCount=db.transit.filter(t=>t.productId===id).length;
+
+    // 计算最早/最近入库日期（基于 type==='入库' 的记录）
+    const inRecords = db.records.filter(r => r.type === '入库' && r.productId === id);
+    let firstInDate = '无入库记录';
+    let lastInDate = '无入库记录';
+    if (inRecords.length > 0) {
+        const times = inRecords.map(r => new Date(r.timestamp).getTime());
+        firstInDate = new Date(Math.min(...times)).toLocaleString();
+        lastInDate = new Date(Math.max(...times)).toLocaleString();
+    }
+
+    openModal('<h2>📦 '+(p.name||'未知产品')+'</h2>'+
+        '<p>型号:'+(p.model||'')+' | 单位:'+(p.unit||'件')+' | 单位数量:'+p.unitQuantity+'</p>'+
+        '<p>备注:'+(p.remark||'')+'</p>'+
+        '<p>先发标识:'+(p.isPriority?'是':'否')+'</p>'+
+        '<p>最早入库日期:'+firstInDate+'</p>'+
+        '<p>最近入库日期:'+lastInDate+'</p>'+
+        '<p>总件数:'+info.pieces+(p.unit||'件')+'</p>'+
+        '<p>存储仓位:'+usedLocs.length+' | 中转仓:'+transitCount+'</p>'+
+        '<div class="form-actions">'+
+            '<button class="btn btn-outline" onclick="closeModal()">关闭</button>'+
+            '<button class="btn btn-primary" onclick="closeModal();showEditProductModal('+p.id+')">编辑</button>'+
+            '<button class="btn btn-danger" onclick="closeModal();deleteProduct('+p.id+')">删除</button>'+
+        '</div>');
+}
 function showEditProductModal(id){const p=db.products.find(x=>x.id===id);if(!p)return;openModal('<h2>✏️ 编辑产品</h2><div class="form-group"><label>名称</label><input id="editName" value="'+(p.name||'')+'"></div><div class="form-group"><label>型号</label><input id="editModel" value="'+(p.model||'')+'"></div><div class="form-group"><label>单位</label><input id="editUnit" value="'+(p.unit||'件')+'"></div><div class="form-group"><label>单位数量</label><input type="number" id="editUnitQuantity" value="'+p.unitQuantity+'"></div><div class="form-group"><label>备注</label><textarea id="editRemark">'+(p.remark||'')+'</textarea></div><div class="form-group"><label>先发标识</label><input type="checkbox" id="editPriority"'+(p.isPriority?' checked':'')+'></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="updateProduct('+id+')">保存</button></div>');}
 function updateProduct(id){const nd=JSON.parse(JSON.stringify(db));const p=nd.products.find(x=>x.id===id);p.name=document.getElementById('editName').value.trim();p.model=document.getElementById('editModel').value.trim();p.unit=document.getElementById('editUnit').value.trim();p.unitQuantity=parseInt(document.getElementById('editUnitQuantity').value)||1;p.remark=document.getElementById('editRemark').value.trim();p.isPriority=document.getElementById('editPriority')?.checked||false;saveDB(nd);closeModal();showToast('已更新','success');}
 function deleteProduct(id){if(db.locations.some(l=>l.productId===id&&l.status==='used')||db.transit.some(t=>t.productId===id)){showToast('已存储','error');return;}if(!confirm('删除？'))return;const nd=JSON.parse(JSON.stringify(db));nd.products=nd.products.filter(x=>x.id!==id);saveDB(nd);showToast('已删除','success');}
@@ -761,7 +791,45 @@ function addToTransit(lid){if(!db||!Array.isArray(db.locations)||!Array.isArray(
 
 // ==================== 中转仓管理 ====================
 function renderTransitModal(){if(!db||!Array.isArray(db.transit)){showToast('数据未加载','info');return;}let productOpts='<option value="all">全部产品</option>';db.products.forEach(p=>{productOpts+='<option value="'+p.id+'">'+(p.name||'未知产品')+' ('+(p.model||'')+')</option>';});openModal('<h2>🚚 中转仓</h2><div class="form-group"><label>筛选产品</label><select id="transitFilter" onchange="transitFilterProduct=this.value;renderTransitList();">'+productOpts+'</select></div><div id="transitList"></div><div class="form-actions" style="flex-wrap:wrap;gap:6px;"><button class="btn btn-danger" onclick="clearAllTransit()">一键清空</button><button class="btn btn-warning" onclick="batchClearSelectedTransit()">批量清空</button><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');if(transitFilterProduct!=='all')document.getElementById('transitFilter').value=transitFilterProduct;renderTransitList();}
-function renderTransitList(){const container=document.getElementById('transitList');if(!container||!db||!Array.isArray(db.transit))return;let items=db.transit;if(transitFilterProduct!=='all'){items=items.filter(t=>t.productId==parseInt(transitFilterProduct));}if(items.length===0){container.innerHTML='<p>中转仓为空</p>';return;}let html='<table class="records-table"><thead><tr><th>选择</th><th>产品</th><th>批次</th><th>数量</th><th>备注</th><th>转移标记</th><th>先发标记</th><th>时间</th><th>操作</th></tr></thead><tbody>';items.forEach(t=>{const p=db.products.find(x=>x.id===t.productId);const qs=t.customPieces>0?t.customPieces+'件':t.quantity+(p?.unit||'件');const checked=selectedTransitItems.has(t.id)?'checked':'';html+='<tr><td><input type="checkbox" '+(checked)+' onchange="toggleTransitSelect('+t.id+')"></td><td>'+(p?.name||'未知产品')+'</td><td>'+t.batchNo+'</td><td>'+qs+'</td><td>'+(t.remark||'-')+'</td><td>'+(t.transferFlag?'是':'否')+'</td><td>'+(t.priorityFlag?'是':'否')+'</td><td>'+new Date(t.updatedAt).toLocaleString()+'</td><td><button class="btn btn-sm btn-primary" onclick="transitTransfer('+t.id+')">转移</button> <button class="btn btn-sm btn-warning" onclick="transitShipOut('+t.id+')">发货</button> <button class="btn btn-sm btn-danger" onclick="transitStockOut('+t.id+')">出库</button> <button class="btn btn-sm btn-outline" onclick="transitDeleteProduct('+t.id+')">删除产品</button></td></tr>';});html+='</tbody></table>';container.innerHTML=html;}
+function renderTransitList(){
+    const container=document.getElementById('transitList');
+    if(!container||!db||!Array.isArray(db.transit))return;
+    let items=db.transit;
+    if(transitFilterProduct!=='all'){
+        items=items.filter(t=>t.productId==parseInt(transitFilterProduct));
+    }
+    if(items.length===0){container.innerHTML='<p>中转仓为空</p>';return;}
+
+    let html='<table class="records-table"><thead><tr>'+
+        '<th>选择</th><th>产品</th><th>批次</th><th>数量</th><th>备注</th>'+
+        '<th>转移标记</th><th>先发标记</th><th>入库日期</th><th>操作</th>'+
+        '</tr></thead><tbody>';
+
+    items.forEach(t=>{
+        const p=db.products.find(x=>x.id===t.productId);
+        const qs=t.customPieces>0?t.customPieces+'件':t.quantity+(p?.unit||'件');
+        const checked=selectedTransitItems.has(t.id)?'checked':'';
+        const inDate = t.updatedAt ? new Date(t.updatedAt).toLocaleString() : '-';
+        html+='<tr>'+
+            '<td><input type="checkbox" '+(checked)+' onchange="toggleTransitSelect('+t.id+')"></td>'+
+            '<td>'+(p?.name||'未知产品')+'</td>'+
+            '<td>'+t.batchNo+'</td>'+
+            '<td>'+qs+'</td>'+
+            '<td>'+(t.remark||'-')+'</td>'+
+            '<td>'+(t.transferFlag?'是':'否')+'</td>'+
+            '<td>'+(t.priorityFlag?'是':'否')+'</td>'+
+            '<td>'+inDate+'</td>'+
+            '<td>'+
+                '<button class="btn btn-sm btn-primary" onclick="transitTransfer('+t.id+')">转移</button> '+
+                '<button class="btn btn-sm btn-warning" onclick="transitShipOut('+t.id+')">发货</button> '+
+                '<button class="btn btn-sm btn-danger" onclick="transitStockOut('+t.id+')">出库</button> '+
+                '<button class="btn btn-sm btn-outline" onclick="transitDeleteProduct('+t.id+')">删除产品</button>'+
+            '</td>'+
+        '</tr>';
+    });
+    html+='</tbody></table>';
+    container.innerHTML=html;
+}
 function toggleTransitSelect(id){if(selectedTransitItems.has(id))selectedTransitItems.delete(id);else selectedTransitItems.add(id);renderTransitList();}
 function clearAllTransit(){if(!db||!Array.isArray(db.transit)||db.transit.length===0){showToast('中转仓为空','info');return;}if(!confirm('确定清空中转仓所有记录？'))return;const nd=JSON.parse(JSON.stringify(db));nd.transit=[];saveDB(nd);closeModal();showToast('已清空中转仓','success');}
 function batchClearSelectedTransit(){if(selectedTransitItems.size===0){showToast('请先勾选中转仓条目','error');return;}if(!confirm('确定清空选中的中转仓条目？'))return;const nd=JSON.parse(JSON.stringify(db));nd.transit=nd.transit.filter(t=>!selectedTransitItems.has(t.id));selectedTransitItems.clear();saveDB(nd);renderTransitList();showToast('已批量清空','success');}
