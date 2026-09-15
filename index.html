@@ -247,23 +247,41 @@ function updateProductLocationCountCache(){
 }
 function initFromFirebase(){
     const timeout=setTimeout(()=>{
-        if(!isDBLoaded){db=createDefaultDB();isDBLoaded=true;updateProductLocationCountCache();renderAll();updateSyncBadge(false);showToast('Firebase连接超时','error');}
+        if(!isDBLoaded){
+            db=createDefaultDB();isDBLoaded=true;
+            updateProductLocationCountCache();
+            try{renderAll();}catch(e){console.error('renderAll error:',e);showToast('渲染错误：'+e.message,'error');}
+            updateSyncBadge(false);
+            showToast('Firebase连接超时','error');
+        }
     },8000);
+
     dbRef.once('value',snapshot=>{
         clearTimeout(timeout);
-        const raw=snapshot.val();
-        db=ensureCompleteDB(raw||null);
-        if(!raw)dbRef.set(db);
-        isDBLoaded=true;
-        updateProductLocationCountCache();
-        updateDailyStatsIfNeeded();
-        updateDailyBatchStatsIfNeeded();
-        renderAll();
-        startRealtimeListener();
-        updateSyncBadge(true);
-    }).catch(()=>{
+        try{
+            const raw=snapshot.val();
+            db=ensureCompleteDB(raw||null);
+            if(!raw)dbRef.set(db);
+            isDBLoaded=true;
+            updateProductLocationCountCache();
+            updateDailyStatsIfNeeded();
+            updateDailyBatchStatsIfNeeded();
+            renderAll();
+            startRealtimeListener();
+            updateSyncBadge(true);
+        }catch(e){
+            console.error('初始化错误：',e);
+            updateSyncBadge(true);
+            showToast('初始化错误：'+e.message,'error');
+        }
+    }).catch(err=>{
         clearTimeout(timeout);
-        db=createDefaultDB();isDBLoaded=true;updateProductLocationCountCache();renderAll();updateSyncBadge(false);showToast('无法连接云端','error');
+        console.error('Firebase 读取失败：',err);
+        db=createDefaultDB();isDBLoaded=true;
+        updateProductLocationCountCache();
+        try{renderAll();}catch(e){console.error('renderAll error:',e);}
+        updateSyncBadge(false);
+        showToast('无法连接云端','error');
     });
 }
 function startRealtimeListener(){
