@@ -400,7 +400,8 @@ function buildBatchDateSelectHtml(idPrefix, defaultDate){
     const defDay = d.getDate();
     const nowYear = new Date().getFullYear();
     let yearOpts='';
-    for(let y=nowYear-5;y<=nowYear+1;y++){
+    // 年份范围：2002 ~ 当前年+1
+    for(let y=2002;y<=nowYear+1;y++){
         yearOpts += `<option value="${y}"${y===defYear?' selected':''}>${y}年</option>`;
     }
     let monthOpts='';
@@ -713,7 +714,10 @@ function confirmBatchStockIn(){
         addRecord(nd,'入库',product,nl,zone,qty,cp,remark,null,null,loc.id);
     });
     if(hasError){showToast('批次日期不完整','error');return;}
-    saveDB(nd);closeModal();exitLocationBatchMode();showToast('批量入库成功','success');
+    saveDB(nd);closeModal();
+    selectedLocations.clear();
+    if(locationBatchMode) renderGrid();
+    showToast('批量入库成功','success');
 }
 function batchDeleteLocations(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
@@ -722,7 +726,10 @@ function batchDeleteLocations(){
     if(!confirm('批量删除选中的已用库位产品，并删除其入库记录？'))return;
     const nd=JSON.parse(JSON.stringify(db));
     used.forEach(lid=>{const loc=nd.locations.find(l=>l.id===lid);const orig=db.locations.find(l=>l.id===lid);const product=db.products.find(p=>p.id===orig.productId);if(product){nd.records=nd.records.filter(r=>!(r.locationId===lid && r.type==='入库' && r.productId===product.id));}loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.inboundTime=null;loc.productStatus=null;});
-    saveDB(nd);exitLocationBatchMode();showToast('批量删除成功','success');
+    saveDB(nd);
+    selectedLocations.clear();
+    if(locationBatchMode) renderGrid();
+    showToast('批量删除成功','success');
 }
 function batchAddToTransit(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
@@ -731,7 +738,10 @@ function batchAddToTransit(){
     if(!confirm('将选中的 '+used.length+' 个已用库位产品全部加入中转仓？'))return;
     const nd=JSON.parse(JSON.stringify(db));
     used.forEach(lid=>{const loc=nd.locations.find(l=>l.id===lid);const orig=db.locations.find(l=>l.id===lid);const product=db.products.find(p=>p.id===orig.productId);const zone=db.zones.find(z=>z.id===orig.zoneId);if(!product||!zone)return;const transitEntry={id:nd.nextTransitId++,productId:orig.productId,batchNo:orig.batchNo,quantity:orig.quantity,customPieces:orig.customPieces,remark:orig.remark,handAccount:orig.handAccount,updatedAt:new Date().toISOString(),sourceLocationId:orig.id,transferFlag:true,priorityFlag:orig.priorityFlag,inboundTime:orig.inboundTime||null,productStatus:orig.productStatus||null};nd.transit.push(transitEntry);loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.inboundTime=null;loc.productStatus=null;addRecord(nd,'加入中转仓',product,{...orig,rowNum:orig.rowNum,colNum:orig.colNum},zone,orig.quantity,orig.customPieces,'批量加入中转仓',null,null,orig.id);});
-    saveDB(nd);exitLocationBatchMode();showToast('批量加入中转仓成功','success');
+    saveDB(nd);
+    selectedLocations.clear();
+    if(locationBatchMode) renderGrid();
+    showToast('批量加入中转仓成功','success');
 }
 function batchShipOutLocations(){
     if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
@@ -749,7 +759,10 @@ function batchShipOutLocations(){
         addRecord(nd,'发货',product,orig,zone,isCustom?0:orig.quantity,isCustom?orig.customPieces:0,'批量一键发货',null,null,orig.id);
         loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.inboundTime=null;loc.productStatus=null;
     });
-    saveDB(nd);exitLocationBatchMode();showToast('批量发货成功','success');
+    saveDB(nd);
+    selectedLocations.clear();
+    if(locationBatchMode) renderGrid();
+    showToast('批量发货成功','success');
 }
 // 批量迁移
 function batchMigrateLocations(){
@@ -860,7 +873,9 @@ function confirmBatchMigrate(){
         }
         movedCount++;
     });
-    saveDB(nd);closeModal();exitLocationBatchMode();
+    saveDB(nd);closeModal();
+    selectedLocations.clear();
+    if(locationBatchMode) renderGrid();
     showToast('已批量迁移 '+movedCount+' 个产品','success');
 }
 
@@ -975,7 +990,9 @@ function confirmBatchHorizontalMove(){
         }
         movedCount++;
     });
-    saveDB(nd);closeModal();exitLocationBatchMode();
+    saveDB(nd);closeModal();
+    selectedLocations.clear();
+    if(locationBatchMode) renderGrid();
     let msg='已横移 '+movedCount+' 个产品';
     if(skipped>0) msg+='，跳过 '+skipped+' 个（越界或目标占用）';
     showToast(msg,'success');
