@@ -864,6 +864,123 @@ function confirmBatchMigrate(){
     showToast('已批量迁移 '+movedCount+' 个产品','success');
 }
 
+// ==================== 批量横移 ====================
+function batchHorizontalMoveLocations(){
+    if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
+    const usedLocs=[...selectedLocations]
+        .map(id=>db.locations.find(l=>l.id===id))
+        .filter(l=>l && l.status==='used');
+    if(usedLocs.length===0){showToast('没有已用库位','error');return;}
+    let sourceListHtml='';
+    usedLocs
+        .sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;})
+        .forEach((l,i)=>{
+            const zone=db.zones.find(z=>z.id===l.zoneId);
+            const p=db.products.find(x=>x.id===l.productId);
+            sourceListHtml+=`<div style="font-size:11px;padding:2px 0;">${i+1}. ${zone?.name||''} ${getRowDisplayLabel(zone,l.rowNum)}排${getDisplayColNumber(zone,l.colNum)}托 → ${p?.name||'未知'}</div>`;
+        });
+    openModal(
+        '<h2>↔️ 批量横移</h2>'+
+        '<p style="font-size:12px;color:#5f6368;">已选 '+usedLocs.length+' 个已用库位，产品将在各自所在的排内左右平移。</p>'+
+        '<div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px;max-height:140px;overflow-y:auto;">'+sourceListHtml+'</div>'+
+        '<div class="form-group"><label>移动方向</label>'+
+            '<select id="batchMoveDirection">'+
+                '<option value="right">向右移动（列号增大方向）</option>'+
+                '<option value="left">向左移动（列号减小方向）</option>'+
+            '</select>'+
+        '</div>'+
+        '<div class="form-group"><label>移动步数</label>'+
+            '<input type="number" id="batchMoveSteps" min="1" step="1" value="1">'+
+        '</div>'+
+        '<div class="form-group"><label>是否保留标记（手帐/先发/状态）</label><input type="checkbox" id="batchMoveKeepFlags" checked></div>'+
+        '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button>'+
+        '<button class="btn btn-primary" onclick="confirmBatchHorizontalMove()">确认横移</button></div>'
+    );
+}
+function confirmBatchHorizontalMove(){
+    if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
+    const direction=document.getElementById('batchMoveDirection').value;
+    const steps=parseInt(document.getElementById('batchMoveSteps').value);
+    const keepFlags=document.getElementById('batchMoveKeepFlags')?.checked ?? true;
+    if(!steps||steps<1){showToast('步数无效','error');return;}
+    const usedLocs=[...selectedLocations]
+        .map(id=>db.locations.find(l=>l.id===id))
+        .filter(l=>l && l.status==='used')
+        .sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});
+    if(usedLocs.length===0){showToast('没有已用库位','error');return;}
+    const nd=JSON.parse(JSON.stringify(db));
+    const clearedIds = new Set(usedLocs.map(l=>l.id));
+    const plan=[];
+    const targetDupSet = new Set();
+    let skipped=0;
+    for(const src of usedLocs){
+        const zone=nd.zones.find(z=>z.id===src.zoneId);
+        if(!zone) {skipped++; continue;}
+        const rowCols = zone.rowDetails ? (zone.rowDetails[src.rowNum-1]||zone.cols) : zone.cols;
+        const displayCols = getDisplayColArray({...zone, cols:rowCols}, src.rowNum);
+        const curDisplayIdx = displayCols.indexOf(src.colNum);
+        if(curDisplayIdx===-1){skipped++; continue;}
+        const targetDisplayIdx = direction==='right' ? curDisplayIdx + steps : curDisplayIdx - steps;
+        if(targetDisplayIdx<0 || targetDisplayIdx>=displayCols.length){skipped++; continue;}
+        const targetCol = displayCols[targetDisplayIdx];
+        const dst = nd.locations.find(l=>l.zoneId===src.zoneId && l.rowNum===src.rowNum && l.colNum===targetCol);
+        if(!dst){skipped++; continue;}
+        const occupiedNow = dst.status==='used' && !clearedIds.has(dst.id);
+        if(occupiedNow){skipped++; continue;}
+        if(targetDupSet.has(dst.id)){skipped++; continue;}
+        targetDupSet.add(dst.id);
+        plan.push({srcId:src.id, dstId:dst.id});
+    }
+    if(plan.length===0){showToast('没有可横移的产品（越界或目标被占用）','error');return;}
+    const srcSnapshots = plan.map(p=>{
+        const s=nd.locations.find(l=>l.id===p.srcId);
+        return {
+            srcId:p.srcId, dstId:p.dstId,
+            snapshot:{
+                productId:s.productId, batchNo:s.batchNo, quantity:s.quantity, customPieces:s.customPieces,
+                remark:s.remark, handAccount:s.handAccount, transferFlag:s.transferFlag, priorityFlag:s.priorityFlag,
+                inboundTime:s.inboundTime, productStatus:s.productStatus
+            },
+            srcRow:s.rowNum, srcZoneId:s.zoneId
+        };
+    });
+    plan.forEach(p=>{
+        const s=nd.locations.find(l=>l.id===p.srcId);
+        if(!s) return;
+        s.status='normal'; s.productId=null; s.batchNo=null; s.quantity=0; s.customPieces=0;
+        s.remark=''; s.handAccount=false; s.updatedAt=null; s.transferFlag=false; s.priorityFlag=false;
+        s.inboundTime=null; s.productStatus=null;
+    });
+    let movedCount=0;
+    srcSnapshots.forEach(item=>{
+        const d=nd.locations.find(l=>l.id===item.dstId);
+        if(!d||d.status!=='normal') return;
+        d.status='used';
+        d.productId=item.snapshot.productId;
+        d.batchNo=item.snapshot.batchNo;
+        d.quantity=item.snapshot.quantity;
+        d.customPieces=item.snapshot.customPieces;
+        d.remark=item.snapshot.remark;
+        d.handAccount=keepFlags?item.snapshot.handAccount:false;
+        d.updatedAt=new Date().toISOString();
+        d.transferFlag=true;
+        d.priorityFlag=keepFlags?item.snapshot.priorityFlag:false;
+        d.inboundTime=item.snapshot.inboundTime;
+        d.productStatus=keepFlags?item.snapshot.productStatus:null;
+        const product=nd.products.find(p=>p.id===d.productId);
+        const srcZone=nd.zones.find(z=>z.id===item.srcZoneId);
+        const dstZone=nd.zones.find(z=>z.id===d.zoneId);
+        if(product){
+            addRecord(nd,'迁移',product,d,srcZone,0,0,'批量横移（'+(direction==='right'?'右':'左')+steps+'）'+srcZone?.name+'→'+dstZone?.name,dstZone?.name,getRowDisplayLabel(dstZone,d.rowNum)+'排'+getDisplayColNumber(dstZone,d.colNum)+'托',d.id);
+        }
+        movedCount++;
+    });
+    saveDB(nd);closeModal();exitLocationBatchMode();
+    let msg='已横移 '+movedCount+' 个产品';
+    if(skipped>0) msg+='，跳过 '+skipped+' 个（越界或目标占用）';
+    showToast(msg,'success');
+}
+
 // ==================== 库位单元格交互 ====================
 function handleCellClick(lid){
     if(locationBatchMode){toggleLocationSelect(lid,event);return;}
