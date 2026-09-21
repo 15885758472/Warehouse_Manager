@@ -263,6 +263,7 @@
             <button class="btn btn-outline btn-sm" id="btnShowRecords">出入库记录</button>
             <button class="btn btn-outline btn-sm" id="btnShowDailyStats">每日统计</button>
             <button class="btn btn-outline btn-sm" id="btnShowDailyBatchStats">每日批次统计</button>
+            <button class="btn btn-outline btn-sm" id="btnProductManager">📋 产品总览</button>
         </div>
         <div class="right-section"><h3>🚚 中转仓</h3><button class="btn btn-outline btn-sm" id="btnShowTransit">查看中转仓</button></div>
         <div class="right-section"><h3>🧹 智能排序</h3><button class="btn btn-outline btn-sm" id="btnSmartSort">开始排序</button></div>
@@ -1656,6 +1657,141 @@ function renderStatsModal(){
     openModal('<h2>📈 库存统计</h2><div class="form-group"><label>分组方式</label><select onchange="statsGroupBy=this.value;renderStatsModal();"><option value="name"'+(statsGroupBy==='name'?' selected':'')+'>按名称</option><option value="model"'+(statsGroupBy==='model'?' selected':'')+'>按型号</option></select></div>'+table+'<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
 }
 
+// ==================== 产品总览 ====================
+let pmKeyword='', pmStatusFilter='all', pmSortBy='name';
+
+function showProductManager(){
+    if(!db||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
+    openModal(
+        '<h2>📋 产品总览</h2>'+
+        '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px;margin-bottom:10px;">'+
+            '<input id="pmSearch" placeholder="搜索名称/型号/备注..." value="'+(pmKeyword||'').replace(/"/g,'&quot;')+'" oninput="pmKeyword=this.value;renderProductManagerList();" style="padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;">'+
+            '<select id="pmStatus" onchange="pmStatusFilter=this.value;renderProductManagerList();" style="padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;">'+
+                '<option value="all"'+(pmStatusFilter==='all'?' selected':'')+'>全部状态</option>'+
+                '<option value="green"'+(pmStatusFilter==='green'?' selected':'')+'>🟢 绿色</option>'+
+                '<option value="yellow"'+(pmStatusFilter==='yellow'?' selected':'')+'>🟡 黄色</option>'+
+                '<option value="red"'+(pmStatusFilter==='red'?' selected':'')+'>🔴 红色</option>'+
+            '</select>'+
+            '<select id="pmSort" onchange="pmSortBy=this.value;renderProductManagerList();" style="padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;">'+
+                '<option value="name"'+(pmSortBy==='name'?' selected':'')+'>按名称</option>'+
+                '<option value="pieces_desc"'+(pmSortBy==='pieces_desc'?' selected':'')+'>件数↓</option>'+
+                '<option value="pieces_asc"'+(pmSortBy==='pieces_asc'?' selected':'')+'>件数↑</option>'+
+                '<option value="loc_desc"'+(pmSortBy==='loc_desc'?' selected':'')+'>库位数↓</option>'+
+            '</select>'+
+        '</div>'+
+        '<div id="pmList"></div>'+
+        '<div class="form-actions"><button class="btn btn-outline" onclick="pmClearFilter()">清空筛选</button><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>'
+    );
+    renderProductManagerList();
+}
+
+function pmClearFilter(){
+    pmKeyword=''; pmStatusFilter='all'; pmSortBy='name';
+    const s=document.getElementById('pmSearch'); if(s) s.value='';
+    const st=document.getElementById('pmStatus'); if(st) st.value='all';
+    const so=document.getElementById('pmSort'); if(so) so.value='name';
+    renderProductManagerList();
+}
+
+function renderProductManagerList(){
+    const c=document.getElementById('pmList');
+    if(!c)return;
+    const kw=(pmKeyword||'').trim().toLowerCase();
+    let list=db.products.filter(p=>{
+        if(pmStatusFilter!=='all' && (p.status||'green')!==pmStatusFilter) return false;
+        if(!kw) return true;
+        const hay=((p.name||'')+' '+(p.model||'')+' '+(p.remark||'')).toLowerCase();
+        return hay.indexOf(kw)>-1;
+    });
+    list=list.map(p=>{
+        const info=getProductDisplayInfo(p.id);
+        const locCount=db.locations.filter(l=>l.productId===p.id && l.status==='used').length;
+        const transitCount=db.transit.filter(t=>t.productId===p.id).length;
+        return {p, info, locCount, transitCount, pieces:info.pieces};
+    });
+    if(pmSortBy==='name') list.sort((a,b)=>(a.p.name||'').localeCompare(b.p.name||''));
+    else if(pmSortBy==='pieces_desc') list.sort((a,b)=>b.pieces-a.pieces);
+    else if(pmSortBy==='pieces_asc') list.sort((a,b)=>a.pieces-b.pieces);
+    else if(pmSortBy==='loc_desc') list.sort((a,b)=>(b.locCount+b.transitCount)-(a.locCount+a.transitCount));
+
+    if(list.length===0){c.innerHTML='<p style="padding:16px;text-align:center;color:#5f6368;">无匹配产品</p>';return;}
+
+    let html='<div style="max-height:calc(85vh - 220px);overflow-y:auto;"><table class="records-table"><thead><tr>'+
+        '<th>名称</th><th>型号</th><th>单位</th><th>状态</th>'+
+        '<th>件数</th><th>库位</th><th>中转</th><th>先发</th><th>备注</th><th>操作</th>'+
+        '</tr></thead><tbody>';
+    list.forEach(({p,info,locCount,transitCount,pieces})=>{
+        const statusColor=p.status==='green'?'#66bb6a':(p.status==='yellow'?'#fdd835':'#ef5350');
+        const statusText=p.status==='green'?'绿':(p.status==='yellow'?'黄':'红');
+        const dot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+statusColor+';margin-right:4px;vertical-align:middle;"></span>'+statusText;
+        const priorityMark=p.isPriority?'<span style="color:#ff5722;">是</span>':'-';
+        html+='<tr>'+
+            '<td><b>'+(p.name||'未知产品')+'</b></td>'+
+            '<td>'+(p.model||'-')+'</td>'+
+            '<td>'+(p.unit||'件')+'</td>'+
+            '<td>'+dot+'</td>'+
+            '<td><b>'+pieces+'</b></td>'+
+            '<td>'+locCount+'</td>'+
+            '<td>'+transitCount+'</td>'+
+            '<td>'+priorityMark+'</td>'+
+            '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+(p.remark||'')+'">'+(p.remark||'-')+'</td>'+
+            '<td style="white-space:nowrap;">'+
+                '<button class="btn btn-sm btn-primary" onclick="showProductManagerDetail('+p.id+')">查看</button> '+
+                '<button class="btn btn-sm btn-outline" onclick="showEditProductModal('+p.id+')">编辑</button>'+
+            '</td>'+
+        '</tr>';
+    });
+    html+='</tbody></table></div>';
+    c.innerHTML=html;
+}
+
+function showProductManagerDetail(id){
+    const p=db.products.find(x=>x.id===id);
+    if(!p){showToast('产品不存在','error');return;}
+    const info=getProductDisplayInfo(id);
+    const locs=db.locations.filter(l=>l.productId===id && l.status==='used');
+    const transits=db.transit.filter(t=>t.productId===id);
+    const statusText=p.status==='green'?'🟢 绿色':(p.status==='yellow'?'🟡 黄色':'🔴 红色');
+    let locHtml='';
+    if(locs.length>0){
+        locHtml='<div style="max-height:200px;overflow-y:auto;margin-top:6px;"><table class="records-table"><thead><tr><th>区域</th><th>仓位</th><th>批次</th><th>数量</th></tr></thead><tbody>';
+        locs.forEach(l=>{
+            const zone=db.zones.find(z=>z.id===l.zoneId);
+            const qs = l.customPieces>0 ? l.customPieces+'件' : l.quantity+(p.unit||'件');
+            locHtml+='<tr><td>'+(zone?.name||'-')+'</td><td>'+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托</td><td>'+(l.batchNo||'-')+'</td><td>'+qs+'</td></tr>';
+        });
+        locHtml+='</tbody></table></div>';
+    }else{
+        locHtml='<p style="color:#5f6368;margin-top:6px;">暂无库位存放</p>';
+    }
+    let transitHtml='';
+    if(transits.length>0){
+        transitHtml='<div style="max-height:160px;overflow-y:auto;margin-top:6px;"><table class="records-table"><thead><tr><th>批次</th><th>数量</th><th>备注</th></tr></thead><tbody>';
+        transits.forEach(t=>{
+            const qs = t.customPieces>0 ? t.customPieces+'件' : t.quantity+(p.unit||'件');
+            transitHtml+='<tr><td>'+(t.batchNo||'-')+'</td><td>'+qs+'</td><td>'+(t.remark||'-')+'</td></tr>';
+        });
+        transitHtml+='</tbody></table></div>';
+    }else{
+        transitHtml='<p style="color:#5f6368;margin-top:6px;">暂无中转仓存放</p>';
+    }
+    openModal(
+        '<h2>📦 '+(p.name||'未知产品')+'</h2>'+
+        '<div style="background:#f8f9fa;padding:10px;border-radius:6px;margin-bottom:10px;">'+
+            '<p>型号:'+(p.model||'-')+' | 单位:'+(p.unit||'件')+' | 单位数量:'+(p.unitQuantity||1)+'</p>'+
+            '<p>默认状态:'+statusText+' | 先发标识:'+(p.isPriority?'是':'否')+'</p>'+
+            '<p>备注:'+(p.remark||'-')+'</p>'+
+            '<p>总件数:<b>'+info.pieces+'</b> | 库位存放:'+locs.length+' | 中转仓:'+transits.length+'</p>'+
+        '</div>'+
+        '<h3 style="font-size:13px;margin-top:8px;">📍 库位明细</h3>'+locHtml+
+        '<h3 style="font-size:13px;margin-top:12px;">🚚 中转仓明细</h3>'+transitHtml+
+        '<div class="form-actions" style="margin-top:12px;">'+
+            '<button class="btn btn-outline" onclick="showProductManager()">返回总览</button>'+
+            '<button class="btn btn-outline" onclick="closeModal()">关闭</button>'+
+            '<button class="btn btn-primary" onclick="showEditProductModal('+p.id+')">编辑产品</button>'+
+        '</div>'
+    );
+}
 // ==================== FIFO排序 ====================
 function getFifoRankMap(zoneId){
     if(!db||!Array.isArray(db.locations))return{};
@@ -2052,6 +2188,7 @@ function init(){
     document.getElementById('btnShowRecords').addEventListener('click',()=>showRecords());
     document.getElementById('btnShowDailyStats').addEventListener('click',showDailyStats);
     document.getElementById('btnShowDailyBatchStats').addEventListener('click',showDailyBatchStats);
+    document.getElementById('btnProductManager').addEventListener('click',showProductManager);
     document.getElementById('btnShowTransit').addEventListener('click',renderTransitModal);
     document.getElementById('btnSmartSort').addEventListener('click',showSmartSortModal);
     document.getElementById('btnExportExcel').addEventListener('click',exportExcel);
