@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>仓库管理系统 · 完整版</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>仓库管理系统</title>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -67,10 +67,8 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 .product-list{display:flex;flex-direction:column;gap:3px;max-height:100px;overflow-y:auto}
 .product-item{padding:4px 6px;background:#fff;border-radius:3px;border:1px solid var(--border);font-size:10px;display:flex;gap:3px;align-items:center;cursor:pointer;white-space:nowrap}
 .product-item.selected{background:#e8f0fe;border-color:var(--primary)}
-.batch-toolbar{display:none;gap:3px;margin-top:3px;flex-wrap:wrap}
-.batch-toolbar.active{display:flex}
-.location-batch-toolbar{display:none;gap:3px;margin-top:3px;flex-wrap:wrap}
-.location-batch-toolbar.active{display:flex}
+.batch-toolbar,.location-batch-toolbar{display:none;gap:3px;margin-top:3px;flex-wrap:wrap}
+.batch-toolbar.active,.location-batch-toolbar.active{display:flex}
 .btn{padding:6px 10px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:500;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;touch-action:manipulation}
 .btn:active{transform:scale(0.95)}
 .btn-primary{background:var(--primary);color:#fff}
@@ -97,7 +95,6 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 .smart-select-cards{display:flex;flex-wrap:wrap;gap:8px;}
 .smart-select-card{border:2px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;background:#fff;transition:all .2s;user-select:none;}
 .smart-select-card.active{border-color:var(--primary);background:#e8f0fe;box-shadow:0 0 0 2px rgba(26,115,232,.2);}
-/* FIFO 卡片式布局（通用） */
 .fifo-table thead{display:none;}
 .fifo-table{display:block;font-size:12px;}
 .fifo-table tbody{display:block;}
@@ -111,7 +108,6 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 .fifo-table td:nth-child(6){grid-column:1 / -1;white-space:normal!important;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);}
 .fifo-table td:nth-child(6) .btn{padding:5px 12px;font-size:12px;}
 .ship-output{background:#fff;border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'Courier New',monospace;font-size:13px;white-space:pre-wrap;line-height:1.7;max-height:50vh;overflow-y:auto;}
-/* 日历选择器 */
 .cal-wrap{border:1.5px solid var(--border);border-radius:8px;padding:8px;background:#fff;}
 .cal-head{display:flex;gap:6px;margin-bottom:8px;}
 .cal-head select{flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;background:#fafafa;cursor:pointer;}
@@ -123,7 +119,16 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 .cal-day-today{outline:1.5px solid #1a73e8;outline-offset:-1.5px;}
 .cal-value{font-size:12px;color:#1a73e8;font-weight:600;margin-top:6px;text-align:center;}
 .cal-value.empty{color:#9aa0a6;font-weight:400;}
-/* 手机端 */
+.fifo-ship-list{display:flex;flex-direction:column;gap:6px;}
+.fifo-ship-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:#fafafa;font-size:12px;}
+.fifo-ship-row:hover{background:#eef6ff;}
+.fifo-ship-row .fs-info{display:flex;flex-wrap:wrap;align-items:center;gap:10px;flex:1;min-width:0;}
+.fifo-ship-row .fs-name{font-weight:600;color:var(--text);}
+.fifo-ship-row .fs-batch{color:#5f6368;font-size:11px;}
+.fifo-ship-row .fs-loc{color:#5f6368;font-size:11px;}
+.fifo-ship-row .fs-qty{font-weight:600;color:#1a73e8;}
+.fifo-ship-row .fs-actions{display:flex;gap:4px;flex-wrap:wrap;flex-shrink:0;}
+.fifo-ship-row .fs-actions .btn{padding:4px 10px;font-size:11px;}
 @media(max-width:767px){
   .smart-select-cards{display:none;}
   .smart-sort-target-multi{display:block!important;}
@@ -138,8 +143,11 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
   .fifo-table td:nth-child(6) .btn{flex:1 1 auto;justify-content:center;}
   .records-table,.stats-table,.daily-table{font-size:11px;}
   .cal-day{padding:9px 0;font-size:13px;}
+  .fifo-ship-row{align-items:stretch;gap:6px;}
+  .fifo-ship-row .fs-info{gap:6px;font-size:12px;}
+  .fifo-ship-row .fs-actions{width:100%;justify-content:flex-end;margin-top:4px;padding-top:6px;border-top:1px dashed var(--border);}
+  .fifo-ship-row .fs-actions .btn{flex:1 1 auto;justify-content:center;}
 }
-/* 桌面端 */
 @media(min-width:768px){
   .smart-sort-target-multi{display:none!important;}
   .main-container{flex-direction:row}
@@ -156,7 +164,7 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
   .btn-sm{font-size:10px}
   .center-header h2{font-size:18px}
   .grid-row-label{font-size:10px;width:50px}
-  .btn{transition:background-color .15s ease, box-shadow .15s ease;}
+  .btn{transition:background-color .15s ease,box-shadow .15s ease;}
   .btn-primary:hover{background:#1667d6;}
   .btn-outline:hover{background:#e8f0fe;}
   .btn-danger:hover{background:#d93025;}
@@ -248,19 +256,15 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 </div>
 <div id="modalContainer"></div>
 <div class="toast-container" id="toastContainer"></div>
-
 <script>
-// ==================== Firebase 初始化 ====================
 const firebaseConfig={apiKey:"AIzaSyDu1NYuTLUxIMkkaXdJGFgE0GXGW0hwXto",authDomain:"warehouse-manager-4eec5.firebaseapp.com",databaseURL:"https://warehouse-manager-4eec5-default-rtdb.firebaseio.com",projectId:"warehouse-manager-4eec5",storageBucket:"warehouse-manager-4eec5.firebasestorage.app",messagingSenderId:"504489473795",appId:"1:504489473795:web:4bfac7455150709994db36"};
 firebase.initializeApp(firebaseConfig);
 const database=firebase.database();
 const dbRef=database.ref('warehouse/data');
-
-// ==================== 全局状态 ====================
 let db={zones:[],locations:[],products:[],records:[],dailyStats:[],dailyBatchStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
 let currentZoneId=1,batchMode=false,selectedProducts=new Set(),locationBatchMode=false,selectedLocations=new Set(),isDBLoaded=false;
 let statsGroupBy='name',fifoGroupBy='name';
-let recordFilter='all',recordStartDate='',recordEndDate='',recordProductFilter='all',recordModelFilter='all';
+let recordFilter='all',recordStartDate='',recordEndDate='';
 let recordProductFilters = new Set();
 let selectedProductFilters = new Set();
 let transitFilterProduct = 'all';
@@ -277,467 +281,50 @@ let pmKeyword='', pmStatusFilter='all', pmSortBy='name';
 let shipStartDate='', shipEndDate='';
 let shipProductFilters = new Set();
 
-// ==================== 数据初始化与工具 ====================
-function createDefaultDB(){
-  const d={zones:[],locations:[],products:[],records:[],dailyStats:[],dailyBatchStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
-  const bz={id:1,name:'成品区',rows:34,cols:5,isBase:true,createdAt:new Date().toISOString(),rowDetails:Array(34).fill(5)};
-  d.zones.push(bz); d.nextZoneId=2;
-  for(let r=1;r<=34;r++) for(let c=1;c<=5;c++) d.locations.push({id:d.nextLocationId++,zoneId:1,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,inboundTime:null,productStatus:null,ticketAttached:false});
-  return d;
-}
-function ensureCompleteDB(data){
-  if(!data||typeof data!=='object')return createDefaultDB();
-  if(!Array.isArray(data.zones))data.zones=[];
-  if(!Array.isArray(data.locations))data.locations=[];
-  if(!Array.isArray(data.products))data.products=[];
-  if(!Array.isArray(data.records))data.records=[];
-  if(!Array.isArray(data.dailyStats))data.dailyStats=[];
-  if(!Array.isArray(data.dailyBatchStats))data.dailyBatchStats=[];
-  if(!Array.isArray(data.transit))data.transit=[];
-  if(!data.nextZoneId)data.nextZoneId=1;
-  if(!data.nextLocationId)data.nextLocationId=1;
-  if(!data.nextProductId)data.nextProductId=1;
-  if(!data.nextRecordId)data.nextRecordId=1;
-  if(!data.nextTransitId)data.nextTransitId=1;
-  data.products.forEach(p=>{if(!p.unit)p.unit='件';if(!p.remark)p.remark='';if(p.isPriority===undefined)p.isPriority=false;if(!p.status)p.status='green';});
-  data.locations.forEach(l=>{
-    if(!l.remark)l.remark='';
-    if(l.customPieces===undefined)l.customPieces=0;
-    if(l.handAccount===undefined)l.handAccount=false;
-    if(l.transferFlag===undefined)l.transferFlag=false;
-    if(l.priorityFlag===undefined)l.priorityFlag=false;
-    if(l.inboundTime===undefined)l.inboundTime=null;
-    if(l.productStatus===undefined)l.productStatus=null;
-    if(l.ticketAttached===undefined)l.ticketAttached=false;
-  });
-  data.zones.forEach(z=>{if(!z.rowDetails)z.rowDetails=Array(z.rows).fill(z.cols);});
-  return data;
-}
-function updateProductLocationCountCache(){
-  productLocationCountCache = {};
-  db.locations.forEach(l=>{ if(l.status==='used' && l.productId) productLocationCountCache[l.productId] = (productLocationCountCache[l.productId]||0)+1; });
-  db.transit.forEach(t=>{ if(t.productId) productLocationCountCache[t.productId] = (productLocationCountCache[t.productId]||0)+1; });
-}
-function initFromFirebase(){
-  const timeout=setTimeout(()=>{
-    if(!isDBLoaded){db=createDefaultDB();isDBLoaded=true;updateProductLocationCountCache();try{renderAll();}catch(e){console.error('renderAll error:',e);}updateSyncBadge(false);showToast('Firebase连接超时','error');}
-  },8000);
-  dbRef.once('value',snapshot=>{
-    clearTimeout(timeout);
-    try{
-      const raw=snapshot.val();
-      db=ensureCompleteDB(raw||null);
-      if(!raw)dbRef.set(db);
-      isDBLoaded=true;
-      updateProductLocationCountCache();
-      updateDailyStatsIfNeeded();
-      updateDailyBatchStatsIfNeeded();
-      renderAll();
-      startRealtimeListener();
-      updateSyncBadge(true);
-    }catch(e){
-      console.error('初始化错误：',e);
-      updateSyncBadge(true);
-      showToast('初始化错误：'+e.message,'error');
-    }
-  }).catch(err=>{
-    clearTimeout(timeout);
-    console.error('Firebase 读取失败：',err);
-    db=createDefaultDB();isDBLoaded=true;updateProductLocationCountCache();try{renderAll();}catch(e){console.error(e);}updateSyncBadge(false);showToast('无法连接云端','error');
-  });
-}
-function startRealtimeListener(){
-  dbRef.on('value',snapshot=>{
-    const data=ensureCompleteDB(snapshot.val()||null);
-    db=data;
-    updateProductLocationCountCache();
-    updateDailyStatsIfNeeded();
-    updateDailyBatchStatsIfNeeded();
-    renderAll();
-    updateSyncBadge(true);
-  });
-  database.ref('.info/connected').on('value',snap=>{ updateSyncBadge(snap.val()===true); });
-}
-function updateSyncBadge(online){
-  const b=document.getElementById('syncBadge');
-  if(online){b.textContent='🟢 已同步';b.className='sync-badge online';}
-  else{b.textContent='🔴 离线';b.className='sync-badge offline';}
-}
-function saveDB(newDb){
-  db=ensureCompleteDB(newDb);
-  dbRef.set(db).catch(err=>showToast('保存失败','error'));
-}
-function addRecord(targetDb,type,product,loc,zone,quantity,customPieces,remark,targetZoneName,targetLocationLabel,locationId){
-  if(!targetDb||!Array.isArray(targetDb.records))return null;
-  const rec={
-    id:targetDb.nextRecordId++,
-    type:type,
-    productId:product.id,
-    productName:product.name||'未知产品',
-    productModel:product.model||'',
-    productUnit:product.unit||'件',
-    zoneName:zone?.name||'未知',
-    locationLabel:getRowDisplayLabel(zone,loc.rowNum)+'排'+getDisplayColNumber(zone,loc.colNum)+'托',
-    quantity:quantity||0,
-    customPieces:customPieces||0,
-    batchNo:loc.batchNo||'',
-    remark:remark||'',
-    targetZoneName:targetZoneName||'',
-    targetLocationLabel:targetLocationLabel||'',
-    locationId:locationId||loc.id,
-    timestamp:new Date().toISOString()
-  };
-  targetDb.records.push(rec);
-  return rec;
-}
-function getProductDisplayInfo(pid){
-  if(!db||!Array.isArray(db.products))return{pieces:0,unit:'件',unitQuantity:1,remark:'',isPriority:false,status:'green'};
-  const p=db.products.find(x=>x.id===pid);
-  if(!p)return{pieces:0,unit:'件',unitQuantity:1,remark:'',isPriority:false,status:'green'};
-  const rp=db.locations.filter(l=>l.productId===pid&&l.status==='used').reduce((s,l)=>s+(l.quantity||0)*(p.unitQuantity||1),0);
-  const cp=db.locations.filter(l=>l.productId===pid&&l.status==='used').reduce((s,l)=>s+(l.customPieces||0),0);
-  const tp=db.transit.filter(t=>t.productId===pid).reduce((s,t)=>s+(t.quantity||0)*(p.unitQuantity||1)+(t.customPieces||0),0);
-  return{pieces:rp+cp+tp,unit:p.unit||'件',unitQuantity:p.unitQuantity||1,remark:p.remark||'',isPriority:!!p.isPriority,status:p.status||'green'};
-}
-function getRowDisplayLabel(zone,rowNum){
-  if(zone&&zone.id===1){
-    const half=Math.ceil(zone.rows/2);
-    if(rowNum<=half)return'A'+String(rowNum).padStart(2,'0');
-    return'B'+String(rowNum-half).padStart(2,'0');
-  }
-  return String(rowNum);
-}
-function getDisplayColArray(zone,rowNum){
-  let cols=zone.cols;
-  if(zone.rowDetails && zone.rowDetails[rowNum-1]) cols=zone.rowDetails[rowNum-1];
-  if(zone.id===1&&cols===5)return[3,2,4,1,5];
-  return Array.from({length:cols},(_,i)=>i+1);
-}
-function getDisplayColNumber(zone,oc){
-  const arr=getDisplayColArray(zone,1);
-  const idx=arr.indexOf(oc);
-  return idx!==-1?idx+1:oc;
-}
-function sortLocationsForDisplay(locs){
-  const zoneOrder = new Map(db.zones.map((z, idx) => [z.id, idx]));
-  return locs.sort((a,b)=>{
-    const za = zoneOrder.has(a.zoneId) ? zoneOrder.get(a.zoneId) : Number.MAX_SAFE_INTEGER;
-    const zb = zoneOrder.has(b.zoneId) ? zoneOrder.get(b.zoneId) : Number.MAX_SAFE_INTEGER;
-    if(za !== zb) return za - zb;
-    if(a.rowNum !== b.rowNum) return a.rowNum - b.rowNum;
-    return a.colNum - b.colNum;
-  });
-}
-function showToast(msg,type='info'){
-  const c=document.getElementById('toastContainer');
-  const t=document.createElement('div');
-  t.className='toast toast-'+type;
-  t.textContent=msg;
-  t.addEventListener('click',()=>t.remove());
-  c.appendChild(t);
-  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300);},2500);
-}
-function openModal(html){
-  document.getElementById('modalContainer').innerHTML='<div class="modal-overlay" id="modalOverlay"><div class="modal">'+html+'</div></div>';
-  document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
-}
+function createDefaultDB(){const d={zones:[],locations:[],products:[],records:[],dailyStats:[],dailyBatchStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};const bz={id:1,name:'成品区',rows:34,cols:5,isBase:true,createdAt:new Date().toISOString(),rowDetails:Array(34).fill(5)};d.zones.push(bz);d.nextZoneId=2;for(let r=1;r<=34;r++)for(let c=1;c<=5;c++)d.locations.push({id:d.nextLocationId++,zoneId:1,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,inboundTime:null,productStatus:null,ticketAttached:false});return d;}
+function ensureCompleteDB(data){if(!data||typeof data!=='object')return createDefaultDB();if(!Array.isArray(data.zones))data.zones=[];if(!Array.isArray(data.locations))data.locations=[];if(!Array.isArray(data.products))data.products=[];if(!Array.isArray(data.records))data.records=[];if(!Array.isArray(data.dailyStats))data.dailyStats=[];if(!Array.isArray(data.dailyBatchStats))data.dailyBatchStats=[];if(!Array.isArray(data.transit))data.transit=[];if(!data.nextZoneId)data.nextZoneId=1;if(!data.nextLocationId)data.nextLocationId=1;if(!data.nextProductId)data.nextProductId=1;if(!data.nextRecordId)data.nextRecordId=1;if(!data.nextTransitId)data.nextTransitId=1;data.products.forEach(p=>{if(!p.unit)p.unit='件';if(!p.remark)p.remark='';if(p.isPriority===undefined)p.isPriority=false;if(!p.status)p.status='green';});data.locations.forEach(l=>{if(!l.remark)l.remark='';if(l.customPieces===undefined)l.customPieces=0;if(l.handAccount===undefined)l.handAccount=false;if(l.transferFlag===undefined)l.transferFlag=false;if(l.priorityFlag===undefined)l.priorityFlag=false;if(l.inboundTime===undefined)l.inboundTime=null;if(l.productStatus===undefined)l.productStatus=null;if(l.ticketAttached===undefined)l.ticketAttached=false;});data.zones.forEach(z=>{if(!z.rowDetails)z.rowDetails=Array(z.rows).fill(z.cols);});return data;}
+function updateProductLocationCountCache(){productLocationCountCache={};db.locations.forEach(l=>{if(l.status==='used'&&l.productId)productLocationCountCache[l.productId]=(productLocationCountCache[l.productId]||0)+1;});db.transit.forEach(t=>{if(t.productId)productLocationCountCache[t.productId]=(productLocationCountCache[t.productId]||0)+1;});}
+function initFromFirebase(){const timeout=setTimeout(()=>{if(!isDBLoaded){db=createDefaultDB();isDBLoaded=true;updateProductLocationCountCache();try{renderAll();}catch(e){console.error(e);}updateSyncBadge(false);showToast('Firebase连接超时','error');}},8000);dbRef.once('value',snapshot=>{clearTimeout(timeout);try{const raw=snapshot.val();db=ensureCompleteDB(raw||null);if(!raw)dbRef.set(db);isDBLoaded=true;updateProductLocationCountCache();updateDailyStatsIfNeeded();updateDailyBatchStatsIfNeeded();renderAll();startRealtimeListener();updateSyncBadge(true);}catch(e){console.error(e);updateSyncBadge(true);showToast('初始化错误：'+e.message,'error');}}).catch(err=>{clearTimeout(timeout);db=createDefaultDB();isDBLoaded=true;updateProductLocationCountCache();try{renderAll();}catch(e){}updateSyncBadge(false);showToast('无法连接云端','error');});}
+function startRealtimeListener(){dbRef.on('value',snapshot=>{const data=ensureCompleteDB(snapshot.val()||null);db=data;updateProductLocationCountCache();updateDailyStatsIfNeeded();updateDailyBatchStatsIfNeeded();renderAll();updateSyncBadge(true);});database.ref('.info/connected').on('value',snap=>{updateSyncBadge(snap.val()===true);});}
+function updateSyncBadge(online){const b=document.getElementById('syncBadge');if(online){b.textContent='🟢 已同步';b.className='sync-badge online';}else{b.textContent='🔴 离线';b.className='sync-badge offline';}}
+function saveDB(newDb){db=ensureCompleteDB(newDb);dbRef.set(db).catch(err=>showToast('保存失败','error'));}
+function addRecord(targetDb,type,product,loc,zone,quantity,customPieces,remark,targetZoneName,targetLocationLabel,locationId){if(!targetDb||!Array.isArray(targetDb.records))return null;const rec={id:targetDb.nextRecordId++,type,productId:product.id,productName:product.name||'未知产品',productModel:product.model||'',productUnit:product.unit||'件',zoneName:zone?.name||'未知',locationLabel:getRowDisplayLabel(zone,loc.rowNum)+'排'+getDisplayColNumber(zone,loc.colNum)+'托',quantity:quantity||0,customPieces:customPieces||0,batchNo:loc.batchNo||'',remark:remark||'',targetZoneName:targetZoneName||'',targetLocationLabel:targetLocationLabel||'',locationId:locationId||loc.id,timestamp:new Date().toISOString()};targetDb.records.push(rec);return rec;}
+function getProductDisplayInfo(pid){if(!db||!Array.isArray(db.products))return{pieces:0,unit:'件',unitQuantity:1,remark:'',isPriority:false,status:'green'};const p=db.products.find(x=>x.id===pid);if(!p)return{pieces:0,unit:'件',unitQuantity:1,remark:'',isPriority:false,status:'green'};const rp=db.locations.filter(l=>l.productId===pid&&l.status==='used').reduce((s,l)=>s+(l.quantity||0)*(p.unitQuantity||1),0);const cp=db.locations.filter(l=>l.productId===pid&&l.status==='used').reduce((s,l)=>s+(l.customPieces||0),0);const tp=db.transit.filter(t=>t.productId===pid).reduce((s,t)=>s+(t.quantity||0)*(p.unitQuantity||1)+(t.customPieces||0),0);return{pieces:rp+cp+tp,unit:p.unit||'件',unitQuantity:p.unitQuantity||1,remark:p.remark||'',isPriority:!!p.isPriority,status:p.status||'green'};}
+function getRowDisplayLabel(zone,rowNum){if(zone&&zone.id===1){const half=Math.ceil(zone.rows/2);if(rowNum<=half)return'A'+String(rowNum).padStart(2,'0');return'B'+String(rowNum-half).padStart(2,'0');}return String(rowNum);}
+function getDisplayColArray(zone,rowNum){let cols=zone.cols;if(zone.rowDetails&&zone.rowDetails[rowNum-1])cols=zone.rowDetails[rowNum-1];if(zone.id===1&&cols===5)return[3,2,4,1,5];return Array.from({length:cols},(_,i)=>i+1);}
+function getDisplayColNumber(zone,oc){const arr=getDisplayColArray(zone,1);const idx=arr.indexOf(oc);return idx!==-1?idx+1:oc;}
+function sortLocationsForDisplay(locs){const zoneOrder=new Map(db.zones.map((z,idx)=>[z.id,idx]));return locs.sort((a,b)=>{const za=zoneOrder.has(a.zoneId)?zoneOrder.get(a.zoneId):Number.MAX_SAFE_INTEGER;const zb=zoneOrder.has(b.zoneId)?zoneOrder.get(b.zoneId):Number.MAX_SAFE_INTEGER;if(za!==zb)return za-zb;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});}
+function showToast(msg,type='info'){const c=document.getElementById('toastContainer');const t=document.createElement('div');t.className='toast toast-'+type;t.textContent=msg;t.addEventListener('click',()=>t.remove());c.appendChild(t);setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300);},2500);}
+function openModal(html){document.getElementById('modalContainer').innerHTML='<div class="modal-overlay" id="modalOverlay"><div class="modal">'+html+'</div></div>';document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});}
 function closeModal(){document.getElementById('modalContainer').innerHTML='';}
-function getStatusWeight(status){ return status==='green'?0:(status==='yellow'?1:2); }
-function getLocationEffectiveStatus(loc){
-  if(loc && loc.productStatus) return loc.productStatus;
-  if(loc && loc.productId){
-    const p = db.products.find(x=>x.id===loc.productId);
-    if(p && p.status) return p.status;
-  }
-  return 'green';
-}
-function getStatusColors(status){
-  if(status==='green')  return {bg:'rgba(129,199,132,0.55)', border:'#81c784', text:'#1b5e20'};
-  if(status==='yellow') return {bg:'rgba(255,241,118,0.65)', border:'#fdd835', text:'#5d4037'};
-  if(status==='red')    return {bg:'rgba(229,115,115,0.55)', border:'#e57373', text:'#b71c1c'};
-  return {bg:'rgba(144,202,249,0.55)', border:'#64b5f6', text:'#0d47a1'};
-}
+function getStatusWeight(status){return status==='green'?0:(status==='yellow'?1:2);}
+function getLocationEffectiveStatus(loc){if(loc&&loc.productStatus)return loc.productStatus;if(loc&&loc.productId){const p=db.products.find(x=>x.id===loc.productId);if(p&&p.status)return p.status;}return 'green';}
+function getStatusColors(status){if(status==='green')return{bg:'rgba(129,199,132,0.55)',border:'#81c784',text:'#1b5e20'};if(status==='yellow')return{bg:'rgba(255,241,118,0.65)',border:'#fdd835',text:'#5d4037'};if(status==='red')return{bg:'rgba(229,115,115,0.55)',border:'#e57373',text:'#b71c1c'};return{bg:'rgba(144,202,249,0.55)',border:'#64b5f6',text:'#0d47a1'};}
 
-// ==================== 日历日期选择器 ====================
+// ==================== 日历 ====================
 const datePickerState = {};
-function renderCalendarHtml(idPrefix){
-  const st = datePickerState[idPrefix];
-  if(!st) return '';
-  const daysInMonth = new Date(st.year, st.month, 0).getDate();
-  if(st.day !== null && st.day > daysInMonth) st.day = daysInMonth;
-  const nowYear = new Date().getFullYear();
-  let yearOpts = '';
-  for(let y=2000;y<=nowYear+1;y++){
-    yearOpts += `<option value="${y}"${y===st.year?' selected':''}>${y}年</option>`;
-  }
-  let monthOpts = '';
-  for(let m=1;m<=12;m++){
-    monthOpts += `<option value="${m}"${m===st.month?' selected':''}>${m}月</option>`;
-  }
-  const firstDay = new Date(st.year, st.month-1, 1).getDay();
-  const today = new Date();
-  const isThisMonth = (today.getFullYear()===st.year && today.getMonth()+1===st.month);
-  let grid = '';
-  for(let i=0;i<firstDay;i++) grid += '<span></span>';
-  for(let d=1;d<=daysInMonth;d++){
-    const sel = d===st.day ? ' cal-day-sel' : '';
-    const td = (isThisMonth && d===today.getDate()) ? ' cal-day-today' : '';
-    grid += `<button type="button" class="cal-day${sel}${td}" onclick="pickCalendarDay('${idPrefix}',${d})">${d}</button>`;
-  }
-  const display = st.day
-    ? `<div class="cal-value">已选：${st.year}-${String(st.month).padStart(2,'0')}-${String(st.day).padStart(2,'0')}</div>`
-    : '<div class="cal-value empty">未选择日期</div>';
-  return `<div class="cal-wrap">
-    <div class="cal-head">
-      <select onchange="datePickerState['${idPrefix}'].year=parseInt(this.value);renderCalendarInline('${idPrefix}');">${yearOpts}</select>
-      <select onchange="datePickerState['${idPrefix}'].month=parseInt(this.value);renderCalendarInline('${idPrefix}');">${monthOpts}</select>
-    </div>
-    <div class="cal-grid">
-      <span class="cal-wd">日</span><span class="cal-wd">一</span><span class="cal-wd">二</span><span class="cal-wd">三</span><span class="cal-wd">四</span><span class="cal-wd">五</span><span class="cal-wd">六</span>
-      ${grid}
-    </div>
-    ${display}
-  </div>`;
-}
-function renderCalendarInline(idPrefix){
-  const el = document.getElementById('cal_container_'+idPrefix);
-  if(el) el.innerHTML = renderCalendarHtml(idPrefix);
-}
-function pickCalendarDay(idPrefix, day){
-  if(!datePickerState[idPrefix]) return;
-  datePickerState[idPrefix].day = day;
-  renderCalendarInline(idPrefix);
-}
-function buildCalendarHtml(idPrefix, defaultDate, autoSelect){
-  const d = defaultDate ? new Date(defaultDate) : new Date();
-  datePickerState[idPrefix] = {
-    year: d.getFullYear(),
-    month: d.getMonth()+1,
-    day: autoSelect===false ? null : d.getDate()
-  };
-  return `<div id="cal_container_${idPrefix}">${renderCalendarHtml(idPrefix)}</div>`;
-}
-function getCalendarValue(idPrefix){
-  const st = datePickerState[idPrefix];
-  if(!st || !st.day) return '';
-  return `${st.year}-${String(st.month).padStart(2,'0')}-${String(st.day).padStart(2,'0')}`;
-}
-function buildBatchDateSelectHtml(idPrefix, defaultDate){
-  return buildCalendarHtml(idPrefix, defaultDate, true);
-}
-function getBatchDateFromSelects(idPrefix){
-  return getCalendarValue(idPrefix);
-}
-function refreshBatchDaySelect(idPrefix){ /* 日历接管 */ }
+function renderCalendarHtml(idPrefix){const st=datePickerState[idPrefix];if(!st)return '';const daysInMonth=new Date(st.year,st.month,0).getDate();if(st.day!==null&&st.day>daysInMonth)st.day=daysInMonth;const nowYear=new Date().getFullYear();let yearOpts='';for(let y=2000;y<=nowYear+1;y++){yearOpts+=`<option value="${y}"${y===st.year?' selected':''}>${y}年</option>`;}let monthOpts='';for(let m=1;m<=12;m++){monthOpts+=`<option value="${m}"${m===st.month?' selected':''}>${m}月</option>`;}const firstDay=new Date(st.year,st.month-1,1).getDay();const today=new Date();const isThisMonth=(today.getFullYear()===st.year&&today.getMonth()+1===st.month);let grid='';for(let i=0;i<firstDay;i++)grid+='<span></span>';for(let d=1;d<=daysInMonth;d++){const sel=d===st.day?' cal-day-sel':'';const td=(isThisMonth&&d===today.getDate())?' cal-day-today':'';grid+=`<button type="button" class="cal-day${sel}${td}" onclick="pickCalendarDay('${idPrefix}',${d})">${d}</button>`;}const display=st.day?`<div class="cal-value">已选：${st.year}-${String(st.month).padStart(2,'0')}-${String(st.day).padStart(2,'0')}</div>`:'<div class="cal-value empty">未选择日期</div>';return `<div class="cal-wrap"><div class="cal-head"><select onchange="datePickerState['${idPrefix}'].year=parseInt(this.value);renderCalendarInline('${idPrefix}');">${yearOpts}</select><select onchange="datePickerState['${idPrefix}'].month=parseInt(this.value);renderCalendarInline('${idPrefix}');">${monthOpts}</select></div><div class="cal-grid"><span class="cal-wd">日</span><span class="cal-wd">一</span><span class="cal-wd">二</span><span class="cal-wd">三</span><span class="cal-wd">四</span><span class="cal-wd">五</span><span class="cal-wd">六</span>${grid}</div>${display}</div>`;}
+function renderCalendarInline(idPrefix){const el=document.getElementById('cal_container_'+idPrefix);if(el)el.innerHTML=renderCalendarHtml(idPrefix);}
+function pickCalendarDay(idPrefix,day){if(!datePickerState[idPrefix])return;datePickerState[idPrefix].day=day;renderCalendarInline(idPrefix);}
+function buildCalendarHtml(idPrefix,defaultDate,autoSelect){const d=defaultDate?new Date(defaultDate):new Date();datePickerState[idPrefix]={year:d.getFullYear(),month:d.getMonth()+1,day:autoSelect===false?null:d.getDate()};return `<div id="cal_container_${idPrefix}">${renderCalendarHtml(idPrefix)}</div>`;}
+function getCalendarValue(idPrefix){const st=datePickerState[idPrefix];if(!st||!st.day)return '';return `${st.year}-${String(st.month).padStart(2,'0')}-${String(st.day).padStart(2,'0')}`;}
+function buildBatchDateSelectHtml(idPrefix,defaultDate){return buildCalendarHtml(idPrefix,defaultDate,true);}
+function getBatchDateFromSelects(idPrefix){return getCalendarValue(idPrefix);}
+function refreshBatchDaySelect(idPrefix){}
 
-// ==================== 渲染函数 ====================
-function renderAll(){
-  if(!db||!Array.isArray(db.zones)||!Array.isArray(db.locations)||!Array.isArray(db.products))return;
-  renderZoneList();renderGrid();renderProductList();renderZoneStats();updateHeaderStats();
-}
-function renderZoneList(){
-  const list=document.getElementById('zoneList');
-  if(!list||!db)return;
-  list.innerHTML='';
-  db.zones.forEach(zone=>{
-    const item=document.createElement('div');
-    item.className='zone-item'+(zone.id===currentZoneId?' active':'');
-    const locCount=db.locations.filter(l=>l.zoneId===zone.id).length;
-    const usedCount=db.locations.filter(l=>l.zoneId===zone.id&&l.status==='used').length;
-    item.innerHTML='<span class="zone-name">'+(zone.isBase?'🏭':'📁')+' '+zone.name+'</span> ('+usedCount+'/'+locCount+')';
-    const editBtn=document.createElement('button');
-    editBtn.className='zone-edit-btn';editBtn.textContent='✎';
-    editBtn.addEventListener('click',e=>{e.stopPropagation();showEditZoneModal(zone.id);});
-    item.appendChild(editBtn);
-    if(!zone.isBase){
-      const delBtn=document.createElement('button');
-      delBtn.className='zone-delete-btn';delBtn.textContent='×';
-      delBtn.addEventListener('click',e=>{e.stopPropagation();deleteZone(zone.id);});
-      item.appendChild(delBtn);
-    }
-    item.addEventListener('click',()=>{currentZoneId=zone.id;renderAll();});
-    list.appendChild(item);
-  });
-}
-function deleteZone(zoneId){
-  const zone=db.zones.find(z=>z.id===zoneId);
-  if(!zone||zone.isBase){showToast('基础仓位不可删除','error');return;}
-  if(db.locations.some(l=>l.zoneId===zoneId&&l.status==='used')){showToast('有已用仓位','error');return;}
-  if(!confirm('删除区域？'))return;
-  const nd=JSON.parse(JSON.stringify(db));
-  nd.locations=nd.locations.filter(l=>l.zoneId!==zoneId);
-  nd.zones=nd.zones.filter(z=>z.id!==zoneId);
-  if(currentZoneId===zoneId)currentZoneId=nd.zones[0]?.id||null;
-  saveDB(nd);showToast('已删除','success');
-}
-function showAddZoneModal(){
-  openModal('<h2>添加区域</h2><div class="form-group"><label>名称</label><input id="newZoneName" required></div><div class="form-group"><label>排数</label><input type="number" id="newZoneRows" min="1" required></div><div class="form-group"><label>默认托数/排</label><input type="number" id="newZoneCols" min="1" required></div><div class="form-group"><label>每排托数（可选，逗号分隔，如 10,10,5）</label><input id="newZoneRowDetails"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addZone()">确认</button></div>');
-}
-function addZone(){
-  const name=document.getElementById('newZoneName').value.trim();
-  const rows=parseInt(document.getElementById('newZoneRows').value);
-  const cols=parseInt(document.getElementById('newZoneCols').value);
-  const detailsStr=document.getElementById('newZoneRowDetails')?.value.trim();
-  if(!name||!rows||!cols){showToast('请填写完整','error');return;}
-  const nd=JSON.parse(JSON.stringify(db));
-  const zone={id:nd.nextZoneId++,name,rows,cols,isBase:false,createdAt:new Date().toISOString(),rowDetails:[]};
-  if(detailsStr){
-    const arr=detailsStr.split(',').map(Number);
-    for(let i=0;i<rows;i++) zone.rowDetails[i]=arr[i]||cols;
-  } else {
-    zone.rowDetails=Array(rows).fill(cols);
-  }
-  nd.zones.push(zone);
-  for(let r=1;r<=rows;r++){
-    const rowCols=zone.rowDetails[r-1];
-    for(let c=1;c<=rowCols;c++){
-      nd.locations.push({id:nd.nextLocationId++,zoneId:zone.id,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,inboundTime:null,productStatus:null,ticketAttached:false});
-    }
-  }
-  currentZoneId=zone.id;
-  saveDB(nd);closeModal();showToast('已添加','success');
-}
-function showEditZoneModal(zoneId){
-  const zone=db.zones.find(z=>z.id===zoneId);
-  if(!zone) return;
-  const detailsStr=zone.rowDetails?zone.rowDetails.join(','):'';
-  openModal(`<h2>编辑区域</h2>
-    <div class="form-group"><label>名称</label><input id="editZoneName" value="${zone.name}"></div>
-    <div class="form-group"><label>排数</label><input type="number" id="editZoneRows" value="${zone.rows}" min="1"></div>
-    <div class="form-group"><label>每排托数（逗号分隔，如 10,10,3）</label><input id="editZoneRowDetails" value="${detailsStr}"></div>
-    <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveEditZone(${zoneId})">保存</button></div>`);
-}
-function saveEditZone(zoneId){
-  const nd=JSON.parse(JSON.stringify(db));
-  const zone=nd.zones.find(z=>z.id===zoneId);
-  if(!zone) return;
-  const newName=document.getElementById('editZoneName').value.trim();
-  const newRows=parseInt(document.getElementById('editZoneRows').value);
-  const detailsStr=document.getElementById('editZoneRowDetails').value.trim();
-  if(!newName||!newRows||newRows<1){showToast('请输入有效信息','error');return;}
-  const newRowDetails=[];
-  if(detailsStr){
-    const arr=detailsStr.split(',').map(Number);
-    for(let i=0;i<newRows;i++) newRowDetails[i]=arr[i]||zone.cols;
-  } else {
-    for(let i=0;i<newRows;i++) newRowDetails[i]=zone.cols;
-  }
-  const oldLocs=nd.locations.filter(l=>l.zoneId===zoneId);
-  for(const loc of oldLocs){
-    const rowCols=newRowDetails[loc.rowNum-1]||0;
-    if(loc.status==='used' && loc.colNum>rowCols){
-      showToast(`第${loc.rowNum}排有产品超出新托数，请先迁移`, 'error');
-      return;
-    }
-  }
-  zone.name=newName; zone.rows=newRows; zone.rowDetails=newRowDetails;
-  nd.locations=nd.locations.filter(l=>{
-    if(l.zoneId!==zoneId) return true;
-    const rowCols=newRowDetails[l.rowNum-1]||0;
-    if(l.rowNum>newRows || l.colNum>rowCols){
-      if(l.status==='used') return true;
-      return false;
-    }
-    return true;
-  });
-  for(let r=1;r<=newRows;r++){
-    const rowCols=newRowDetails[r-1]||0;
-    for(let c=1;c<=rowCols;c++){
-      if(!nd.locations.some(l=>l.zoneId===zoneId && l.rowNum===r && l.colNum===c)){
-        nd.locations.push({id:nd.nextLocationId++,zoneId,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,inboundTime:null,productStatus:null,ticketAttached:false});
-      }
-    }
-  }
-  saveDB(nd);closeModal();renderAll();showToast('区域已更新','success');
-}
-function renderGrid(){
-  const container=document.getElementById('gridContainer');
-  if(!container||!db)return;
-  const sl=container.scrollLeft, st=container.scrollTop;
-  const zone=db.zones.find(z=>z.id===currentZoneId);
-  if(!zone){container.innerHTML='<div>请选择区域</div>';return;}
-  const locations=db.locations.filter(l=>l.zoneId===zone.id);
-  document.getElementById('currentZoneTitle').textContent=zone.name;
-  document.getElementById('currentZoneInfo').textContent=zone.isBase?('A侧'+Math.ceil(zone.rows/2)+'排 + B侧'+Math.floor(zone.rows/2)+'排 × '+zone.cols+'托'):(zone.rows+'排 × 自定义托数');
-  const rankMap=getFifoRankMap(zone.id);
-  if(zone.isBase){
-    const half=Math.ceil(zone.rows/2);
-    container.innerHTML='<div class="grid-side-by-side">'+renderGridTable(locations.filter(l=>l.rowNum<=half),zone,rankMap)+renderGridTable(locations.filter(l=>l.rowNum>half),zone,rankMap)+'</div>';
-  }else{
-    container.innerHTML=renderGridTable(locations,zone,rankMap);
-  }
-  requestAnimationFrame(()=>{container.scrollLeft=sl;container.scrollTop=st;});
-}
-function renderGridTable(locs,zone,rankMap){
-  if(locs.length===0)return'';
-  const rows=[...new Set(locs.map(l=>l.rowNum))].sort((a,b)=>a-b);
-  let html='<div class="grid-table">';
-  rows.forEach(r=>{
-    const rowCols=zone.rowDetails? (zone.rowDetails[r-1]||zone.cols) : zone.cols;
-    const displayCols=getDisplayColArray({...zone, cols:rowCols}, r);
-    html+='<div class="grid-row"><div class="grid-row-label">'+getRowDisplayLabel(zone,r)+'</div>';
-    for(let idx=0;idx<displayCols.length;idx++){
-      const oc=displayCols[idx];
-      const loc=locs.find(l=>l.rowNum===r&&l.colNum===oc);
-      if(loc){
-        let style='',rankBadge='',newBadge='',yesterdayBadge='',handBadge='',ticketBadge='',transferBadge='',priorityFlagBadge='',priorityProductBadge='',remarkBadge='',cbHtml='';
-        if(loc.status==='used'){
-          const info=rankMap[loc.id];
-          const effStatus = getLocationEffectiveStatus(loc);
-          const colors = getStatusColors(effStatus);
-          style='background-color:'+colors.bg+';border-color:'+colors.border+';color:'+colors.text+';';
-          if(info){rankBadge='<span class="fifo-rank">#'+(info.rank+1)+'/'+info.total+'</span>';}
-          const updatedDate=loc.updatedAt?loc.updatedAt.split('T')[0]:null;
-          if(updatedDate){const today=new Date().toISOString().split('T')[0];const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];if(updatedDate===today)newBadge='<span class="new-badge">今</span>';else if(updatedDate===yesterday)yesterdayBadge='<span class="yesterday-badge">昨</span>';}
-          if(loc.handAccount)handBadge='<span class="hand-badge">账</span>';
-          if(loc.ticketAttached)ticketBadge='<span class="ticket-badge">票</span>';
-          if(loc.transferFlag)transferBadge='<span class="transfer-badge">转</span>';
-          if(loc.priorityFlag)priorityFlagBadge='<span class="priority-flag-badge">先</span>';
-          if(loc.remark)remarkBadge='<span class="remark-badge">备</span>';
-        }
-        if(locationBatchMode)cbHtml='<input type="checkbox" class="select-checkbox"'+(selectedLocations.has(loc.id)?' checked':'')+' onclick="toggleLocationSelect('+loc.id+',event)">';
-        let label='',batchInfo='',qtyInfo='';
-        if(loc.status==='used'&&loc.productId){
-          const p=db.products.find(x=>x.id===loc.productId);
-          label=p?p.name:'未知产品';
-          if(p&&p.isPriority)priorityProductBadge='<span class="priority-badge">产先</span>';
-          const batchDate=loc.batchNo?String(loc.batchNo).slice(5).replace('-','/'):'';
-          batchInfo=batchDate;
-          if(loc.customPieces>0)qtyInfo=loc.customPieces+'件';
-          else qtyInfo=loc.quantity>0?loc.quantity+(p?.unit||'件'):'';
-        }else if(loc.status==='unavailable')label='🚫';
-        else label='托'+(idx+1);
-        const click=locationBatchMode?'toggleLocationSelect('+loc.id+',event)':'handleCellClick('+loc.id+')';
-        const cmenu=locationBatchMode?'':'handleCellRightClick('+loc.id+');return false;';
-        html+='<div class="cell status-'+loc.status+'" style="'+style+'" onclick="'+click+'" oncontextmenu="'+cmenu+'">'+cbHtml+rankBadge+newBadge+yesterdayBadge+handBadge+ticketBadge+transferBadge+priorityFlagBadge+priorityProductBadge+remarkBadge+'<span class="cell-label">'+label+'</span>'+(qtyInfo?'<span class="cell-qty">'+qtyInfo+'</span>':'')+(batchInfo?'<span class="cell-batch">'+batchInfo+'</span>':'')+'</div>';
-      }else{
-        html+='<div class="cell" style="border-style:dashed;opacity:.3;">托'+(idx+1)+'</div>';
-      }
-    }
-    html+='</div>';
-  });
-  html+='</div>';
-  return html;
-}
+// ==================== 渲染 ====================
+function renderAll(){if(!db||!Array.isArray(db.zones)||!Array.isArray(db.locations)||!Array.isArray(db.products))return;renderZoneList();renderGrid();renderProductList();renderZoneStats();updateHeaderStats();}
+function renderZoneList(){const list=document.getElementById('zoneList');if(!list||!db)return;list.innerHTML='';db.zones.forEach(zone=>{const item=document.createElement('div');item.className='zone-item'+(zone.id===currentZoneId?' active':'');const locCount=db.locations.filter(l=>l.zoneId===zone.id).length;const usedCount=db.locations.filter(l=>l.zoneId===zone.id&&l.status==='used').length;item.innerHTML='<span class="zone-name">'+(zone.isBase?'🏭':'📁')+' '+zone.name+'</span> ('+usedCount+'/'+locCount+')';const editBtn=document.createElement('button');editBtn.className='zone-edit-btn';editBtn.textContent='✎';editBtn.addEventListener('click',e=>{e.stopPropagation();showEditZoneModal(zone.id);});item.appendChild(editBtn);if(!zone.isBase){const delBtn=document.createElement('button');delBtn.className='zone-delete-btn';delBtn.textContent='×';delBtn.addEventListener('click',e=>{e.stopPropagation();deleteZone(zone.id);});item.appendChild(delBtn);}item.addEventListener('click',()=>{currentZoneId=zone.id;renderAll();});list.appendChild(item);});}
+function deleteZone(zoneId){const zone=db.zones.find(z=>z.id===zoneId);if(!zone||zone.isBase){showToast('基础仓位不可删除','error');return;}if(db.locations.some(l=>l.zoneId===zoneId&&l.status==='used')){showToast('有已用仓位','error');return;}if(!confirm('删除区域？'))return;const nd=JSON.parse(JSON.stringify(db));nd.locations=nd.locations.filter(l=>l.zoneId!==zoneId);nd.zones=nd.zones.filter(z=>z.id!==zoneId);if(currentZoneId===zoneId)currentZoneId=nd.zones[0]?.id||null;saveDB(nd);showToast('已删除','success');}
+function showAddZoneModal(){openModal('<h2>添加区域</h2><div class="form-group"><label>名称</label><input id="newZoneName" required></div><div class="form-group"><label>排数</label><input type="number" id="newZoneRows" min="1" required></div><div class="form-group"><label>默认托数/排</label><input type="number" id="newZoneCols" min="1" required></div><div class="form-group"><label>每排托数（可选，逗号分隔，如 10,10,5）</label><input id="newZoneRowDetails"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addZone()">确认</button></div>');}
+function addZone(){const name=document.getElementById('newZoneName').value.trim();const rows=parseInt(document.getElementById('newZoneRows').value);const cols=parseInt(document.getElementById('newZoneCols').value);const detailsStr=document.getElementById('newZoneRowDetails')?.value.trim();if(!name||!rows||!cols){showToast('请填写完整','error');return;}const nd=JSON.parse(JSON.stringify(db));const zone={id:nd.nextZoneId++,name,rows,cols,isBase:false,createdAt:new Date().toISOString(),rowDetails:[]};if(detailsStr){const arr=detailsStr.split(',').map(Number);for(let i=0;i<rows;i++)zone.rowDetails[i]=arr[i]||cols;}else{zone.rowDetails=Array(rows).fill(cols);}nd.zones.push(zone);for(let r=1;r<=rows;r++){const rowCols=zone.rowDetails[r-1];for(let c=1;c<=rowCols;c++){nd.locations.push({id:nd.nextLocationId++,zoneId:zone.id,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,inboundTime:null,productStatus:null,ticketAttached:false});}}currentZoneId=zone.id;saveDB(nd);closeModal();showToast('已添加','success');}
+function showEditZoneModal(zoneId){const zone=db.zones.find(z=>z.id===zoneId);if(!zone)return;const detailsStr=zone.rowDetails?zone.rowDetails.join(','):'';openModal(`<h2>编辑区域</h2><div class="form-group"><label>名称</label><input id="editZoneName" value="${zone.name}"></div><div class="form-group"><label>排数</label><input type="number" id="editZoneRows" value="${zone.rows}" min="1"></div><div class="form-group"><label>每排托数（逗号分隔，如 10,10,3）</label><input id="editZoneRowDetails" value="${detailsStr}"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveEditZone(${zoneId})">保存</button></div>`);}
+function saveEditZone(zoneId){const nd=JSON.parse(JSON.stringify(db));const zone=nd.zones.find(z=>z.id===zoneId);if(!zone)return;const newName=document.getElementById('editZoneName').value.trim();const newRows=parseInt(document.getElementById('editZoneRows').value);const detailsStr=document.getElementById('editZoneRowDetails').value.trim();if(!newName||!newRows||newRows<1){showToast('请输入有效信息','error');return;}const newRowDetails=[];if(detailsStr){const arr=detailsStr.split(',').map(Number);for(let i=0;i<newRows;i++)newRowDetails[i]=arr[i]||zone.cols;}else{for(let i=0;i<newRows;i++)newRowDetails[i]=zone.cols;}const oldLocs=nd.locations.filter(l=>l.zoneId===zoneId);for(const loc of oldLocs){const rowCols=newRowDetails[loc.rowNum-1]||0;if(loc.status==='used'&&loc.colNum>rowCols){showToast(`第${loc.rowNum}排有产品超出新托数，请先迁移`,'error');return;}}zone.name=newName;zone.rows=newRows;zone.rowDetails=newRowDetails;nd.locations=nd.locations.filter(l=>{if(l.zoneId!==zoneId)return true;const rowCols=newRowDetails[l.rowNum-1]||0;if(l.rowNum>newRows||l.colNum>rowCols){if(l.status==='used')return true;return false;}return true;});for(let r=1;r<=newRows;r++){const rowCols=newRowDetails[r-1]||0;for(let c=1;c<=rowCols;c++){if(!nd.locations.some(l=>l.zoneId===zoneId&&l.rowNum===r&&l.colNum===c)){nd.locations.push({id:nd.nextLocationId++,zoneId,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,inboundTime:null,productStatus:null,ticketAttached:false});}}}saveDB(nd);closeModal();renderAll();showToast('区域已更新','success');}
+function renderGrid(){const container=document.getElementById('gridContainer');if(!container||!db)return;const sl=container.scrollLeft,st=container.scrollTop;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){container.innerHTML='<div>请选择区域</div>';return;}const locations=db.locations.filter(l=>l.zoneId===zone.id);document.getElementById('currentZoneTitle').textContent=zone.name;document.getElementById('currentZoneInfo').textContent=zone.isBase?('A侧'+Math.ceil(zone.rows/2)+'排 + B侧'+Math.floor(zone.rows/2)+'排 × '+zone.cols+'托'):(zone.rows+'排 × 自定义托数');const rankMap=getFifoRankMap(zone.id);if(zone.isBase){const half=Math.ceil(zone.rows/2);container.innerHTML='<div class="grid-side-by-side">'+renderGridTable(locations.filter(l=>l.rowNum<=half),zone,rankMap)+renderGridTable(locations.filter(l=>l.rowNum>half),zone,rankMap)+'</div>';}else{container.innerHTML=renderGridTable(locations,zone,rankMap);}requestAnimationFrame(()=>{container.scrollLeft=sl;container.scrollTop=st;});}
+function renderGridTable(locs,zone,rankMap){if(locs.length===0)return'';const rows=[...new Set(locs.map(l=>l.rowNum))].sort((a,b)=>a-b);let html='<div class="grid-table">';rows.forEach(r=>{const rowCols=zone.rowDetails?(zone.rowDetails[r-1]||zone.cols):zone.cols;const displayCols=getDisplayColArray({...zone,cols:rowCols},r);html+='<div class="grid-row"><div class="grid-row-label">'+getRowDisplayLabel(zone,r)+'</div>';for(let idx=0;idx<displayCols.length;idx++){const oc=displayCols[idx];const loc=locs.find(l=>l.rowNum===r&&l.colNum===oc);if(loc){let style='',rankBadge='',newBadge='',yesterdayBadge='',handBadge='',ticketBadge='',transferBadge='',priorityFlagBadge='',priorityProductBadge='',remarkBadge='',cbHtml='';if(loc.status==='used'){const info=rankMap[loc.id];const effStatus=getLocationEffectiveStatus(loc);const colors=getStatusColors(effStatus);style='background-color:'+colors.bg+';border-color:'+colors.border+';color:'+colors.text+';';if(info){rankBadge='<span class="fifo-rank">#'+(info.rank+1)+'/'+info.total+'</span>';}const updatedDate=loc.updatedAt?loc.updatedAt.split('T')[0]:null;if(updatedDate){const today=new Date().toISOString().split('T')[0];const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];if(updatedDate===today)newBadge='<span class="new-badge">今</span>';else if(updatedDate===yesterday)yesterdayBadge='<span class="yesterday-badge">昨</span>';}if(loc.handAccount)handBadge='<span class="hand-badge">账</span>';if(loc.ticketAttached)ticketBadge='<span class="ticket-badge">票</span>';if(loc.transferFlag)transferBadge='<span class="transfer-badge">转</span>';if(loc.priorityFlag)priorityFlagBadge='<span class="priority-flag-badge">先</span>';if(loc.remark)remarkBadge='<span class="remark-badge">备</span>';}if(locationBatchMode)cbHtml='<input type="checkbox" class="select-checkbox"'+(selectedLocations.has(loc.id)?' checked':'')+' onclick="toggleLocationSelect('+loc.id+',event)">';let label='',batchInfo='',qtyInfo='';if(loc.status==='used'&&loc.productId){const p=db.products.find(x=>x.id===loc.productId);label=p?p.name:'未知产品';if(p&&p.isPriority)priorityProductBadge='<span class="priority-badge">产先</span>';const batchDate=loc.batchNo?String(loc.batchNo).slice(5).replace('-','/'):'';batchInfo=batchDate;if(loc.customPieces>0)qtyInfo=loc.customPieces+'件';else qtyInfo=loc.quantity>0?loc.quantity+(p?.unit||'件'):'';}else if(loc.status==='unavailable')label='🚫';else label='托'+(idx+1);const click=locationBatchMode?'toggleLocationSelect('+loc.id+',event)':'handleCellClick('+loc.id+')';const cmenu=locationBatchMode?'':'handleCellRightClick('+loc.id+');return false;';html+='<div class="cell status-'+loc.status+'" style="'+style+'" onclick="'+click+'" oncontextmenu="'+cmenu+'">'+cbHtml+rankBadge+newBadge+yesterdayBadge+handBadge+ticketBadge+transferBadge+priorityFlagBadge+priorityProductBadge+remarkBadge+'<span class="cell-label">'+label+'</span>'+(qtyInfo?'<span class="cell-qty">'+qtyInfo+'</span>':'')+(batchInfo?'<span class="cell-batch">'+batchInfo+'</span>':'')+'</div>';}else{html+='<div class="cell" style="border-style:dashed;opacity:.3;">托'+(idx+1)+'</div>';}}html+='</div>';});html+='</div>';return html;}
 
-// ==================== 产品列表与批量操作 ====================
-function renderProductList(){
-  const list=document.getElementById('productList');
-  if(!list||!db||!Array.isArray(db.products))return;
-  list.innerHTML=db.products.length===0?'<div>暂无</div>':'';
-  db.products.forEach(p=>{
-    const info=getProductDisplayInfo(p.id);
-    const item=document.createElement('div');
-    item.className='product-item'+(selectedProducts.has(p.id)?' selected':'');
-    let cb=batchMode?'<input type="checkbox"'+(selectedProducts.has(p.id)?' checked':'')+' onclick="toggleSelectProduct('+p.id+',event)">':'';
-    const priorityMark=p.isPriority?'<span style="color:#ff5722;">【先】</span>':'';
-    const statusColor=p.status==='green'?'#66bb6a':(p.status==='yellow'?'#fdd835':'#ef5350');
-    const statusDot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+statusColor+';margin-right:4px;flex-shrink:0;"></span>';
-    item.innerHTML=cb+statusDot+priorityMark+'<span>'+(p.name||'未知产品')+'</span> <span>'+(p.model||'')+'</span> <span>'+info.pieces+(p.unit||'件')+'</span>';
-    item.addEventListener('click',()=>{if(batchMode)toggleSelectProduct(p.id);else showProductDetail(p.id);});
-    list.appendChild(item);
-  });
-}
+// ==================== 产品列表 ====================
+function renderProductList(){const list=document.getElementById('productList');if(!list||!db||!Array.isArray(db.products))return;list.innerHTML=db.products.length===0?'<div>暂无</div>':'';db.products.forEach(p=>{const info=getProductDisplayInfo(p.id);const item=document.createElement('div');item.className='product-item'+(selectedProducts.has(p.id)?' selected':'');let cb=batchMode?'<input type="checkbox"'+(selectedProducts.has(p.id)?' checked':'')+' onclick="toggleSelectProduct('+p.id+',event)">':'';const priorityMark=p.isPriority?'<span style="color:#ff5722;">【先】</span>':'';const statusColor=p.status==='green'?'#66bb6a':(p.status==='yellow'?'#fdd835':'#ef5350');const statusDot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+statusColor+';margin-right:4px;flex-shrink:0;"></span>';item.innerHTML=cb+statusDot+priorityMark+'<span>'+(p.name||'未知产品')+'</span> <span>'+(p.model||'')+'</span> <span>'+info.pieces+(p.unit||'件')+'</span>';item.addEventListener('click',()=>{if(batchMode)toggleSelectProduct(p.id);else showProductDetail(p.id);});list.appendChild(item);});}
 function toggleBatchMode(){batchMode=!batchMode;if(!batchMode){selectedProducts.clear();document.getElementById('batchToolbar').classList.remove('active');}else document.getElementById('batchToolbar').classList.add('active');renderProductList();}
 function toggleSelectProduct(id,ev){if(ev)ev.stopPropagation();if(selectedProducts.has(id))selectedProducts.delete(id);else selectedProducts.add(id);renderProductList();}
 function clearSelectionAndExit(){selectedProducts.clear();batchMode=false;document.getElementById('batchToolbar').classList.remove('active');renderProductList();}
@@ -746,40 +333,9 @@ function confirmBatchUpdateUnit(){const nu=document.getElementById('newUnitInput
 function batchUpdateUnitQuantity(){if(selectedProducts.size===0){showToast('请先勾选产品','error');return;}openModal('<h2>批量修改单位数量</h2><div class="form-group"><label>新单位数量</label><input type="number" id="batchUnitQuantityInput" min="1"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmBatchUpdateUnitQuantity()">确认</button></div>');}
 function confirmBatchUpdateUnitQuantity(){const val=parseInt(document.getElementById('batchUnitQuantityInput').value);if(!val||val<1){showToast('无效','error');return;}const nd=JSON.parse(JSON.stringify(db));selectedProducts.forEach(pid=>{const p=nd.products.find(x=>x.id===pid);if(p)p.unitQuantity=val;});saveDB(nd);closeModal();clearSelectionAndExit();showToast('成功','success');}
 function batchDeleteProducts(){if(selectedProducts.size===0){showToast('请先勾选产品','error');return;}const occ=[];selectedProducts.forEach(pid=>{if(db.locations.some(l=>l.productId===pid&&l.status==='used')||db.transit.some(t=>t.productId===pid)){const p=db.products.find(x=>x.id===pid);occ.push(p?.name||pid);}});if(occ.length){showToast('已存储：'+occ.join('、'),'error');return;}if(!confirm('删除？'))return;const nd=JSON.parse(JSON.stringify(db));nd.products=nd.products.filter(p=>!selectedProducts.has(p.id));saveDB(nd);clearSelectionAndExit();showToast('已删除','success');}
-function showAddProductModal(returnTo, locId){
-  if(!db||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
-  addProductReturnTo = returnTo || null;
-  replaceReturnLocId = locId || null;
-  let opts='<option value="">-- 复制 --</option>';
-  db.products.forEach(p=>opts+='<option value="'+p.id+'">'+p.name+'</option>');
-  openModal('<h2>📦 新建产品</h2>'+(db.products.length?'<div class="form-group"><label>复制</label><select id="existingProductSelect" onchange="fillProductFields(this.value)">'+opts+'</select></div>':'')+'<div class="form-group"><label>名称</label><input id="pName" required></div><div class="form-group"><label>型号</label><input id="pModel"></div><div class="form-group"><label>单位</label><input id="pUnit" value="件" required></div><div class="form-group"><label>单位数量</label><input type="number" id="pUnitQuantity" value="1" min="1"></div><div class="form-group"><label>备注</label><textarea id="pRemark"></textarea></div><div class="form-group"><label>默认状态</label><select id="pStatus"><option value="green">🟢 绿色（优先）</option><option value="yellow">🟡 黄色</option><option value="red">🔴 红色（最后）</option></select></div><div class="form-group"><label>先发标识</label><input type="checkbox" id="pPriority"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addProduct()">确认</button></div>');
-}
+function showAddProductModal(returnTo,locId){if(!db||!Array.isArray(db.products)){showToast('数据未加载','info');return;}addProductReturnTo=returnTo||null;replaceReturnLocId=locId||null;let opts='<option value="">-- 复制 --</option>';db.products.forEach(p=>opts+='<option value="'+p.id+'">'+p.name+'</option>');openModal('<h2>📦 新建产品</h2>'+(db.products.length?'<div class="form-group"><label>复制</label><select id="existingProductSelect" onchange="fillProductFields(this.value)">'+opts+'</select></div>':'')+'<div class="form-group"><label>名称</label><input id="pName" required></div><div class="form-group"><label>型号</label><input id="pModel"></div><div class="form-group"><label>单位</label><input id="pUnit" value="件" required></div><div class="form-group"><label>单位数量</label><input type="number" id="pUnitQuantity" value="1" min="1"></div><div class="form-group"><label>备注</label><textarea id="pRemark"></textarea></div><div class="form-group"><label>默认状态</label><select id="pStatus"><option value="green">🟢 绿色（优先）</option><option value="yellow">🟡 黄色</option><option value="red">🔴 红色（最后）</option></select></div><div class="form-group"><label>先发标识</label><input type="checkbox" id="pPriority"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addProduct()">确认</button></div>');}
 function fillProductFields(pid){if(!pid)return;const p=db.products.find(x=>x.id==pid);if(p){document.getElementById('pName').value=p.name||'';document.getElementById('pModel').value=p.model||'';document.getElementById('pUnit').value=p.unit||'件';document.getElementById('pUnitQuantity').value=p.unitQuantity||1;document.getElementById('pRemark').value=p.remark||'';document.getElementById('pStatus').value=p.status||'green';document.getElementById('pPriority').checked=!!p.isPriority;}}
-function addProduct(){
-  const name=document.getElementById('pName').value.trim(),model=document.getElementById('pModel').value.trim(),unit=document.getElementById('pUnit').value.trim(),uq=parseInt(document.getElementById('pUnitQuantity').value)||1,remark=document.getElementById('pRemark').value.trim(),status=document.getElementById('pStatus').value,isPriority=document.getElementById('pPriority')?.checked||false;
-  if(!name||!unit){showToast('必填','error');return;}
-  const nd=JSON.parse(JSON.stringify(db));
-  const newId = nd.nextProductId;
-  nd.products.push({id:nd.nextProductId++,name,model,unit,unitQuantity:uq,remark,status,isPriority,createdAt:new Date().toISOString()});
-  saveDB(nd);
-  showToast('已添加','success');
-  if(addProductReturnTo === 'replace' && replaceReturnLocId){
-    const locId = replaceReturnLocId;
-    addProductReturnTo = null; replaceReturnLocId = null;
-    setTimeout(()=>{
-      replaceWithNewProduct(locId);
-      setTimeout(()=>{
-        const sel = document.getElementById('replaceProductSelect');
-        if(sel) sel.value = newId;
-      },50);
-    },100);
-  }else if(addProductReturnTo === 'pm'){
-    addProductReturnTo = null;
-    showProductManager();
-  }else{
-    closeModal();
-  }
-}
+function addProduct(){const name=document.getElementById('pName').value.trim(),model=document.getElementById('pModel').value.trim(),unit=document.getElementById('pUnit').value.trim(),uq=parseInt(document.getElementById('pUnitQuantity').value)||1,remark=document.getElementById('pRemark').value.trim(),status=document.getElementById('pStatus').value,isPriority=document.getElementById('pPriority')?.checked||false;if(!name||!unit){showToast('必填','error');return;}const nd=JSON.parse(JSON.stringify(db));const newId=nd.nextProductId;nd.products.push({id:nd.nextProductId++,name,model,unit,unitQuantity:uq,remark,status,isPriority,createdAt:new Date().toISOString()});saveDB(nd);showToast('已添加','success');if(addProductReturnTo==='replace'&&replaceReturnLocId){const locId=replaceReturnLocId;addProductReturnTo=null;replaceReturnLocId=null;setTimeout(()=>{replaceWithNewProduct(locId);setTimeout(()=>{const sel=document.getElementById('replaceProductSelect');if(sel)sel.value=newId;},50);},100);}else if(addProductReturnTo==='pm'){addProductReturnTo=null;showProductManager();}else{closeModal();}}
 function showProductDetail(id){const p=db.products.find(x=>x.id===id);if(!p)return;const info=getProductDisplayInfo(id);const usedLocs=db.locations.filter(l=>l.productId===id&&l.status==='used');const transitCount=db.transit.filter(t=>t.productId===id).length;const statusText=p.status==='green'?'🟢 绿色':(p.status==='yellow'?'🟡 黄色':'🔴 红色');openModal('<h2>📦 '+(p.name||'未知产品')+'</h2><p>型号:'+(p.model||'')+' | 单位:'+(p.unit||'件')+' | 单位数量:'+p.unitQuantity+'</p><p>默认状态:'+statusText+'</p><p>备注:'+(p.remark||'')+'</p><p>先发标识:'+(p.isPriority?'是':'否')+'</p><p>总件数:'+info.pieces+(p.unit||'件')+'</p><p>存储仓位:'+usedLocs.length+' | 中转仓:'+transitCount+'</p><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button><button class="btn btn-primary" onclick="closeModal();showEditProductModal('+p.id+')">编辑</button><button class="btn btn-danger" onclick="closeModal();deleteProduct('+p.id+')">删除</button></div>');}
 function showEditProductModal(id){const p=db.products.find(x=>x.id===id);if(!p)return;openModal('<h2>✏️ 编辑产品</h2><div class="form-group"><label>名称</label><input id="editName" value="'+(p.name||'')+'"></div><div class="form-group"><label>型号</label><input id="editModel" value="'+(p.model||'')+'"></div><div class="form-group"><label>单位</label><input id="editUnit" value="'+(p.unit||'件')+'"></div><div class="form-group"><label>单位数量</label><input type="number" id="editUnitQuantity" value="'+p.unitQuantity+'"></div><div class="form-group"><label>备注</label><textarea id="editRemark">'+(p.remark||'')+'</textarea></div><div class="form-group"><label>默认状态</label><select id="editStatus"><option value="green"'+(p.status==='green'?' selected':'')+'>🟢 绿色（优先）</option><option value="yellow"'+(p.status==='yellow'?' selected':'')+'>🟡 黄色</option><option value="red"'+(p.status==='red'?' selected':'')+'>🔴 红色（最后）</option></select></div><div class="form-group"><label>先发标识</label><input type="checkbox" id="editPriority"'+(p.isPriority?' checked':'')+'></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="updateProduct('+id+')">保存</button></div>');}
 function updateProduct(id){const nd=JSON.parse(JSON.stringify(db));const p=nd.products.find(x=>x.id===id);p.name=document.getElementById('editName').value.trim();p.model=document.getElementById('editModel').value.trim();p.unit=document.getElementById('editUnit').value.trim();p.unitQuantity=parseInt(document.getElementById('editUnitQuantity').value)||1;p.remark=document.getElementById('editRemark').value.trim();p.status=document.getElementById('editStatus').value;p.isPriority=document.getElementById('editPriority')?.checked||false;saveDB(nd);closeModal();showToast('已更新','success');}
@@ -789,335 +345,17 @@ function deleteProduct(id){if(db.locations.some(l=>l.productId===id&&l.status===
 function toggleLocationBatchMode(){locationBatchMode=!locationBatchMode;if(!locationBatchMode){selectedLocations.clear();document.getElementById('locationBatchToolbar').classList.remove('active');}else document.getElementById('locationBatchToolbar').classList.add('active');renderGrid();}
 function toggleLocationSelect(id,ev){if(ev)ev.stopPropagation();if(selectedLocations.has(id))selectedLocations.delete(id);else selectedLocations.add(id);renderGrid();}
 function exitLocationBatchMode(){selectedLocations.clear();locationBatchMode=false;document.getElementById('locationBatchToolbar').classList.remove('active');renderGrid();}
-function batchStockInLocations(){
-  if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
-  const empty=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='normal');
-  if(empty.length===0){showToast('没有空库位','error');return;}
-  const sortedEmpty=empty.map(id=>db.locations.find(l=>l.id===id)).sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});
-  const today=lastBatchNo||new Date().toISOString().slice(0,10);
-  let opts=db.products.map(p=>'<option value="'+p.id+'">'+(p.name||'未知产品')+' ('+(p.model||'')+')</option>').join('');
-  let batchRowsHtml='';
-  sortedEmpty.forEach(loc=>{
-    const zone=db.zones.find(z=>z.id===loc.zoneId);
-    const locName=zone.name+' '+getRowDisplayLabel(zone,loc.rowNum)+'排'+getDisplayColNumber(zone,loc.colNum)+'托';
-    batchRowsHtml+=`<div style="margin-bottom:10px;">
-      <div style="font-size:12px;margin-bottom:4px;">${locName}</div>
-      ${buildBatchDateSelectHtml('batchNo_'+loc.id, today)}
-    </div>`;
-  });
-  openModal('<h2>批量入库</h2><p>已选 '+sortedEmpty.length+' 个空库位，按顺序添加，可分别设置批次日期：</p><div style="background:#f8f9fa;padding:6px;border-radius:4px;margin-bottom:10px;max-height:280px;overflow-y:auto">'+batchRowsHtml+'</div><div class="form-group"><label>产品</label><select id="batchStockProduct">'+opts+'</select></div><div class="form-group"><label>方式</label><select id="batchStockType" onchange="toggleBatchStockType()"><option value="unit">按单位数量</option><option value="custom">自定义件数</option></select></div><div class="form-group" id="batchUnitQtyGroup"><label>单位数量</label><input type="number" id="batchStockQty" min="0.01" step="any" value="1"></div><div class="form-group" id="batchCustomPiecesGroup" style="display:none"><label>件数</label><input type="number" id="batchStockCustomPieces" min="1" step="1" value="1"></div><div class="form-group"><label>备注</label><textarea id="batchStockRemark"></textarea></div><div class="form-group"><label>记录手帐</label><input type="checkbox" id="batchHandAccount"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-success" onclick="confirmBatchStockIn()">确认</button></div>');
-}
+function batchStockInLocations(){if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}const empty=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='normal');if(empty.length===0){showToast('没有空库位','error');return;}const sortedEmpty=empty.map(id=>db.locations.find(l=>l.id===id)).sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});const today=lastBatchNo||new Date().toISOString().slice(0,10);let opts=db.products.map(p=>'<option value="'+p.id+'">'+(p.name||'未知产品')+' ('+(p.model||'')+')</option>').join('');let batchRowsHtml='';sortedEmpty.forEach(loc=>{const zone=db.zones.find(z=>z.id===loc.zoneId);const locName=zone.name+' '+getRowDisplayLabel(zone,loc.rowNum)+'排'+getDisplayColNumber(zone,loc.colNum)+'托';batchRowsHtml+=`<div style="margin-bottom:10px;"><div style="font-size:12px;margin-bottom:4px;">${locName}</div>${buildBatchDateSelectHtml('batchNo_'+loc.id,today)}</div>`;});openModal('<h2>批量入库</h2><p>已选 '+sortedEmpty.length+' 个空库位，按顺序添加，可分别设置批次日期：</p><div style="background:#f8f9fa;padding:6px;border-radius:4px;margin-bottom:10px;max-height:280px;overflow-y:auto">'+batchRowsHtml+'</div><div class="form-group"><label>产品</label><select id="batchStockProduct">'+opts+'</select></div><div class="form-group"><label>方式</label><select id="batchStockType" onchange="toggleBatchStockType()"><option value="unit">按单位数量</option><option value="custom">自定义件数</option></select></div><div class="form-group" id="batchUnitQtyGroup"><label>单位数量</label><input type="number" id="batchStockQty" min="0.01" step="any" value="1"></div><div class="form-group" id="batchCustomPiecesGroup" style="display:none"><label>件数</label><input type="number" id="batchStockCustomPieces" min="1" step="1" value="1"></div><div class="form-group"><label>备注</label><textarea id="batchStockRemark"></textarea></div><div class="form-group"><label>记录手帐</label><input type="checkbox" id="batchHandAccount"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-success" onclick="confirmBatchStockIn()">确认</button></div>');}
 function toggleBatchStockType(){const t=document.getElementById('batchStockType').value;document.getElementById('batchUnitQtyGroup').style.display=t==='unit'?'block':'none';document.getElementById('batchCustomPiecesGroup').style.display=t==='custom'?'block':'none';}
-function confirmBatchStockIn(){
-  const pid=parseInt(document.getElementById('batchStockProduct').value);
-  const remark=document.getElementById('batchStockRemark').value.trim();
-  const type=document.getElementById('batchStockType').value;
-  const handAccount=document.getElementById('batchHandAccount')?.checked||false;
-  const product=db.products.find(p=>p.id===pid);
-  if(!product){showToast('产品不存在','error');return;}
-  let qty=0,cp=0;
-  if(type==='unit'){qty=parseFloat(document.getElementById('batchStockQty').value);if(!qty||qty<=0){showToast('无效','error');return;}}
-  else{cp=parseInt(document.getElementById('batchStockCustomPieces').value);if(!Number.isInteger(cp)||cp<1){showToast('无效','error');return;}}
-  const empty=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='normal');
-  const sortedEmpty=empty.map(id=>db.locations.find(l=>l.id===id)).sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});
-  const nd=JSON.parse(JSON.stringify(db));
-  let hasError=false;
-  sortedEmpty.forEach(loc=>{
-    const batch=getBatchDateFromSelects('batchNo_'+loc.id);
-    if(!batch){hasError=true;return;}
-    lastBatchNo=batch;
-    const nl=nd.locations.find(l=>l.id===loc.id);
-    const zone=db.zones.find(z=>z.id===loc.zoneId);
-    nl.status='used';nl.productId=pid;nl.batchNo=batch;nl.remark=remark;nl.handAccount=handAccount;nl.updatedAt=new Date().toISOString();nl.inboundTime=new Date().toISOString();nl.productStatus=null;nl.ticketAttached=false;
-    if(type==='unit'){nl.quantity=qty;nl.customPieces=0;}
-    else{nl.quantity=0;nl.customPieces=cp;}
-    addRecord(nd,'入库',product,nl,zone,qty,cp,remark,null,null,loc.id);
-  });
-  if(hasError){showToast('批次日期不完整','error');return;}
-  saveDB(nd);closeModal();
-  selectedLocations.clear();
-  if(locationBatchMode) renderGrid();
-  showToast('批量入库成功','success');
-}
-function batchDeleteLocations(){
-  if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
-  const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');
-  if(used.length===0){showToast('没有已用库位','error');return;}
-  if(!confirm('批量删除选中的已用库位产品，并删除其入库记录？'))return;
-  const nd=JSON.parse(JSON.stringify(db));
-  used.forEach(lid=>{const loc=nd.locations.find(l=>l.id===lid);const orig=db.locations.find(l=>l.id===lid);const product=db.products.find(p=>p.id===orig.productId);if(product){nd.records=nd.records.filter(r=>!(r.locationId===lid && r.type==='入库' && r.productId===product.id));}loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.inboundTime=null;loc.productStatus=null;loc.ticketAttached=false;});
-  saveDB(nd);
-  selectedLocations.clear();
-  if(locationBatchMode) renderGrid();
-  showToast('批量删除成功','success');
-}
-function batchAddToTransit(){
-  if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
-  const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');
-  if(used.length===0){showToast('没有已用库位','error');return;}
-  if(!confirm('将选中的 '+used.length+' 个已用库位产品全部加入中转仓？'))return;
-  const nd=JSON.parse(JSON.stringify(db));
-  used.forEach(lid=>{const loc=nd.locations.find(l=>l.id===lid);const orig=db.locations.find(l=>l.id===lid);const product=db.products.find(p=>p.id===orig.productId);const zone=db.zones.find(z=>z.id===orig.zoneId);if(!product||!zone)return;const transitEntry={id:nd.nextTransitId++,productId:orig.productId,batchNo:orig.batchNo,quantity:orig.quantity,customPieces:orig.customPieces,remark:orig.remark,handAccount:orig.handAccount,updatedAt:new Date().toISOString(),sourceLocationId:orig.id,transferFlag:true,priorityFlag:orig.priorityFlag,inboundTime:orig.inboundTime||null,productStatus:orig.productStatus||null,ticketAttached:!!orig.ticketAttached};nd.transit.push(transitEntry);loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.inboundTime=null;loc.productStatus=null;loc.ticketAttached=false;addRecord(nd,'加入中转仓',product,{...orig,rowNum:orig.rowNum,colNum:orig.colNum},zone,orig.quantity,orig.customPieces,'批量加入中转仓',null,null,orig.id);});
-  saveDB(nd);
-  selectedLocations.clear();
-  if(locationBatchMode) renderGrid();
-  showToast('批量加入中转仓成功','success');
-}
-function batchShipOutLocations(){
-  if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
-  const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');
-  if(used.length===0){showToast('没有已用库位','error');return;}
-  if(!confirm('将选中的 '+used.length+' 个已用库位全部发货？'))return;
-  const nd=JSON.parse(JSON.stringify(db));
-  used.forEach(lid=>{
-    const loc=nd.locations.find(l=>l.id===lid);
-    const orig=db.locations.find(l=>l.id===lid);
-    const product=db.products.find(p=>p.id===orig.productId);
-    const zone=db.zones.find(z=>z.id===orig.zoneId);
-    if(!product||!zone)return;
-    const isCustom=orig.customPieces>0;
-    addRecord(nd,'发货',product,orig,zone,isCustom?0:orig.quantity,isCustom?orig.customPieces:0,'批量一键发货',null,null,orig.id);
-    loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.inboundTime=null;loc.productStatus=null;loc.ticketAttached=false;
-  });
-  saveDB(nd);
-  selectedLocations.clear();
-  if(locationBatchMode) renderGrid();
-  showToast('批量发货成功','success');
-}
-function batchMigrateLocations(){
-  if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
-  const usedLocs=[...selectedLocations]
-    .map(id=>db.locations.find(l=>l.id===id))
-    .filter(l=>l && l.status==='used')
-    .sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});
-  if(usedLocs.length===0){showToast('没有已用库位','error');return;}
-  const emptyLocs=sortLocationsForDisplay(db.locations.filter(l=>l.status==='normal'));
-  if(emptyLocs.length<usedLocs.length){showToast('空库位不足（需 '+usedLocs.length+' 个）','error');return;}
-  let sourceListHtml='';
-  usedLocs.forEach((l,i)=>{
-    const zone=db.zones.find(z=>z.id===l.zoneId);
-    const p=db.products.find(x=>x.id===l.productId);
-    sourceListHtml+=`<div style="font-size:11px;padding:2px 0;">${i+1}. ${zone?.name||''} ${getRowDisplayLabel(zone,l.rowNum)}排${getDisplayColNumber(zone,l.colNum)}托 → ${p?.name||'未知'}</div>`;
-  });
-  let targetRowsHtml='';
-  usedLocs.forEach((l,i)=>{
-    const opts=emptyLocs.map(t=>{
-      const z=db.zones.find(x=>x.id===t.zoneId);
-      const label=z?.name+' '+getRowDisplayLabel(z,t.rowNum)+'排'+getDisplayColNumber(z,t.colNum)+'托';
-      return `<option value="${t.id}">${label}</option>`;
-    }).join('');
-    targetRowsHtml+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-      <span style="flex:0 0 90px;font-size:11px;color:#5f6368;">第${i+1}个目标</span>
-      <select id="batchMigrateTarget_${l.id}" style="flex:1;">${opts}</select>
-    </div>`;
-  });
-  let zoneOpts='<option value="">-- 不指定，手动选择 --</option>';
-  db.zones.forEach(z=>{ zoneOpts+=`<option value="${z.id}">${z.name}</option>`; });
-  openModal(
-    '<h2>🔄 批量迁移</h2>'+
-    '<p style="font-size:12px;color:#5f6368;">已选 '+usedLocs.length+' 个已用库位，空位充足（共 '+emptyLocs.length+' 个空位）。</p>'+
-    '<div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px;max-height:140px;overflow-y:auto;">'+sourceListHtml+'</div>'+
-    '<div class="form-group"><label>统一迁移到区域（可选，选择后自动分配该区域的空位）</label>'+
-      '<select id="batchMigrateZone" onchange="onBatchMigrateZoneChange()">'+zoneOpts+'</select>'+
-    '</div>'+
-    '<div id="batchMigrateManualBlock">'+
-      '<div class="form-group"><label>手动指定每个产品的目标库位</label>'+targetRowsHtml+'</div>'+
-    '</div>'+
-    '<div class="form-group"><label>是否保留标记（手帐/先发/状态/贴票）</label><input type="checkbox" id="batchMigrateKeepFlags" checked></div>'+
-    '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button>'+
-    '<button class="btn btn-primary" onclick="confirmBatchMigrate()">确认批量迁移</button></div>'
-  );
-}
-function onBatchMigrateZoneChange(){
-  const zoneId=document.getElementById('batchMigrateZone').value;
-  const block=document.getElementById('batchMigrateManualBlock');
-  if(!block) return;
-  block.style.display = zoneId ? 'none' : 'block';
-}
-function confirmBatchMigrate(){
-  if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
-  const keepFlags = document.getElementById('batchMigrateKeepFlags')?.checked ?? true;
-  const zoneId = document.getElementById('batchMigrateZone')?.value || '';
-  const usedLocs=[...selectedLocations]
-    .map(id=>db.locations.find(l=>l.id===id))
-    .filter(l=>l && l.status==='used')
-    .sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});
-  if(usedLocs.length===0){showToast('没有已用库位','error');return;}
-  const nd=JSON.parse(JSON.stringify(db));
-  let autoTargets=[];
-  if(zoneId){
-    autoTargets = sortLocationsForDisplay(nd.locations.filter(l=>l.status==='normal' && String(l.zoneId)===String(zoneId)));
-    if(autoTargets.length<usedLocs.length){showToast('该区域空位不足','error');return;}
-  }
-  const targetIds=new Set();
-  if(!zoneId){
-    for(const src of usedLocs){
-      const sel=document.getElementById('batchMigrateTarget_'+src.id);
-      if(!sel) continue;
-      const tid=parseInt(sel.value);
-      if(!tid){showToast('请为每个产品选择目标库位','error');return;}
-      if(targetIds.has(tid)){showToast('目标库位不能重复','error');return;}
-      const t=nd.locations.find(l=>l.id===tid);
-      if(!t||t.status!=='normal'){showToast('目标库位必须为空','error');return;}
-      targetIds.add(tid);
-    }
-  }
-  let movedCount=0;
-  usedLocs.forEach((src,idx)=>{
-    const ns=nd.locations.find(l=>l.id===src.id);
-    if(!ns||ns.status!=='used') return;
-    let targetId;
-    if(zoneId){ targetId = autoTargets[idx]?.id; }
-    else{ targetId = parseInt(document.getElementById('batchMigrateTarget_'+src.id).value); }
-    const nt=nd.locations.find(l=>l.id===targetId);
-    if(!nt||nt.status!=='normal') return;
-    nt.status='used';
-    nt.productId=ns.productId;
-    nt.batchNo=ns.batchNo;
-    nt.quantity=ns.quantity;
-    nt.customPieces=ns.customPieces;
-    nt.remark=ns.remark;
-    nt.handAccount=keepFlags ? ns.handAccount : false;
-    nt.updatedAt=new Date().toISOString();
-    nt.transferFlag=true;
-    nt.priorityFlag=keepFlags ? ns.priorityFlag : false;
-    nt.inboundTime=ns.inboundTime;
-    nt.productStatus=keepFlags ? ns.productStatus : null;
-    nt.ticketAttached=keepFlags ? ns.ticketAttached : false;
-    ns.status='normal';ns.productId=null;ns.batchNo=null;ns.quantity=0;ns.customPieces=0;ns.remark='';ns.handAccount=false;ns.updatedAt=null;ns.transferFlag=false;ns.priorityFlag=false;ns.inboundTime=null;ns.productStatus=null;ns.ticketAttached=false;
-    const product=nd.products.find(p=>p.id===nt.productId);
-    const srcZone=nd.zones.find(z=>z.id===src.zoneId);
-    const dstZone=nd.zones.find(z=>z.id===nt.zoneId);
-    if(product){
-      const rec = addRecord(nd,'迁移',product,nt,srcZone,0,0,'批量迁移 '+srcZone?.name+'→'+dstZone?.name,dstZone?.name,getRowDisplayLabel(dstZone,nt.rowNum)+'排'+getDisplayColNumber(dstZone,nt.colNum)+'托',nt.id);
-      if(rec) rec.sourceLocationId = src.id;
-    }
-    movedCount++;
-  });
-  saveDB(nd);closeModal();
-  selectedLocations.clear();
-  if(locationBatchMode) renderGrid();
-  showToast('已批量迁移 '+movedCount+' 个产品','success');
-}
-function batchHorizontalMoveLocations(){
-  if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
-  const usedLocs=[...selectedLocations]
-    .map(id=>db.locations.find(l=>l.id===id))
-    .filter(l=>l && l.status==='used');
-  if(usedLocs.length===0){showToast('没有已用库位','error');return;}
-  let sourceListHtml='';
-  usedLocs
-    .sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;})
-    .forEach((l,i)=>{
-      const zone=db.zones.find(z=>z.id===l.zoneId);
-      const p=db.products.find(x=>x.id===l.productId);
-      sourceListHtml+=`<div style="font-size:11px;padding:2px 0;">${i+1}. ${zone?.name||''} ${getRowDisplayLabel(zone,l.rowNum)}排${getDisplayColNumber(zone,l.colNum)}托 → ${p?.name||'未知'}</div>`;
-    });
-  openModal(
-    '<h2>↔️ 批量横移</h2>'+
-    '<p style="font-size:12px;color:#5f6368;">已选 '+usedLocs.length+' 个已用库位，产品将在各自所在的排内左右平移。</p>'+
-    '<div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px;max-height:140px;overflow-y:auto;">'+sourceListHtml+'</div>'+
-    '<div class="form-group"><label>移动方向</label>'+
-      '<select id="batchMoveDirection">'+
-        '<option value="right">向右移动（列号增大方向）</option>'+
-        '<option value="left">向左移动（列号减小方向）</option>'+
-      '</select>'+
-    '</div>'+
-    '<div class="form-group"><label>移动步数</label>'+
-      '<input type="number" id="batchMoveSteps" min="1" step="1" value="1">'+
-    '</div>'+
-    '<div class="form-group"><label>是否保留标记（手帐/先发/状态/贴票）</label><input type="checkbox" id="batchMoveKeepFlags" checked></div>'+
-    '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button>'+
-    '<button class="btn btn-primary" onclick="confirmBatchHorizontalMove()">确认横移</button></div>'
-  );
-}
-function confirmBatchHorizontalMove(){
-  if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}
-  const direction=document.getElementById('batchMoveDirection').value;
-  const steps=parseInt(document.getElementById('batchMoveSteps').value);
-  const keepFlags=document.getElementById('batchMoveKeepFlags')?.checked ?? true;
-  if(!steps||steps<1){showToast('步数无效','error');return;}
-  const usedLocs=[...selectedLocations]
-    .map(id=>db.locations.find(l=>l.id===id))
-    .filter(l=>l && l.status==='used')
-    .sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});
-  if(usedLocs.length===0){showToast('没有已用库位','error');return;}
-  const nd=JSON.parse(JSON.stringify(db));
-  const clearedIds = new Set(usedLocs.map(l=>l.id));
-  const plan=[];
-  const targetDupSet = new Set();
-  let skipped=0;
-  for(const src of usedLocs){
-    const zone=nd.zones.find(z=>z.id===src.zoneId);
-    if(!zone) {skipped++; continue;}
-    const rowCols = zone.rowDetails ? (zone.rowDetails[src.rowNum-1]||zone.cols) : zone.cols;
-    const displayCols = getDisplayColArray({...zone, cols:rowCols}, src.rowNum);
-    const curDisplayIdx = displayCols.indexOf(src.colNum);
-    if(curDisplayIdx===-1){skipped++; continue;}
-    const targetDisplayIdx = direction==='right' ? curDisplayIdx + steps : curDisplayIdx - steps;
-    if(targetDisplayIdx<0 || targetDisplayIdx>=displayCols.length){skipped++; continue;}
-    const targetCol = displayCols[targetDisplayIdx];
-    const dst = nd.locations.find(l=>l.zoneId===src.zoneId && l.rowNum===src.rowNum && l.colNum===targetCol);
-    if(!dst){skipped++; continue;}
-    const occupiedNow = dst.status==='used' && !clearedIds.has(dst.id);
-    if(occupiedNow){skipped++; continue;}
-    if(targetDupSet.has(dst.id)){skipped++; continue;}
-    targetDupSet.add(dst.id);
-    plan.push({srcId:src.id, dstId:dst.id});
-  }
-  if(plan.length===0){showToast('没有可横移的产品（越界或目标被占用）','error');return;}
-  const srcSnapshots = plan.map(p=>{
-    const s=nd.locations.find(l=>l.id===p.srcId);
-    return {
-      srcId:p.srcId, dstId:p.dstId,
-      snapshot:{
-        productId:s.productId, batchNo:s.batchNo, quantity:s.quantity, customPieces:s.customPieces,
-        remark:s.remark, handAccount:s.handAccount, transferFlag:s.transferFlag, priorityFlag:s.priorityFlag,
-        inboundTime:s.inboundTime, productStatus:s.productStatus, ticketAttached:s.ticketAttached
-      },
-      srcRow:s.rowNum, srcZoneId:s.zoneId
-    };
-  });
-  plan.forEach(p=>{
-    const s=nd.locations.find(l=>l.id===p.srcId);
-    if(!s) return;
-    s.status='normal'; s.productId=null; s.batchNo=null; s.quantity=0; s.customPieces=0;
-    s.remark=''; s.handAccount=false; s.updatedAt=null; s.transferFlag=false; s.priorityFlag=false;
-    s.inboundTime=null; s.productStatus=null; s.ticketAttached=false;
-  });
-  let movedCount=0;
-  srcSnapshots.forEach(item=>{
-    const d=nd.locations.find(l=>l.id===item.dstId);
-    if(!d||d.status!=='normal') return;
-    d.status='used';
-    d.productId=item.snapshot.productId;
-    d.batchNo=item.snapshot.batchNo;
-    d.quantity=item.snapshot.quantity;
-    d.customPieces=item.snapshot.customPieces;
-    d.remark=item.snapshot.remark;
-    d.handAccount=keepFlags?item.snapshot.handAccount:false;
-    d.updatedAt=new Date().toISOString();
-    d.transferFlag=true;
-    d.priorityFlag=keepFlags?item.snapshot.priorityFlag:false;
-    d.inboundTime=item.snapshot.inboundTime;
-    d.productStatus=keepFlags?item.snapshot.productStatus:null;
-    d.ticketAttached=keepFlags?item.snapshot.ticketAttached:false;
-    const product=nd.products.find(p=>p.id===d.productId);
-    const srcZone=nd.zones.find(z=>z.id===item.srcZoneId);
-    const dstZone=nd.zones.find(z=>z.id===d.zoneId);
-    if(product){
-      const rec = addRecord(nd,'迁移',product,d,srcZone,0,0,'批量横移（'+(direction==='right'?'右':'左')+steps+'）'+srcZone?.name+'→'+dstZone?.name,dstZone?.name,getRowDisplayLabel(dstZone,d.rowNum)+'排'+getDisplayColNumber(dstZone,d.colNum)+'托',d.id);
-      if(rec) rec.sourceLocationId = item.srcId;
-    }
-    movedCount++;
-  });
-  saveDB(nd);closeModal();
-  selectedLocations.clear();
-  if(locationBatchMode) renderGrid();
-  let msg='已横移 '+movedCount+' 个产品';
-  if(skipped>0) msg+='，跳过 '+skipped+' 个（越界或目标占用）';
-  showToast(msg,'success');
-}
+function confirmBatchStockIn(){const pid=parseInt(document.getElementById('batchStockProduct').value);const remark=document.getElementById('batchStockRemark').value.trim();const type=document.getElementById('batchStockType').value;const handAccount=document.getElementById('batchHandAccount')?.checked||false;const product=db.products.find(p=>p.id===pid);if(!product){showToast('产品不存在','error');return;}let qty=0,cp=0;if(type==='unit'){qty=parseFloat(document.getElementById('batchStockQty').value);if(!qty||qty<=0){showToast('无效','error');return;}}else{cp=parseInt(document.getElementById('batchStockCustomPieces').value);if(!Number.isInteger(cp)||cp<1){showToast('无效','error');return;}}const empty=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='normal');const sortedEmpty=empty.map(id=>db.locations.find(l=>l.id===id)).sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});const nd=JSON.parse(JSON.stringify(db));let hasError=false;sortedEmpty.forEach(loc=>{const batch=getBatchDateFromSelects('batchNo_'+loc.id);if(!batch){hasError=true;return;}lastBatchNo=batch;const nl=nd.locations.find(l=>l.id===loc.id);const zone=db.zones.find(z=>z.id===loc.zoneId);nl.status='used';nl.productId=pid;nl.batchNo=batch;nl.remark=remark;nl.handAccount=handAccount;nl.updatedAt=new Date().toISOString();nl.inboundTime=new Date().toISOString();nl.productStatus=null;nl.ticketAttached=false;if(type==='unit'){nl.quantity=qty;nl.customPieces=0;}else{nl.quantity=0;nl.customPieces=cp;}addRecord(nd,'入库',product,nl,zone,qty,cp,remark,null,null,loc.id);});if(hasError){showToast('批次日期不完整','error');return;}saveDB(nd);closeModal();selectedLocations.clear();if(locationBatchMode)renderGrid();showToast('批量入库成功','success');}
+function batchDeleteLocations(){if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');if(used.length===0){showToast('没有已用库位','error');return;}if(!confirm('批量删除选中的已用库位产品，并删除其入库记录？'))return;const nd=JSON.parse(JSON.stringify(db));used.forEach(lid=>{const loc=nd.locations.find(l=>l.id===lid);const orig=db.locations.find(l=>l.id===lid);const product=db.products.find(p=>p.id===orig.productId);if(product){nd.records=nd.records.filter(r=>!(r.locationId===lid&&r.type==='入库'&&r.productId===product.id));}loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.inboundTime=null;loc.productStatus=null;loc.ticketAttached=false;});saveDB(nd);selectedLocations.clear();if(locationBatchMode)renderGrid();showToast('批量删除成功','success');}
+function batchAddToTransit(){if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');if(used.length===0){showToast('没有已用库位','error');return;}if(!confirm('将选中的 '+used.length+' 个已用库位产品全部加入中转仓？'))return;const nd=JSON.parse(JSON.stringify(db));used.forEach(lid=>{const loc=nd.locations.find(l=>l.id===lid);const orig=db.locations.find(l=>l.id===lid);const product=db.products.find(p=>p.id===orig.productId);const zone=db.zones.find(z=>z.id===orig.zoneId);if(!product||!zone)return;const transitEntry={id:nd.nextTransitId++,productId:orig.productId,batchNo:orig.batchNo,quantity:orig.quantity,customPieces:orig.customPieces,remark:orig.remark,handAccount:orig.handAccount,updatedAt:new Date().toISOString(),sourceLocationId:orig.id,transferFlag:true,priorityFlag:orig.priorityFlag,inboundTime:orig.inboundTime||null,productStatus:orig.productStatus||null,ticketAttached:!!orig.ticketAttached};nd.transit.push(transitEntry);loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.inboundTime=null;loc.productStatus=null;loc.ticketAttached=false;addRecord(nd,'加入中转仓',product,{...orig,rowNum:orig.rowNum,colNum:orig.colNum},zone,orig.quantity,orig.customPieces,'批量加入中转仓',null,null,orig.id);});saveDB(nd);selectedLocations.clear();if(locationBatchMode)renderGrid();showToast('批量加入中转仓成功','success');}
+function batchShipOutLocations(){if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}const used=[...selectedLocations].filter(id=>db.locations.find(l=>l.id===id)?.status==='used');if(used.length===0){showToast('没有已用库位','error');return;}if(!confirm('将选中的 '+used.length+' 个已用库位全部发货？'))return;const nd=JSON.parse(JSON.stringify(db));used.forEach(lid=>{const loc=nd.locations.find(l=>l.id===lid);const orig=db.locations.find(l=>l.id===lid);const product=db.products.find(p=>p.id===orig.productId);const zone=db.zones.find(z=>z.id===orig.zoneId);if(!product||!zone)return;const isCustom=orig.customPieces>0;addRecord(nd,'发货',product,orig,zone,isCustom?0:orig.quantity,isCustom?orig.customPieces:0,'批量一键发货',null,null,orig.id);loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.inboundTime=null;loc.productStatus=null;loc.ticketAttached=false;});saveDB(nd);selectedLocations.clear();if(locationBatchMode)renderGrid();showToast('批量发货成功','success');}
+function batchMigrateLocations(){if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}const usedLocs=[...selectedLocations].map(id=>db.locations.find(l=>l.id===id)).filter(l=>l&&l.status==='used').sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});if(usedLocs.length===0){showToast('没有已用库位','error');return;}const emptyLocs=sortLocationsForDisplay(db.locations.filter(l=>l.status==='normal'));if(emptyLocs.length<usedLocs.length){showToast('空库位不足（需 '+usedLocs.length+' 个）','error');return;}let sourceListHtml='';usedLocs.forEach((l,i)=>{const zone=db.zones.find(z=>z.id===l.zoneId);const p=db.products.find(x=>x.id===l.productId);sourceListHtml+=`<div style="font-size:11px;padding:2px 0;">${i+1}. ${zone?.name||''} ${getRowDisplayLabel(zone,l.rowNum)}排${getDisplayColNumber(zone,l.colNum)}托 → ${p?.name||'未知'}</div>`;});let targetRowsHtml='';usedLocs.forEach((l,i)=>{const opts=emptyLocs.map(t=>{const z=db.zones.find(x=>x.id===t.zoneId);const label=z?.name+' '+getRowDisplayLabel(z,t.rowNum)+'排'+getDisplayColNumber(z,t.colNum)+'托';return `<option value="${t.id}">${label}</option>`;}).join('');targetRowsHtml+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span style="flex:0 0 90px;font-size:11px;color:#5f6368;">第${i+1}个目标</span><select id="batchMigrateTarget_${l.id}" style="flex:1;">${opts}</select></div>`;});let zoneOpts='<option value="">-- 不指定，手动选择 --</option>';db.zones.forEach(z=>{zoneOpts+=`<option value="${z.id}">${z.name}</option>`;});openModal('<h2>🔄 批量迁移</h2><p style="font-size:12px;color:#5f6368;">已选 '+usedLocs.length+' 个已用库位，空位充足（共 '+emptyLocs.length+' 个空位）。</p><div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px;max-height:140px;overflow-y:auto;">'+sourceListHtml+'</div><div class="form-group"><label>统一迁移到区域（可选，选择后自动分配该区域的空位）</label><select id="batchMigrateZone" onchange="onBatchMigrateZoneChange()">'+zoneOpts+'</select></div><div id="batchMigrateManualBlock"><div class="form-group"><label>手动指定每个产品的目标库位</label>'+targetRowsHtml+'</div></div><div class="form-group"><label>是否保留标记（手帐/先发/状态/贴票）</label><input type="checkbox" id="batchMigrateKeepFlags" checked></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmBatchMigrate()">确认批量迁移</button></div>');}
+function onBatchMigrateZoneChange(){const zoneId=document.getElementById('batchMigrateZone').value;const block=document.getElementById('batchMigrateManualBlock');if(!block)return;block.style.display=zoneId?'none':'block';}
+function confirmBatchMigrate(){if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}const keepFlags=document.getElementById('batchMigrateKeepFlags')?.checked??true;const zoneId=document.getElementById('batchMigrateZone')?.value||'';const usedLocs=[...selectedLocations].map(id=>db.locations.find(l=>l.id===id)).filter(l=>l&&l.status==='used').sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});if(usedLocs.length===0){showToast('没有已用库位','error');return;}const nd=JSON.parse(JSON.stringify(db));let autoTargets=[];if(zoneId){autoTargets=sortLocationsForDisplay(nd.locations.filter(l=>l.status==='normal'&&String(l.zoneId)===String(zoneId)));if(autoTargets.length<usedLocs.length){showToast('该区域空位不足','error');return;}}const targetIds=new Set();if(!zoneId){for(const src of usedLocs){const sel=document.getElementById('batchMigrateTarget_'+src.id);if(!sel)continue;const tid=parseInt(sel.value);if(!tid){showToast('请为每个产品选择目标库位','error');return;}if(targetIds.has(tid)){showToast('目标库位不能重复','error');return;}const t=nd.locations.find(l=>l.id===tid);if(!t||t.status!=='normal'){showToast('目标库位必须为空','error');return;}targetIds.add(tid);}}let movedCount=0;usedLocs.forEach((src,idx)=>{const ns=nd.locations.find(l=>l.id===src.id);if(!ns||ns.status!=='used')return;let targetId;if(zoneId){targetId=autoTargets[idx]?.id;}else{targetId=parseInt(document.getElementById('batchMigrateTarget_'+src.id).value);}const nt=nd.locations.find(l=>l.id===targetId);if(!nt||nt.status!=='normal')return;nt.status='used';nt.productId=ns.productId;nt.batchNo=ns.batchNo;nt.quantity=ns.quantity;nt.customPieces=ns.customPieces;nt.remark=ns.remark;nt.handAccount=keepFlags?ns.handAccount:false;nt.updatedAt=new Date().toISOString();nt.transferFlag=true;nt.priorityFlag=keepFlags?ns.priorityFlag:false;nt.inboundTime=ns.inboundTime;nt.productStatus=keepFlags?ns.productStatus:null;nt.ticketAttached=keepFlags?ns.ticketAttached:false;ns.status='normal';ns.productId=null;ns.batchNo=null;ns.quantity=0;ns.customPieces=0;ns.remark='';ns.handAccount=false;ns.updatedAt=null;ns.transferFlag=false;ns.priorityFlag=false;ns.inboundTime=null;ns.productStatus=null;ns.ticketAttached=false;const product=nd.products.find(p=>p.id===nt.productId);const srcZone=nd.zones.find(z=>z.id===src.zoneId);const dstZone=nd.zones.find(z=>z.id===nt.zoneId);if(product){const rec=addRecord(nd,'迁移',product,nt,srcZone,0,0,'批量迁移 '+srcZone?.name+'→'+dstZone?.name,dstZone?.name,getRowDisplayLabel(dstZone,nt.rowNum)+'排'+getDisplayColNumber(dstZone,nt.colNum)+'托',nt.id);if(rec)rec.sourceLocationId=src.id;}movedCount++;});saveDB(nd);closeModal();selectedLocations.clear();if(locationBatchMode)renderGrid();showToast('已批量迁移 '+movedCount+' 个产品','success');}
+function batchHorizontalMoveLocations(){if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}const usedLocs=[...selectedLocations].map(id=>db.locations.find(l=>l.id===id)).filter(l=>l&&l.status==='used');if(usedLocs.length===0){showToast('没有已用库位','error');return;}let sourceListHtml='';usedLocs.sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;}).forEach((l,i)=>{const zone=db.zones.find(z=>z.id===l.zoneId);const p=db.products.find(x=>x.id===l.productId);sourceListHtml+=`<div style="font-size:11px;padding:2px 0;">${i+1}. ${zone?.name||''} ${getRowDisplayLabel(zone,l.rowNum)}排${getDisplayColNumber(zone,l.colNum)}托 → ${p?.name||'未知'}</div>`;});openModal('<h2>↔️ 批量横移</h2><p style="font-size:12px;color:#5f6368;">已选 '+usedLocs.length+' 个已用库位，产品将在各自所在的排内左右平移。</p><div style="background:#f8f9fa;padding:8px;border-radius:6px;margin-bottom:10px;max-height:140px;overflow-y:auto;">'+sourceListHtml+'</div><div class="form-group"><label>移动方向</label><select id="batchMoveDirection"><option value="right">向右移动（列号增大方向）</option><option value="left">向左移动（列号减小方向）</option></select></div><div class="form-group"><label>移动步数</label><input type="number" id="batchMoveSteps" min="1" step="1" value="1"></div><div class="form-group"><label>是否保留标记（手帐/先发/状态/贴票）</label><input type="checkbox" id="batchMoveKeepFlags" checked></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmBatchHorizontalMove()">确认横移</button></div>');}
+function confirmBatchHorizontalMove(){if(selectedLocations.size===0){showToast('请先勾选库位','error');return;}const direction=document.getElementById('batchMoveDirection').value;const steps=parseInt(document.getElementById('batchMoveSteps').value);const keepFlags=document.getElementById('batchMoveKeepFlags')?.checked??true;if(!steps||steps<1){showToast('步数无效','error');return;}const usedLocs=[...selectedLocations].map(id=>db.locations.find(l=>l.id===id)).filter(l=>l&&l.status==='used').sort((a,b)=>{if(a.zoneId!==b.zoneId)return a.zoneId-b.zoneId;if(a.rowNum!==b.rowNum)return a.rowNum-b.rowNum;return a.colNum-b.colNum;});if(usedLocs.length===0){showToast('没有已用库位','error');return;}const nd=JSON.parse(JSON.stringify(db));const clearedIds=new Set(usedLocs.map(l=>l.id));const plan=[];const targetDupSet=new Set();let skipped=0;for(const src of usedLocs){const zone=nd.zones.find(z=>z.id===src.zoneId);if(!zone){skipped++;continue;}const rowCols=zone.rowDetails?(zone.rowDetails[src.rowNum-1]||zone.cols):zone.cols;const displayCols=getDisplayColArray({...zone,cols:rowCols},src.rowNum);const curDisplayIdx=displayCols.indexOf(src.colNum);if(curDisplayIdx===-1){skipped++;continue;}const targetDisplayIdx=direction==='right'?curDisplayIdx+steps:curDisplayIdx-steps;if(targetDisplayIdx<0||targetDisplayIdx>=displayCols.length){skipped++;continue;}const targetCol=displayCols[targetDisplayIdx];const dst=nd.locations.find(l=>l.zoneId===src.zoneId&&l.rowNum===src.rowNum&&l.colNum===targetCol);if(!dst){skipped++;continue;}const occupiedNow=dst.status==='used'&&!clearedIds.has(dst.id);if(occupiedNow){skipped++;continue;}if(targetDupSet.has(dst.id)){skipped++;continue;}targetDupSet.add(dst.id);plan.push({srcId:src.id,dstId:dst.id});}if(plan.length===0){showToast('没有可横移的产品（越界或目标被占用）','error');return;}const srcSnapshots=plan.map(p=>{const s=nd.locations.find(l=>l.id===p.srcId);return{srcId:p.srcId,dstId:p.dstId,snapshot:{productId:s.productId,batchNo:s.batchNo,quantity:s.quantity,customPieces:s.customPieces,remark:s.remark,handAccount:s.handAccount,transferFlag:s.transferFlag,priorityFlag:s.priorityFlag,inboundTime:s.inboundTime,productStatus:s.productStatus,ticketAttached:s.ticketAttached},srcRow:s.rowNum,srcZoneId:s.zoneId};});plan.forEach(p=>{const s=nd.locations.find(l=>l.id===p.srcId);if(!s)return;s.status='normal';s.productId=null;s.batchNo=null;s.quantity=0;s.customPieces=0;s.remark='';s.handAccount=false;s.updatedAt=null;s.transferFlag=false;s.priorityFlag=false;s.inboundTime=null;s.productStatus=null;s.ticketAttached=false;});let movedCount=0;srcSnapshots.forEach(item=>{const d=nd.locations.find(l=>l.id===item.dstId);if(!d||d.status!=='normal')return;d.status='used';d.productId=item.snapshot.productId;d.batchNo=item.snapshot.batchNo;d.quantity=item.snapshot.quantity;d.customPieces=item.snapshot.customPieces;d.remark=item.snapshot.remark;d.handAccount=keepFlags?item.snapshot.handAccount:false;d.updatedAt=new Date().toISOString();d.transferFlag=true;d.priorityFlag=keepFlags?item.snapshot.priorityFlag:false;d.inboundTime=item.snapshot.inboundTime;d.productStatus=keepFlags?item.snapshot.productStatus:null;d.ticketAttached=keepFlags?item.snapshot.ticketAttached:false;const product=nd.products.find(p=>p.id===d.productId);const srcZone=nd.zones.find(z=>z.id===item.srcZoneId);const dstZone=nd.zones.find(z=>z.id===d.zoneId);if(product){const rec=addRecord(nd,'迁移',product,d,srcZone,0,0,'批量横移（'+(direction==='right'?'右':'左')+steps+'）'+srcZone?.name+'→'+dstZone?.name,dstZone?.name,getRowDisplayLabel(dstZone,d.rowNum)+'排'+getDisplayColNumber(dstZone,d.colNum)+'托',d.id);if(rec)rec.sourceLocationId=item.srcId;}movedCount++;});saveDB(nd);closeModal();selectedLocations.clear();if(locationBatchMode)renderGrid();let msg='已横移 '+movedCount+' 个产品';if(skipped>0)msg+='，跳过 '+skipped+' 个（越界或目标占用）';showToast(msg,'success');}
 // ==================== 库位单元格交互 ====================
 function handleCellClick(lid){
   if(locationBatchMode){toggleLocationSelect(lid,event);return;}
@@ -1262,6 +500,7 @@ function replaceWithNewProduct(lid){
     <div class="form-group"><label>备注</label><textarea id="replaceRemark">${loc.remark}</textarea></div>
     <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmReplaceWithNewProduct(${lid})">确认替换</button></div>`);
 }
+function toggleReplaceQtyType(){const t=document.getElementById('replaceQtyType').value;document.getElementById('replaceUnitQtyGroup').style.display=t==='unit'?'block':'none';document.getElementById('replaceCustomPiecesGroup').style.display=t==='custom'?'block':'none';}
 function confirmReplaceWithNewProduct(lid){
   const nd=JSON.parse(JSON.stringify(db));
   const loc=nd.locations.find(l=>l.id===lid);
@@ -1407,7 +646,6 @@ function showRecords(){
   if(!db||!Array.isArray(db.records)||db.records.length===0){showToast('暂无记录','info');return;}
   const productNames=[...new Set(db.products.map(p=>p.name||'未知产品'))];
 
-  // 卡片式产品多选（桌面端）
   let productCards = '';
   productNames.forEach((n,i)=>{
     const active = recordProductFilters.has(n) ? ' active' : '';
@@ -1443,7 +681,6 @@ function showRecords(){
     '<div id="recTableWrap"></div>'+
     '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
 
-  // 桌面端：产品卡片点击切换
   document.querySelectorAll('#recProductCards .smart-select-card').forEach(card=>{
     card.addEventListener('click',function(e){
       e.stopPropagation();
@@ -1456,7 +693,6 @@ function showRecords(){
       refreshRecordTable();
     });
   });
-  // 手机端：多选 select
   const sel = document.getElementById('recProductSelect');
   if(sel){sel.addEventListener('change',function(){
     recordProductFilters.clear();
@@ -1494,6 +730,16 @@ function refreshRecordTable(){
       '<table class="records-table"><thead><tr><th>操作</th><th>类型</th><th>产品</th><th>型号</th><th>数量</th><th>区域</th><th>仓位</th><th>批次</th><th>去向</th><th>备注</th><th>时间</th></tr></thead><tbody>'+rows+'</tbody></table>'+
     '</div>';
 }
+function applyRecordDateFilter(){
+  recordStartDate = getCalendarValue('recStartCal') || '';
+  recordEndDate = getCalendarValue('recEndCal') || '';
+  refreshRecordTable();
+}
+function clearRecordDateFilter(){
+  recordStartDate = '';
+  recordEndDate = '';
+  showRecords();
+}
 function clearRecordProductFilters(){
   recordProductFilters.clear();
   document.querySelectorAll('#recProductCards .smart-select-card').forEach(c=>c.classList.remove('active'));
@@ -1501,17 +747,7 @@ function clearRecordProductFilters(){
   if(sel){Array.from(sel.options).forEach(o=>o.selected=false);}
   refreshRecordTable();
 }
-function applyRecordDateFilter(){
-  recordStartDate = getCalendarValue('recStartCal') || '';
-  recordEndDate = getCalendarValue('recEndCal') || '';
-  showRecords();
-}
-function clearRecordDateFilter(){
-  recordStartDate = '';
-  recordEndDate = '';
-  showRecords();
-}
-function deleteRecord(recordId){if(!db||!Array.isArray(db.records))return;if(!confirm('确定删除这条记录吗？'))return;const nd=JSON.parse(JSON.stringify(db));nd.records=nd.records.filter(r=>r.id!==recordId);saveDB(nd);showToast('记录已删除','success');showRecords();}
+function deleteRecord(recordId){if(!db||!Array.isArray(db.records))return;if(!confirm('确定删除这条记录吗？'))return;const nd=JSON.parse(JSON.stringify(db));nd.records=nd.records.filter(r=>r.id!==recordId);saveDB(nd);showToast('记录已删除','success');refreshRecordTable();}
 function revokeRecord(recordId){
   if(!db||!Array.isArray(db.records))return;
   const rec=db.records.find(r=>r.id===recordId);
@@ -1524,7 +760,7 @@ function revokeRecord(recordId){
     if(loc.status==='used' && loc.productId===rec.productId){
       loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.inboundTime=null;loc.productStatus=null;loc.ticketAttached=false;
       nd.records=nd.records.filter(r=>r.id!==recordId);
-      saveDB(nd);showToast('已撤回入库操作','success');showRecords();
+      saveDB(nd);showToast('已撤回入库操作','success');refreshRecordTable();
     }else if(loc.status==='normal'){
       showToast('库位已清空，无需撤回','info');
     }else{
@@ -1555,7 +791,7 @@ function revokeRecord(recordId){
       return;
     }
     nd.records=nd.records.filter(r=>r.id!==recordId);
-    saveDB(nd);showToast('已撤回','success');showRecords();
+    saveDB(nd);showToast('已撤回','success');refreshRecordTable();
     return;
   }
   if(rec.type==='迁移'){
@@ -1584,7 +820,7 @@ function revokeRecord(recordId){
     srcLoc.updatedAt=new Date().toISOString();
     dstLoc.status='normal';dstLoc.productId=null;dstLoc.batchNo=null;dstLoc.quantity=0;dstLoc.customPieces=0;dstLoc.remark='';dstLoc.handAccount=false;dstLoc.updatedAt=null;dstLoc.transferFlag=false;dstLoc.priorityFlag=false;dstLoc.inboundTime=null;dstLoc.productStatus=null;dstLoc.ticketAttached=false;
     nd.records=nd.records.filter(r=>r.id!==recordId);
-    saveDB(nd);showToast('已撤回迁移','success');showRecords();
+    saveDB(nd);showToast('已撤回迁移','success');refreshRecordTable();
     return;
   }
   showToast('该类型记录不支持撤回','error');
@@ -2125,7 +1361,7 @@ function renderFifoOrderModal(){
   if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)||!Array.isArray(db.transit)){showToast('数据未加载','info');return;}
   refreshFifoItems();
   if(fifoCombinedItems.length===0 && fifoMode!=='ship'){showToast('无已用仓位或中转仓产品','info');return;}
-  if(fifoCombinedItems.length===0 && fifoMode==='ship'){showToast('无先发标记的库位产品','info');return;}
+  if(fifoCombinedItems.length===0 && fifoMode==='ship'){showToast('无可用库位产品','info');return;}
   fifoProductLocationCount = {};
   fifoCombinedItems.forEach(item=>{const pid = item.productId; fifoProductLocationCount[pid] = (fifoProductLocationCount[pid] || 0) + 1;});
 
@@ -2163,7 +1399,7 @@ function renderFifoOrderModal(){
       '<button class="btn btn-sm '+modeCls('ship')+'" onclick="setFifoMode(\'ship\')">🚚 发货模式</button>'+
     '</div>'+
     '<div class="form-group"><label>分组方式</label><select id="fifoGroupSelect" onchange="fifoGroupBy=this.value;updateFifoContent()"><option value="name"'+(fifoGroupBy==='name'?' selected':'')+'>按名称</option><option value="model"'+(fifoGroupBy==='model'?' selected':'')+'>按型号</option></select></div>'+
-    '<div class="form-group"><label>仓库区域（不选=全部；仅发货模式会限定）</label>'+
+    '<div class="form-group"><label>仓库区域（不选=全部）</label>'+
       '<div class="smart-select-cards" id="fifoZoneCards">'+zoneCardsHtml+'</div>'+
     '</div>'+
     '<div class="form-group"><label>筛选产品（可多选，点击切换）</label>'+
@@ -2219,7 +1455,6 @@ function refreshFifoItems(){
   const zoneFilter = selectedFifoZones.size === 0 ? null : selectedFifoZones;
   db.locations.filter(l=>l.status==='used' && l.batchNo).forEach(loc=>{
     if(zoneFilter && !zoneFilter.has(loc.zoneId)) return;
-    if(fifoMode==='ship' && !loc.priorityFlag) return;
     fifoCombinedItems.push({
       productId: loc.productId, batchNo: loc.batchNo, locationType: 'location', locationId: loc.id,
       zoneId: loc.zoneId, rowNum: loc.rowNum, colNum: loc.colNum, quantity: loc.quantity,
@@ -2259,6 +1494,64 @@ function updateFifoContent(){
   });
   const combinedItems = fifoCombinedItems || [];
   if(combinedItems.length===0){container.innerHTML='<p style="color:#5f6368;text-align:center;padding:16px;">无数据</p>';return;}
+
+  if(fifoMode==='ship'){
+    let items = combinedItems.filter(item=>{
+      if(selectedProductFilters.size>0 && !selectedProductFilters.has(item.productId)) return false;
+      return true;
+    });
+    if(items.length===0){container.innerHTML='<p style="text-align:center;padding:16px;">无匹配产品</p>';return;}
+    const orderMap = new Map();
+    db.products.forEach((p,idx)=>{ if(!orderMap.has(p.id)) orderMap.set(p.id, idx); });
+    items.sort((a,b)=>{
+      const oa = orderMap.has(a.productId)?orderMap.get(a.productId):Number.MAX_SAFE_INTEGER;
+      const ob = orderMap.has(b.productId)?orderMap.get(b.productId):Number.MAX_SAFE_INTEGER;
+      if(oa!==ob) return oa-ob;
+      const wa = getStatusWeight(a.locStatus || 'green');
+      const wb = getStatusWeight(b.locStatus || 'green');
+      if(wa!==wb) return wa-wb;
+      if(a.priorityFlag && !b.priorityFlag) return -1;
+      if(!a.priorityFlag && b.priorityFlag) return 1;
+      return (a.batchNo||'').localeCompare(b.batchNo||'');
+    });
+
+    let html='<div class="fifo-ship-list">';
+    items.forEach(item=>{
+      const p = db.products.find(x=>x.id===item.productId);
+      if(!p) return;
+      const zone=db.zones.find(z=>z.id===item.zoneId);
+      const locText=zone?zone.name+' '+getRowDisplayLabel(zone,item.rowNum)+'排'+getDisplayColNumber(zone,item.colNum)+'托':'未知位置';
+      let qs;
+      if(item.customPieces>0) qs=item.customPieces+'件';
+      else {const pc=item.quantity*(p.unitQuantity||1); qs=item.quantity+p.unit+' ('+pc.toFixed(2)+'件)';}
+      const effSt = item.locStatus || p.status || 'green';
+      const statusTag=effSt==='green'?'🟢':(effSt==='yellow'?'🟡':'🔴');
+      const priorityTag=item.priorityFlag?'<span style="color:#d32f2f;font-weight:600;">【先】</span>':(p.isPriority?'<span style="color:#ff5722;">【产先】</span>':'');
+      const ticketTag=item.ticketAttached?'<span style="color:#e91e63;">🎫</span>':'';
+      const priorityLabel = item.priorityFlag ? '取消先发' : '先发标识';
+      const ticketLabel = item.ticketAttached ? '取消贴票' : '贴票标识';
+      const priorityCls = item.priorityFlag ? 'btn-outline' : 'btn-primary';
+      const ticketCls = item.ticketAttached ? 'btn-outline' : 'btn-primary';
+
+      html += `<div class="fifo-ship-row">
+        <div class="fs-info">
+          <span class="fs-name">${statusTag} ${ticketTag} ${priorityTag} ${p.name||'未知产品'}</span>
+          <span class="fs-batch">批次:${item.batchNo||'-'}</span>
+          <span class="fs-loc">${locText}</span>
+          <span class="fs-qty">${qs}</span>
+        </div>
+        <div class="fs-actions">
+          <button class="btn btn-sm ${priorityCls}" onclick="togglePriorityFlagInline(${item.locationId})">${priorityLabel}</button>
+          <button class="btn btn-sm ${ticketCls}" onclick="toggleTicketAttachedInline(${item.locationId})">${ticketLabel}</button>
+          <button class="btn btn-sm btn-warning" onclick="fifoShipOut(${item.locationId},false)">发货</button>
+        </div>
+      </div>`;
+    });
+    html+='</div>';
+    container.innerHTML=html;
+    return;
+  }
+
   const grouped={};
   combinedItems.forEach(item=>{
     const p=db.products.find(x=>x.id===item.productId);
@@ -2269,9 +1562,9 @@ function updateFifoContent(){
     grouped[key].push({item,p});
   });
   if(Object.keys(grouped).length===0){container.innerHTML='<p style="text-align:center;padding:16px;">无匹配产品</p>';return;}
-  const orderMap=new Map();
-  db.products.forEach((p,index)=>{const key=fifoGroupBy==='name'?p.name:(p.model||'无型号');if(!orderMap.has(key))orderMap.set(key,index);});
-  const sortedKeys=Object.keys(grouped).sort((a,b)=>{const ia=orderMap.has(a)?orderMap.get(a):Number.MAX_SAFE_INTEGER;const ib=orderMap.has(b)?orderMap.get(b):Number.MAX_SAFE_INTEGER;return ia-ib;});
+  const orderMap2=new Map();
+  db.products.forEach((p,index)=>{const key=fifoGroupBy==='name'?p.name:(p.model||'无型号');if(!orderMap2.has(key))orderMap2.set(key,index);});
+  const sortedKeys=Object.keys(grouped).sort((a,b)=>{const ia=orderMap2.has(a)?orderMap2.get(a):Number.MAX_SAFE_INTEGER;const ib=orderMap2.has(b)?orderMap2.get(b):Number.MAX_SAFE_INTEGER;return ia-ib;});
   let content='';
   sortedKeys.forEach(key=>{
     const items=grouped[key];
@@ -2306,35 +1599,19 @@ function updateFifoContent(){
       const effSt = item.locStatus || p.status || 'green';
       const statusTag=effSt==='green'?'🟢':(effSt==='yellow'?'🟡':'🔴');
       const handBtnHtml = (item.locationType==='location') ? `<button class="btn btn-sm ${handBtnClass}" onclick="toggleHandAccountInline(${item.locationId})">${handBtn}</button>` : '—';
-
       let actionHtml='';
-      if(fifoMode==='ship'){
-        if(item.locationType==='location'){
-          const priorityLabel = item.priorityFlag ? '取消先发' : '先发标记';
-          const ticketLabel = item.ticketAttached ? '取消贴票' : '贴票标记';
-          const priorityCls = item.priorityFlag ? 'btn-outline' : 'btn-primary';
-          const ticketCls = item.ticketAttached ? 'btn-outline' : 'btn-primary';
-          actionHtml =
-            `<button class="btn btn-sm ${priorityCls}" onclick="togglePriorityFlagInline(${item.locationId})">${priorityLabel}</button>`+
-            `<button class="btn btn-sm ${ticketCls}" onclick="toggleTicketAttachedInline(${item.locationId})">${ticketLabel}</button>`+
-            `<button class="btn btn-sm btn-warning" onclick="fifoShipOut(${item.locationId},false)">发货</button>`;
-        }else{
-          actionHtml = `<button class="btn btn-sm btn-warning" onclick="fifoShipOut(${item.locationId},true)">发货</button>`;
-        }
+      if(item.locationType==='location'){
+        const priorityLabel = item.priorityFlag ? '取消先发' : '先出标识';
+        const ticketLabel = item.ticketAttached ? '取消贴票' : '已贴票标识';
+        const priorityCls = item.priorityFlag ? 'btn-outline' : 'btn-primary';
+        const ticketCls = item.ticketAttached ? 'btn-outline' : 'btn-primary';
+        actionHtml =
+          `<button class="btn btn-sm btn-warning" onclick="fifoShipOut(${item.locationId},false)">发货</button>`+
+          `<button class="btn btn-sm ${priorityCls}" onclick="togglePriorityFlagInline(${item.locationId})">${priorityLabel}</button>`+
+          `<button class="btn btn-sm ${ticketCls}" onclick="toggleTicketAttachedInline(${item.locationId})">${ticketLabel}</button>`+
+          `<button class="btn btn-sm btn-info" onclick="fifoMigrate(${item.locationId})">迁移</button>`;
       }else{
-        if(item.locationType==='location'){
-          const priorityLabel = item.priorityFlag ? '取消先发' : '先出标识';
-          const ticketLabel = item.ticketAttached ? '取消贴票' : '已贴票标识';
-          const priorityCls = item.priorityFlag ? 'btn-outline' : 'btn-primary';
-          const ticketCls = item.ticketAttached ? 'btn-outline' : 'btn-primary';
-          actionHtml =
-            `<button class="btn btn-sm btn-warning" onclick="fifoShipOut(${item.locationId},false)">发货</button>`+
-            `<button class="btn btn-sm ${priorityCls}" onclick="togglePriorityFlagInline(${item.locationId})">${priorityLabel}</button>`+
-            `<button class="btn btn-sm ${ticketCls}" onclick="toggleTicketAttachedInline(${item.locationId})">${ticketLabel}</button>`+
-            `<button class="btn btn-sm btn-info" onclick="fifoMigrate(${item.locationId})">迁移</button>`;
-        }else{
-          actionHtml = `<button class="btn btn-sm btn-warning" onclick="fifoShipOut(${item.locationId},true)">发货</button>`;
-        }
+        actionHtml = `<button class="btn btn-sm btn-warning" onclick="fifoShipOut(${item.locationId},true)">发货</button>`;
       }
       return '<tr><td>'+(i+1)+'</td><td>'+statusTag+' '+ticketTag+' '+priorityTag+' '+item.batchNo+'</td><td>'+locationText+'</td><td>'+qs+'</td><td>'+handBtnHtml+'</td><td>'+actionHtml+'</td></tr>';
     }).join('');
@@ -2367,14 +1644,6 @@ function togglePriorityFlagInline(lid){
   if(fifoCombinedItems){
     const it=fifoCombinedItems.find(x=>x.locationType==='location'&&x.locationId===lid);
     if(it) it.priorityFlag=nl.priorityFlag;
-  }
-  if(fifoMode==='ship'){
-    if(!nl.priorityFlag){
-      if(fifoCombinedItems){
-        const idx=fifoCombinedItems.findIndex(x=>x.locationType==='location'&&x.locationId===lid);
-        if(idx>-1) fifoCombinedItems.splice(idx,1);
-      }
-    }
   }
   updateFifoContent();
 }
