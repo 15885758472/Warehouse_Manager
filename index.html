@@ -1242,6 +1242,10 @@ function replaceWithNewProduct(lid){
   const loc=db.locations.find(l=>l.id===lid);
   if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
   let opts=db.products.map(p=>'<option value="'+p.id+'">'+(p.name||'未知产品')+' ('+(p.model||'')+')</option>').join('');
+  const isCustom = loc.customPieces>0;
+  const defType = isCustom ? 'custom' : 'unit';
+  const defUnitQty = isCustom ? 1 : (loc.quantity||1);
+  const defCustomQty = isCustom ? loc.customPieces : 1;
   openModal(`<h2>🔄 更换新产品</h2>
     <div class="form-group">
       <label style="display:flex;justify-content:space-between;align-items:center;">
@@ -1251,7 +1255,9 @@ function replaceWithNewProduct(lid){
       <select id="replaceProductSelect">${opts}</select>
     </div>
     <div class="form-group"><label>批次日期</label>${buildCalendarHtml('replaceBatchCal', loc.batchNo, true)}</div>
-    <div class="form-group"><label>数量</label><input type="number" id="replaceQty" min="0.01" step="any" value="${loc.quantity}"></div>
+    <div class="form-group"><label>方式</label><select id="replaceQtyType" onchange="toggleReplaceQtyType()"><option value="unit"${defType==='unit'?' selected':''}>按单位数量</option><option value="custom"${defType==='custom'?' selected':''}>自定义件数</option></select></div>
+    <div class="form-group" id="replaceUnitQtyGroup" style="display:${defType==='unit'?'block':'none'}"><label>单位数量</label><input type="number" id="replaceQty" min="0.01" step="any" value="${defUnitQty}"></div>
+    <div class="form-group" id="replaceCustomPiecesGroup" style="display:${defType==='custom'?'block':'none'}"><label>件数</label><input type="number" id="replaceCustomPieces" min="1" step="1" value="${defCustomQty}"></div>
     <div class="form-group"><label>备注</label><textarea id="replaceRemark">${loc.remark}</textarea></div>
     <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmReplaceWithNewProduct(${lid})">确认替换</button></div>`);
 }
@@ -1261,15 +1267,25 @@ function confirmReplaceWithNewProduct(lid){
   if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
   const newPid=parseInt(document.getElementById('replaceProductSelect').value);
   const newBatch=getCalendarValue('replaceBatchCal');
-  const newQty=parseFloat(document.getElementById('replaceQty').value);
   const newRemark=document.getElementById('replaceRemark').value.trim();
-  if(!newPid||!newBatch||!newQty||newQty<=0){showToast('信息不完整或无效','error');return;}
+  const type=document.getElementById('replaceQtyType').value;
+  let newQty=0, newCp=0;
+  if(type==='unit'){
+    newQty=parseFloat(document.getElementById('replaceQty').value);
+    if(!newQty||newQty<=0){showToast('单位数量无效','error');return;}
+  }else{
+    newCp=parseInt(document.getElementById('replaceCustomPieces').value);
+    if(!Number.isInteger(newCp)||newCp<1){showToast('件数无效','error');return;}
+  }
+  if(!newPid||!newBatch){showToast('信息不完整','error');return;}
   const oldProduct=db.products.find(p=>p.id===loc.productId);
   const newProduct=db.products.find(p=>p.id===newPid);
   const zone=db.zones.find(z=>z.id===loc.zoneId);
-  if(oldProduct) addRecord(nd,'替换产品',oldProduct,loc,zone,loc.quantity,loc.customPieces,'替换为 '+newProduct.name,null,null,loc.id);
-  if(newProduct) addRecord(nd,'替换产品',newProduct,loc,zone,newQty,0,'替换入库',null,null,loc.id);
-  loc.productId=newPid; loc.batchNo=newBatch; loc.quantity=newQty; loc.customPieces=0; loc.remark=newRemark; loc.updatedAt=new Date().toISOString(); loc.transferFlag=true; loc.productStatus=null; loc.ticketAttached=false;
+  if(oldProduct) addRecord(nd,'替换产品',oldProduct,loc,zone,loc.quantity,loc.customPieces,'替换为 '+(newProduct?.name||'新商品'),null,null,loc.id);
+  if(newProduct) addRecord(nd,'替换产品',newProduct,loc,zone,newQty,newCp,'替换入库',null,null,loc.id);
+  loc.productId=newPid; loc.batchNo=newBatch; loc.quantity=newQty; loc.customPieces=newCp;
+  loc.remark=newRemark; loc.updatedAt=new Date().toISOString(); loc.transferFlag=true;
+  loc.productStatus=null; loc.ticketAttached=false;
   saveDB(nd);closeModal();showToast('替换成功','success');
 }
 function swapWithAnotherLocation(lid){
