@@ -284,7 +284,78 @@ let shipProductFilters = new Set();
 function createDefaultDB(){const d={zones:[],locations:[],products:[],records:[],dailyStats:[],dailyBatchStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};const bz={id:1,name:'成品区',rows:34,cols:5,isBase:true,createdAt:new Date().toISOString(),rowDetails:Array(34).fill(5)};d.zones.push(bz);d.nextZoneId=2;for(let r=1;r<=34;r++)for(let c=1;c<=5;c++)d.locations.push({id:d.nextLocationId++,zoneId:1,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,inboundTime:null,productStatus:null,ticketAttached:false});return d;}
 function ensureCompleteDB(data){if(!data||typeof data!=='object')return createDefaultDB();if(!Array.isArray(data.zones))data.zones=[];if(!Array.isArray(data.locations))data.locations=[];if(!Array.isArray(data.products))data.products=[];if(!Array.isArray(data.records))data.records=[];if(!Array.isArray(data.dailyStats))data.dailyStats=[];if(!Array.isArray(data.dailyBatchStats))data.dailyBatchStats=[];if(!Array.isArray(data.transit))data.transit=[];if(!data.nextZoneId)data.nextZoneId=1;if(!data.nextLocationId)data.nextLocationId=1;if(!data.nextProductId)data.nextProductId=1;if(!data.nextRecordId)data.nextRecordId=1;if(!data.nextTransitId)data.nextTransitId=1;data.products.forEach(p=>{if(!p.unit)p.unit='件';if(!p.remark)p.remark='';if(p.isPriority===undefined)p.isPriority=false;if(!p.status)p.status='green';});data.locations.forEach(l=>{if(!l.remark)l.remark='';if(l.customPieces===undefined)l.customPieces=0;if(l.handAccount===undefined)l.handAccount=false;if(l.transferFlag===undefined)l.transferFlag=false;if(l.priorityFlag===undefined)l.priorityFlag=false;if(l.inboundTime===undefined)l.inboundTime=null;if(l.productStatus===undefined)l.productStatus=null;if(l.ticketAttached===undefined)l.ticketAttached=false;});data.zones.forEach(z=>{if(!z.rowDetails)z.rowDetails=Array(z.rows).fill(z.cols);});return data;}
 function updateProductLocationCountCache(){productLocationCountCache={};db.locations.forEach(l=>{if(l.status==='used'&&l.productId)productLocationCountCache[l.productId]=(productLocationCountCache[l.productId]||0)+1;});db.transit.forEach(t=>{if(t.productId)productLocationCountCache[t.productId]=(productLocationCountCache[t.productId]||0)+1;});}
-function initFromFirebase(){const timeout=setTimeout(()=>{if(!isDBLoaded){db=createDefaultDB();isDBLoaded=true;updateProductLocationCountCache();try{renderAll();}catch(e){console.error(e);}updateSyncBadge(false);showToast('Firebase连接超时','error');}},8000);dbRef.once('value',snapshot=>{clearTimeout(timeout);try{const raw=snapshot.val();db=ensureCompleteDB(raw||null);if(!raw)dbRef.set(db);isDBLoaded=true;updateProductLocationCountCache();updateDailyStatsIfNeeded();updateDailyBatchStatsIfNeeded();renderAll();startRealtimeListener();updateSyncBadge(true);}catch(e){console.error(e);updateSyncBadge(true);showToast('初始化错误：'+e.message,'error');}}).catch(err=>{clearTimeout(timeout);db=createDefaultDB();isDBLoaded=true;updateProductLocationCountCache();try{renderAll();}catch(e){}updateSyncBadge(false);showToast('无法连接云端','error');});}
+function initFromFirebase(){
+  let retryCount = 0;
+  const maxRetry = 3;
+  const attemptTimeoutMs = 30000; // 30 秒超时（移动网络更宽容）
+
+  function tryConnect(){
+    updateSyncBadge(false);
+    let finished = false;
+
+    const timeout = setTimeout(()=>{
+      if(finished) return;
+      finished = true;
+      retryCount++;
+      if(retryCount <= maxRetry){
+        showToast(`连接超时，正在重试 (${retryCount}/${maxRetry})...`,'info');
+        setTimeout(tryConnect, 1500);
+      }else{
+        // 全部失败，使用本地默认数据
+        if(!isDBLoaded){
+          db = createDefaultDB();
+          isDBLoaded = true;
+          updateProductLocationCountCache();
+          try{ renderAll(); }catch(e){ console.error(e); }
+        }
+        updateSyncBadge(false);
+        showToast('无法连接云端，已进入离线模式','error');
+      }
+    }, attemptTimeoutMs);
+
+    dbRef.once('value').then(snapshot=>{
+      if(finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      try{
+        const raw = snapshot.val();
+        db = ensureCompleteDB(raw||null);
+        if(!raw) dbRef.set(db);
+        isDBLoaded = true;
+        updateProductLocationCountCache();
+        updateDailyStatsIfNeeded();
+        updateDailyBatchStatsIfNeeded();
+        renderAll();
+        startRealtimeListener();
+        updateSyncBadge(true);
+        showToast('已连接云端','success');
+      }catch(e){
+        console.error('初始化错误：',e);
+        updateSyncBadge(true);
+        showToast('初始化错误：'+e.message,'error');
+      }
+    }).catch(err=>{
+      if(finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      console.error('Firebase 读取失败：', err);
+      retryCount++;
+      if(retryCount <= maxRetry){
+        showToast(`连接失败，正在重试 (${retryCount}/${maxRetry})...`,'info');
+        setTimeout(tryConnect, 1500);
+      }else{
+        db = createDefaultDB();
+        isDBLoaded = true;
+        updateProductLocationCountCache();
+        try{ renderAll(); }catch(e){ console.error(e); }
+        updateSyncBadge(false);
+        showToast('无法连接云端，已进入离线模式','error');
+      }
+    });
+  }
+
+  tryConnect();
+}
 function startRealtimeListener(){dbRef.on('value',snapshot=>{const data=ensureCompleteDB(snapshot.val()||null);db=data;updateProductLocationCountCache();updateDailyStatsIfNeeded();updateDailyBatchStatsIfNeeded();renderAll();updateSyncBadge(true);});database.ref('.info/connected').on('value',snap=>{updateSyncBadge(snap.val()===true);});}
 function updateSyncBadge(online){const b=document.getElementById('syncBadge');if(online){b.textContent='🟢 已同步';b.className='sync-badge online';}else{b.textContent='🔴 离线';b.className='sync-badge offline';}}
 function saveDB(newDb){db=ensureCompleteDB(newDb);dbRef.set(db).catch(err=>showToast('保存失败','error'));}
