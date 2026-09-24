@@ -6,6 +6,7 @@
 <title>仓库管理系统</title>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 :root{--bg:#f0f2f5;--card-bg:#fff;--primary:#1a73e8;--success:#34a853;--danger:#ea4335;--warning:#fbbc04;--text:#202124;--text-secondary:#5f6368;--border:#dadce0;--shadow:0 1px 3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--cell-size:56px;--cell-gap:4px;--row-label-width:44px}
@@ -257,10 +258,26 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 <div id="modalContainer"></div>
 <div class="toast-container" id="toastContainer"></div>
 <script>
+// ==================== Firebase 初始化 ====================
 const firebaseConfig={apiKey:"AIzaSyDu1NYuTLUxIMkkaXdJGFgE0GXGW0hwXto",authDomain:"warehouse-manager-4eec5.firebaseapp.com",databaseURL:"https://warehouse-manager-4eec5-default-rtdb.firebaseio.com",projectId:"warehouse-manager-4eec5",storageBucket:"warehouse-manager-4eec5.firebasestorage.app",messagingSenderId:"504489473795",appId:"1:504489473795:web:4bfac7455150709994db36"};
 firebase.initializeApp(firebaseConfig);
 const database=firebase.database();
 const dbRef=database.ref('warehouse/data');
+
+// ==================== 匿名登录 ====================
+const auth = firebase.auth();
+auth.onAuthStateChanged(user => {
+  if (user) {
+    console.log('✅ 已匿名登录：', user.uid);
+  } else {
+    console.log('⏳ 未登录，尝试匿名登录...');
+    auth.signInAnonymously().catch(err => {
+      console.error('❌ 匿名登录失败：', err);
+      try{ showToast('匿名登录失败：' + err.code, 'error'); }catch(e){}
+    });
+  }
+});
+
 let db={zones:[],locations:[],products:[],records:[],dailyStats:[],dailyBatchStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
 let currentZoneId=1,batchMode=false,selectedProducts=new Set(),locationBatchMode=false,selectedLocations=new Set(),isDBLoaded=false;
 let statsGroupBy='name',fifoGroupBy='name';
@@ -1394,7 +1411,6 @@ function buildShipOutput(){
   const orderedPids = db.products.map(x=>x.id).filter(id=>byProduct.has(id));
   orderedPids.forEach(pid=>{
     const {p, locs} = byProduct.get(pid);
-    // 计算最大批次号
     let maxBatch = '';
     locs.forEach(l=>{
       const b = l.batchNo || '';
@@ -1544,7 +1560,6 @@ function renderFifoOrderModal(){
     '<div id="fifoContent"></div>'+
     '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
 
-  // 区域卡片点击（桌面端）
   document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(card=>{
     card.addEventListener('click',function(e){
       e.stopPropagation();
@@ -1558,7 +1573,6 @@ function renderFifoOrderModal(){
       updateFifoContent();
     });
   });
-  // 区域下拉（手机端）
   const selZone = document.getElementById('fifoZoneSelect');
   if(selZone){selZone.addEventListener('change',function(){
     selectedFifoZones.clear();
@@ -1572,7 +1586,6 @@ function renderFifoOrderModal(){
     updateFifoContent();
   });}
 
-  // 产品卡片点击
   document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(card=>{
     card.addEventListener('click',function(e){
       e.stopPropagation();
@@ -1631,6 +1644,8 @@ function fifoClearFilter(){
   selectedFifoZones.clear();
   const sel = document.getElementById('fifoProductFilter');
   if(sel){Array.from(sel.options).forEach(o=>{o.selected=false;});}
+  const selZ = document.getElementById('fifoZoneSelect');
+  if(selZ){Array.from(selZ.options).forEach(o=>{o.selected=false;});}
   document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(c=>c.classList.remove('active'));
   document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(c=>c.classList.remove('active'));
   refreshFifoItems();
@@ -1704,7 +1719,6 @@ function updateFifoContent(){
     return;
   }
 
-  // ===== 普通模式 =====
   const grouped={};
   combinedItems.forEach(item=>{
     const p=db.products.find(x=>x.id===item.productId);
@@ -1752,7 +1766,6 @@ function updateFifoContent(){
       const effSt = item.locStatus || p.status || 'green';
       const statusTag=effSt==='green'?'🟢':(effSt==='yellow'?'🟡':'🔴');
 
-      // 入库时间显示
       let inTimeStr = '';
       if(item.inboundTime){
         const dt = new Date(item.inboundTime);
