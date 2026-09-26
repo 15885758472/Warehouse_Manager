@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>仓库管理系统</title>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://static.cloudbase.net/cloudbase-js-sdk/2.17.3/cloudbase.full.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 :root{--bg:#f0f2f5;--card-bg:#fff;--primary:#1a73e8;--success:#34a853;--danger:#ea4335;--warning:#fbbc04;--text:#202124;--text-secondary:#5f6368;--border:#dadce0;--shadow:0 1px 3px rgba(0,0,0,.1);--radius:12px;--radius-sm:8px;--cell-size:56px;--cell-gap:4px;--row-label-width:44px}
@@ -257,10 +256,36 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 <div id="modalContainer"></div>
 <div class="toast-container" id="toastContainer"></div>
 <script>
-const firebaseConfig={apiKey:"AIzaSyDu1NYuTLUxIMkkaXdJGFgE0GXGW0hwXto",authDomain:"warehouse-manager-4eec5.firebaseapp.com",databaseURL:"https://warehouse-manager-4eec5-default-rtdb.firebaseio.com",projectId:"warehouse-manager-4eec5",storageBucket:"warehouse-manager-4eec5.firebasestorage.app",messagingSenderId:"504489473795",appId:"1:504489473795:web:4bfac7455150709994db36"};
-firebase.initializeApp(firebaseConfig);
-const database=firebase.database();
-const dbRef=database.ref('warehouse/data');
+// ==================== CloudBase 初始化 ====================
+const ENV_ID = 'warehouse-manager-d4dhbcb70811bc';
+const app = cloudbase.init({ env: ENV_ID });
+const auth = app.auth();
+const cdb = app.database();
+const dataRef = cdb.collection('warehouse').doc('data');
+let watcher = null;
+let authReady = false;
+let authReadyResolve = null;
+const authReadyPromise = new Promise(resolve => { authReadyResolve = resolve; });
+
+auth.onLoginStateChanged(() => { /* 可选监听 */ });
+(async function doSignIn(){
+  try{
+    const loginState = await auth.getLoginState();
+    if(!loginState){
+      await auth.signInAnonymously();
+    }
+    console.log('✅ CloudBase 匿名登录成功');
+    authReady = true;
+    if(authReadyResolve) authReadyResolve();
+  }catch(err){
+    console.error('❌ 匿名登录失败：', err);
+    try{ showToast('匿名登录失败：'+err.message,'error'); }catch(e){}
+    authReady = true;
+    if(authReadyResolve) authReadyResolve();
+  }
+})();
+
+// ==================== 全局状态 ====================
 let db={zones:[],locations:[],products:[],records:[],dailyStats:[],dailyBatchStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
 let currentZoneId=1,batchMode=false,selectedProducts=new Set(),locationBatchMode=false,selectedLocations=new Set(),isDBLoaded=false;
 let statsGroupBy='name',fifoGroupBy='name';
@@ -297,10 +322,24 @@ function pruneOldRecords(targetDb){
   const removed = before - targetDb.records.length;
   if(removed > 0) console.log('[清理] 已删除 '+removed+' 条超过 '+RECORD_KEEP_DAYS+' 天的记录');
 }
-function initFromFirebase(){
+async function readCloudData(){
+  const res = await dataRef.get();
+  // CloudBase 返回格式：{ data: [ { _id, content, ... } ] }
+  if(res && res.data && res.data.length > 0){
+    return res.data[0].content || null;
+  }
+  return null;
+}
+async function writeCloudData(payload){
+  return dataRef.set({ content: payload, updatedAt: Date.now() });
+}
+
+async function initFromFirebase(){
   let retryCount = 0;
   const maxRetry = 3;
   const attemptTimeoutMs = 30000;
+  // 等待匿名登录完成
+  try{ await authReadyPromise; }catch(e){}
   function tryConnect(){
     updateSyncBadge(false);
     let finished = false;
@@ -322,17 +361,16 @@ function initFromFirebase(){
         showToast('无法连接云端，已进入离线模式','error');
       }
     }, attemptTimeoutMs);
-    dbRef.once('value').then(snapshot=>{
+    readCloudData().then(raw=>{
       if(finished) return;
       finished = true;
       clearTimeout(timeout);
       try{
-        const raw = snapshot.val();
         db = ensureCompleteDB(raw||null);
         const beforeCount = db.records ? db.records.length : 0;
         pruneOldRecords(db);
         const needWriteBack = (!raw || (db.records && db.records.length < beforeCount));
-        if(needWriteBack) dbRef.set(db);
+        if(needWriteBack) writeCloudData(db).catch(()=>{});
         isDBLoaded = true;
         updateProductLocationCountCache();
         updateDailyStatsIfNeeded();
@@ -350,7 +388,7 @@ function initFromFirebase(){
       if(finished) return;
       finished = true;
       clearTimeout(timeout);
-      console.error('Firebase 读取失败：', err);
+      console.error('CloudBase 读取失败：', err);
       retryCount++;
       if(retryCount <= maxRetry){
         showToast('连接失败，正在重试 ('+retryCount+'/'+maxRetry+')...','info');
@@ -368,32 +406,38 @@ function initFromFirebase(){
   tryConnect();
 }
 function startRealtimeListener(){
-  dbRef.on('value', snapshot=>{
-    try{
-      const data = ensureCompleteDB(snapshot.val()||null);
-      db = data;
-      updateProductLocationCountCache();
-      updateDailyStatsIfNeeded();
-      updateDailyBatchStatsIfNeeded();
-      renderAll();
-      updateSyncBadge(true);
-    }catch(e){
-      console.error('实时数据错误：', e);
-    }
-  }, err=>{
-    console.error('实时监听错误：', err);
-    updateSyncBadge(false);
-  });
-  database.ref('.info/connected').on('value', snap=>{
-    const online = snap.val() === true;
-    updateSyncBadge(online);
-    if(!online){
-      console.warn('Firebase 连接中断，SDK 将自动重连...');
+  try{
+    if(watcher){ watcher.close().catch(()=>{}); watcher = null; }
+  }catch(e){}
+  watcher = dataRef.watch({
+    onChange: (snapshot) => {
+      try{
+        if(!snapshot || !snapshot.docs || snapshot.docs.length === 0) return;
+        const doc = snapshot.docs[0];
+        const data = ensureCompleteDB(doc.content || null);
+        db = data;
+        updateProductLocationCountCache();
+        updateDailyStatsIfNeeded();
+        updateDailyBatchStatsIfNeeded();
+        renderAll();
+        updateSyncBadge(true);
+      }catch(e){ console.error('实时数据错误：', e); }
+    },
+    onError: (err) => {
+      console.error('实时监听错误：', err);
+      updateSyncBadge(false);
     }
   });
   document.addEventListener('visibilitychange', ()=>{
     if(document.visibilityState === 'visible'){
-      dbRef.once('value').catch(err=>console.warn('前台恢复检查失败：', err));
+      readCloudData().then(raw=>{
+        if(raw){
+          db = ensureCompleteDB(raw);
+          updateProductLocationCountCache();
+          renderAll();
+          updateSyncBadge(true);
+        }
+      }).catch(()=>{});
     }
   });
   setInterval(()=>{
@@ -408,7 +452,8 @@ function startRealtimeListener(){
   }, 6 * 60 * 60 * 1000);
 }
 function updateSyncBadge(online){const b=document.getElementById('syncBadge');if(online){b.textContent='🟢 已同步';b.className='sync-badge online';}else{b.textContent='🔴 离线';b.className='sync-badge offline';}}
-function saveDB(newDb){db=ensureCompleteDB(newDb);pruneOldRecords(db);dbRef.set(db).catch(err=>showToast('保存失败','error'));}
+function saveDB(newDb){db=ensureCompleteDB(newDb);pruneOldRecords(db);writeCloudData(db).catch(err=>showToast('保存失败','error'));}
+
 function addRecord(targetDb,type,product,loc,zone,quantity,customPieces,remark,targetZoneName,targetLocationLabel,locationId){if(!targetDb||!Array.isArray(targetDb.records))return null;const rec={id:targetDb.nextRecordId++,type,productId:product.id,productName:product.name||'未知产品',productModel:product.model||'',productUnit:product.unit||'件',zoneName:zone?.name||'未知',locationLabel:getRowDisplayLabel(zone,loc.rowNum)+'排'+getDisplayColNumber(zone,loc.colNum)+'托',quantity:quantity||0,customPieces:customPieces||0,batchNo:loc.batchNo||'',remark:remark||'',targetZoneName:targetZoneName||'',targetLocationLabel:targetLocationLabel||'',locationId:locationId||loc.id,timestamp:new Date().toISOString()};targetDb.records.push(rec);return rec;}
 function getProductDisplayInfo(pid){if(!db||!Array.isArray(db.products))return{pieces:0,unit:'件',unitQuantity:1,remark:'',isPriority:false,status:'green'};const p=db.products.find(x=>x.id===pid);if(!p)return{pieces:0,unit:'件',unitQuantity:1,remark:'',isPriority:false,status:'green'};const rp=db.locations.filter(l=>l.productId===pid&&l.status==='used').reduce((s,l)=>s+(l.quantity||0)*(p.unitQuantity||1),0);const cp=db.locations.filter(l=>l.productId===pid&&l.status==='used').reduce((s,l)=>s+(l.customPieces||0),0);const tp=db.transit.filter(t=>t.productId===pid).reduce((s,t)=>s+(t.quantity||0)*(p.unitQuantity||1)+(t.customPieces||0),0);return{pieces:rp+cp+tp,unit:p.unit||'件',unitQuantity:p.unitQuantity||1,remark:p.remark||'',isPriority:!!p.isPriority,status:p.status||'green'};}
 function getRowDisplayLabel(zone,rowNum){if(zone&&zone.id===1){const half=Math.ceil(zone.rows/2);if(rowNum<=half)return'A'+String(rowNum).padStart(2,'0');return'B'+String(rowNum-half).padStart(2,'0');}return String(rowNum);}
@@ -1394,7 +1439,6 @@ function buildShipOutput(){
   const orderedPids = db.products.map(x=>x.id).filter(id=>byProduct.has(id));
   orderedPids.forEach(pid=>{
     const {p, locs} = byProduct.get(pid);
-    // 计算最大批次号
     let maxBatch = '';
     locs.forEach(l=>{
       const b = l.batchNo || '';
@@ -1544,7 +1588,6 @@ function renderFifoOrderModal(){
     '<div id="fifoContent"></div>'+
     '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
 
-  // 区域卡片点击（桌面端）
   document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(card=>{
     card.addEventListener('click',function(e){
       e.stopPropagation();
@@ -1558,7 +1601,6 @@ function renderFifoOrderModal(){
       updateFifoContent();
     });
   });
-  // 区域下拉（手机端）
   const selZone = document.getElementById('fifoZoneSelect');
   if(selZone){selZone.addEventListener('change',function(){
     selectedFifoZones.clear();
@@ -1572,7 +1614,6 @@ function renderFifoOrderModal(){
     updateFifoContent();
   });}
 
-  // 产品卡片点击
   document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(card=>{
     card.addEventListener('click',function(e){
       e.stopPropagation();
@@ -1631,6 +1672,8 @@ function fifoClearFilter(){
   selectedFifoZones.clear();
   const sel = document.getElementById('fifoProductFilter');
   if(sel){Array.from(sel.options).forEach(o=>{o.selected=false;});}
+  const selZ = document.getElementById('fifoZoneSelect');
+  if(selZ){Array.from(selZ.options).forEach(o=>{o.selected=false;});}
   document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(c=>c.classList.remove('active'));
   document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(c=>c.classList.remove('active'));
   refreshFifoItems();
@@ -1704,7 +1747,6 @@ function updateFifoContent(){
     return;
   }
 
-  // ===== 普通模式 =====
   const grouped={};
   combinedItems.forEach(item=>{
     const p=db.products.find(x=>x.id===item.productId);
@@ -1752,7 +1794,6 @@ function updateFifoContent(){
       const effSt = item.locStatus || p.status || 'green';
       const statusTag=effSt==='green'?'🟢':(effSt==='yellow'?'🟡':'🔴');
 
-      // 入库时间显示
       let inTimeStr = '';
       if(item.inboundTime){
         const dt = new Date(item.inboundTime);
