@@ -910,9 +910,15 @@ function updateMigrateRowList(){
   if(zoneId){
     const zone = db.zones.find(z=>z.id===parseInt(zoneId));
     if(zone){
-      for(let r=1;r<=zone.rows;r++){
+      // 只列出该区域中有空库位的排
+      const rowsWithEmpty = new Set(
+        db.locations
+          .filter(l=>l.zoneId===zone.id && l.status==='normal')
+          .map(l=>l.rowNum)
+      );
+      [...rowsWithEmpty].sort((a,b)=>a-b).forEach(r=>{
         rowOpts += '<option value="'+r+'">'+getRowDisplayLabel(zone,r)+'</option>';
-      }
+      });
     }
     rowSel.disabled = false;
   }else{
@@ -948,9 +954,16 @@ function updateSwapRowList(){
   if(zoneId){
     const zone = db.zones.find(z=>z.id===parseInt(zoneId));
     if(zone){
-      for(let r=1;r<=zone.rows;r++){
+      const lid = window._swapLid;
+      // 只列出该区域中有"已用库位（且不是当前库位）"的排
+      const rowsWithUsed = new Set(
+        db.locations
+          .filter(l=>l.zoneId===zone.id && l.status==='used' && l.id!==lid)
+          .map(l=>l.rowNum)
+      );
+      [...rowsWithUsed].sort((a,b)=>a-b).forEach(r=>{
         rowOpts += '<option value="'+r+'">'+getRowDisplayLabel(zone,r)+'</option>';
-      }
+      });
     }
     rowSel.disabled = false;
   }else{
