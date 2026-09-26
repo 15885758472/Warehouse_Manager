@@ -280,6 +280,25 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
     border-top:none !important;
     justify-content:flex-end !important;
   }
+
+  /* 弹窗内所有两列布局在手机端自动变单列 */
+  .modal div[style*="grid-template-columns:1fr 1fr"]{
+    grid-template-columns:1fr !important;
+  }
+
+  /* 日历组件紧凑，防止超宽 */
+  .cal-wrap{padding:6px;}
+  .cal-head{gap:4px;margin-bottom:6px;}
+  .cal-head select{padding:5px 6px;font-size:12px;min-width:0;flex:1 1 0;}
+  .cal-grid{gap:2px;}
+  .cal-value{font-size:11px;margin-top:4px;}
+
+  /* 弹窗内的 select 防止超宽 */
+  .modal select,
+  .modal input[type="date"]{
+    max-width:100%;
+    box-sizing:border-box;
+  }
 }
 
 /* ==================== 桌面端 ==================== */
