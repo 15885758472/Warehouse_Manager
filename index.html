@@ -757,6 +757,27 @@ function replaceProduct(lid){
   if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
   openModal(`<h2>🔄 替换产品</h2><p>当前库位：${db.zones.find(z=>z.id===loc.zoneId)?.name} ${getRowDisplayLabel(db.zones.find(z=>z.id===loc.zoneId),loc.rowNum)}排${getDisplayColNumber(db.zones.find(z=>z.id===loc.zoneId),loc.colNum)}托</p><p>当前产品：${db.products.find(p=>p.id===loc.productId)?.name||'未知'}</p><div class="form-actions" style="flex-direction:column;gap:6px;"><button class="btn btn-primary" onclick="replaceWithNewProduct(${lid})">更换新产品</button><button class="btn btn-outline" onclick="swapWithAnotherLocation(${lid})">交换两个产品位置</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>`);
 }
+function swapWithAnotherLocation(lid){
+  if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
+  const loc=db.locations.find(l=>l.id===lid);
+  if(!loc||loc.status!=='used'){showToast('状态异常','error');return;}
+  const otherUsedLocs=db.locations.filter(l=>l.id!==lid && l.status==='used');
+  if(otherUsedLocs.length===0){showToast('没有其他已用库位可交换','error');return;}
+
+  let zoneOpts='<option value="">全部区域</option>';
+  db.zones.forEach(z=>{ zoneOpts+='<option value="'+z.id+'">'+z.name+'</option>'; });
+
+  window._swapLid = lid;
+
+  openModal('<h2>🔄 交换产品位置</h2>'+
+    '<p style="font-size:12px;color:#5f6368;">当前库位：'+(db.zones.find(z=>z.id===loc.zoneId)?.name||'')+' '+getRowDisplayLabel(db.zones.find(z=>z.id===loc.zoneId),loc.rowNum)+'排'+getDisplayColNumber(db.zones.find(z=>z.id===loc.zoneId),loc.colNum)+'托</p>'+
+    '<div class="form-group"><label>仓库区域</label><select id="swapZoneFilter" onchange="updateSwapRowList()">'+zoneOpts+'</select></div>'+
+    '<div class="form-group"><label>排</label><select id="swapRowFilter" onchange="updateSwapTargetList()" disabled><option value="">全部排</option></select></div>'+
+    '<div class="form-group"><label>选择要交换的库位</label><select id="swapTargetLoc"></select></div>'+
+    '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmSwapProducts('+lid+')">确认交换</button></div>');
+
+  updateSwapRowList();
+}
 function replaceWithNewProduct(lid){
   if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)){showToast('数据未加载','info');return;}
   const loc=db.locations.find(l=>l.id===lid);
@@ -916,6 +937,45 @@ function updateMigrateTargetList(){
   let opts = locs.map(l=>{
     const zone = db.zones.find(z=>z.id===l.zoneId);
     return '<option value="'+l.id+'">'+zone.name+' '+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托</option>';
+  }).join('');
+  targetSel.innerHTML = opts;
+}
+function updateSwapRowList(){
+  const zoneId = document.getElementById('swapZoneFilter')?.value;
+  const rowSel = document.getElementById('swapRowFilter');
+  if(!rowSel) return;
+  let rowOpts = '<option value="">全部排</option>';
+  if(zoneId){
+    const zone = db.zones.find(z=>z.id===parseInt(zoneId));
+    if(zone){
+      for(let r=1;r<=zone.rows;r++){
+        rowOpts += '<option value="'+r+'">'+getRowDisplayLabel(zone,r)+'</option>';
+      }
+    }
+    rowSel.disabled = false;
+  }else{
+    rowSel.disabled = true;
+  }
+  rowSel.innerHTML = rowOpts;
+  updateSwapTargetList();
+}
+function updateSwapTargetList(){
+  const zoneId = document.getElementById('swapZoneFilter')?.value;
+  const rowNum = document.getElementById('swapRowFilter')?.value;
+  const targetSel = document.getElementById('swapTargetLoc');
+  if(!targetSel) return;
+  const lid = window._swapLid;
+  let locs = db.locations.filter(l=>l.status==='used' && l.id!==lid);
+  if(zoneId) locs = locs.filter(l=>l.zoneId===parseInt(zoneId));
+  if(rowNum) locs = locs.filter(l=>l.rowNum===parseInt(rowNum));
+  if(locs.length===0){
+    targetSel.innerHTML = '<option value="">（无匹配已用库位）</option>';
+    return;
+  }
+  let opts = locs.map(l=>{
+    const zone = db.zones.find(z=>z.id===l.zoneId);
+    const p = db.products.find(x=>x.id===l.productId);
+    return '<option value="'+l.id+'">'+zone.name+' '+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托 - '+(p?.name||'未知')+'</option>';
   }).join('');
   targetSel.innerHTML = opts;
 }
