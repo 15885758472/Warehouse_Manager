@@ -137,21 +137,27 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
   .modal{max-width:100%;max-height:92vh;padding:14px;border-radius:12px;}
   /* 底部工具栏压缩：限制高度 + 紧凑布局 */
 .right-panel{
-  max-height:120px;            /* ← 关键：限制最高120px，可改小到100/90 */
+  max-height:130px;
   padding:5px 6px;
   gap:4px;
-  align-items:flex-start;
+  align-items:stretch;
 }
 .right-section{
-  min-width:130px;
-  max-width:170px;
+  min-width:150px;
+  max-width:190px;
   padding:5px 6px;
   gap:2px;
+  max-height:100%;
+  overflow-y:auto;              /* ← 关键：内部竖向滚动 */
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
 }
-  .right-section h3{font-size:9px;margin-bottom:1px;}
-  .right-panel .btn{padding:5px 8px;font-size:11px;min-height:28px;}
-  .right-panel .btn-sm{padding:4px 6px;font-size:10px;min-height:24px;}
-  .product-list{max-height:60px;}
+.right-section::-webkit-scrollbar{display:none;}
+.right-section h3{font-size:9px;margin-bottom:1px;position:sticky;top:0;background:#f8f9fa;z-index:1;}
+.right-panel .btn{padding:5px 8px;font-size:11px;min-height:28px;}
+.right-panel .btn-sm{padding:4px 6px;font-size:10px;min-height:24px;}
+.product-list{max-height:60px;}
   .product-list{max-height:80px;}
   .cell{height:52px;}
   .fifo-table tr{max-width:100%;}
