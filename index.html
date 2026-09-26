@@ -561,16 +561,14 @@ function updateSyncBadge(online){const b=document.getElementById('syncBadge');if
 function saveDB(newDb){
   db = ensureCompleteDB(newDb);
   pruneOldRecords(db);
-  const writeTime = Date.now();
-  writeCloudData(db).then(()=>{
-    lastCloudUpdatedAt = Math.max(lastCloudUpdatedAt, writeTime);
-    updateSyncBadge(true);
-  }).catch(err=>{
+  // 立即本地渲染，用户操作后立刻看到效果（不需要等轮询）
+  try{ renderAll(); }catch(e){ console.error('renderAll error:', e); }
+  // 异步写云端（不阻塞 UI）
+  writeCloudData(db).catch(err=>{
     console.warn('保存失败', err);
     showToast('保存失败','error');
   });
 }
-
 function addRecord(targetDb,type,product,loc,zone,quantity,customPieces,remark,targetZoneName,targetLocationLabel,locationId){if(!targetDb||!Array.isArray(targetDb.records))return null;const rec={id:targetDb.nextRecordId++,type,productId:product.id,productName:product.name||'未知产品',productModel:product.model||'',productUnit:product.unit||'件',zoneName:zone?.name||'未知',locationLabel:getRowDisplayLabel(zone,loc.rowNum)+'排'+getDisplayColNumber(zone,loc.colNum)+'托',quantity:quantity||0,customPieces:customPieces||0,batchNo:loc.batchNo||'',remark:remark||'',targetZoneName:targetZoneName||'',targetLocationLabel:targetLocationLabel||'',locationId:locationId||loc.id,timestamp:new Date().toISOString()};targetDb.records.push(rec);return rec;}
 function getProductDisplayInfo(pid){if(!db||!Array.isArray(db.products))return{pieces:0,unit:'件',unitQuantity:1,remark:'',isPriority:false,status:'green'};const p=db.products.find(x=>x.id===pid);if(!p)return{pieces:0,unit:'件',unitQuantity:1,remark:'',isPriority:false,status:'green'};const rp=db.locations.filter(l=>l.productId===pid&&l.status==='used').reduce((s,l)=>s+(l.quantity||0)*(p.unitQuantity||1),0);const cp=db.locations.filter(l=>l.productId===pid&&l.status==='used').reduce((s,l)=>s+(l.customPieces||0),0);const tp=db.transit.filter(t=>t.productId===pid).reduce((s,t)=>s+(t.quantity||0)*(p.unitQuantity||1)+(t.customPieces||0),0);return{pieces:rp+cp+tp,unit:p.unit||'件',unitQuantity:p.unitQuantity||1,remark:p.remark||'',isPriority:!!p.isPriority,status:p.status||'green'};}
 function getRowDisplayLabel(zone,rowNum){if(zone&&zone.id===1){const half=Math.ceil(zone.rows/2);if(rowNum<=half)return'A'+String(rowNum).padStart(2,'0');return'B'+String(rowNum-half).padStart(2,'0');}return String(rowNum);}
