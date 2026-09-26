@@ -456,54 +456,73 @@ async function initFromFirebase(){
   }
   tryConnect();
 }
+let lastCloudUpdatedAt = 0;
+
+async function pollCloudData(){
+  try{
+    const res = await dataRef.get();
+    if(res && res.data && res.data.length > 0){
+      const doc = res.data[0];
+      const cloudUpdatedAt = doc.updatedAt || 0;
+      // 只有云端比本地更新时才覆盖
+      if(cloudUpdatedAt > lastCloudUpdatedAt){
+        lastCloudUpdatedAt = cloudUpdatedAt;
+        db = ensureCompleteDB(doc.content || null);
+        updateProductLocationCountCache();
+        try{ updateDailyStatsIfNeeded(); }catch(e){}
+        try{ updateDailyBatchStatsIfNeeded(); }catch(e){}
+        renderAll();
+        updateSyncBadge(true);
+      }else{
+        updateSyncBadge(true);
+      }
+    }else{
+      updateSyncBadge(true);
+    }
+  }catch(e){
+    console.warn('轮询失败：', e);
+    updateSyncBadge(false);
+  }
+}
+
 function startRealtimeListener(){
+  // 关闭可能存在的旧 watcher
   try{
     if(watcher){ watcher.close().catch(()=>{}); watcher = null; }
   }catch(e){}
-  watcher = dataRef.watch({
-    onChange: (snapshot) => {
-      try{
-        if(!snapshot || !snapshot.docs || snapshot.docs.length === 0) return;
-        const doc = snapshot.docs[0];
-        const data = ensureCompleteDB(doc.content || null);
-        db = data;
-        updateProductLocationCountCache();
-        updateDailyStatsIfNeeded();
-        updateDailyBatchStatsIfNeeded();
-        renderAll();
-        updateSyncBadge(true);
-      }catch(e){ console.error('实时数据错误：', e); }
-    },
-    onError: (err) => {
-      console.error('实时监听错误：', err);
-      updateSyncBadge(false);
-    }
-  });
+  // 启动定时轮询（每 10 秒）
+  if(window._pollTimer) clearInterval(window._pollTimer);
+  window._pollTimer = setInterval(pollCloudData, 10000);
+  // 立即拉一次
+  pollCloudData();
+  // 页面回到前台时立即刷新
   document.addEventListener('visibilitychange', ()=>{
     if(document.visibilityState === 'visible'){
-      readCloudData().then(raw=>{
-        if(raw){
-          db = ensureCompleteDB(raw);
-          updateProductLocationCountCache();
-          renderAll();
-          updateSyncBadge(true);
-        }
-      }).catch(()=>{});
+      pollCloudData();
     }
   });
+  // 每 6 小时清理超期记录
   setInterval(()=>{
     if(!db || !Array.isArray(db.records)) return;
     const before = db.records.length;
     const nd = JSON.parse(JSON.stringify(db));
     pruneOldRecords(nd);
-    if(nd.records.length < before){
-      saveDB(nd);
-      console.log('[定时清理] 已删除超期记录');
-    }
-  }, 6 * 60 * 60 * 1000);
+    if(nd.records.length < before) saveDB(nd);
+  }, 6*60*60*1000);
 }
 function updateSyncBadge(online){const b=document.getElementById('syncBadge');if(online){b.textContent='🟢 已同步';b.className='sync-badge online';}else{b.textContent='🔴 离线';b.className='sync-badge offline';}}
-function saveDB(newDb){db=ensureCompleteDB(newDb);pruneOldRecords(db);writeCloudData(db).catch(err=>showToast('保存失败','error'));}
+function saveDB(newDb){
+  db = ensureCompleteDB(newDb);
+  pruneOldRecords(db);
+  const writeTime = Date.now();
+  writeCloudData(db).then(()=>{
+    lastCloudUpdatedAt = Math.max(lastCloudUpdatedAt, writeTime);
+    updateSyncBadge(true);
+  }).catch(err=>{
+    console.warn('保存失败', err);
+    showToast('保存失败','error');
+  });
+}
 
 function addRecord(targetDb,type,product,loc,zone,quantity,customPieces,remark,targetZoneName,targetLocationLabel,locationId){if(!targetDb||!Array.isArray(targetDb.records))return null;const rec={id:targetDb.nextRecordId++,type,productId:product.id,productName:product.name||'未知产品',productModel:product.model||'',productUnit:product.unit||'件',zoneName:zone?.name||'未知',locationLabel:getRowDisplayLabel(zone,loc.rowNum)+'排'+getDisplayColNumber(zone,loc.colNum)+'托',quantity:quantity||0,customPieces:customPieces||0,batchNo:loc.batchNo||'',remark:remark||'',targetZoneName:targetZoneName||'',targetLocationLabel:targetLocationLabel||'',locationId:locationId||loc.id,timestamp:new Date().toISOString()};targetDb.records.push(rec);return rec;}
 function getProductDisplayInfo(pid){if(!db||!Array.isArray(db.products))return{pieces:0,unit:'件',unitQuantity:1,remark:'',isPriority:false,status:'green'};const p=db.products.find(x=>x.id===pid);if(!p)return{pieces:0,unit:'件',unitQuantity:1,remark:'',isPriority:false,status:'green'};const rp=db.locations.filter(l=>l.productId===pid&&l.status==='used').reduce((s,l)=>s+(l.quantity||0)*(p.unitQuantity||1),0);const cp=db.locations.filter(l=>l.productId===pid&&l.status==='used').reduce((s,l)=>s+(l.customPieces||0),0);const tp=db.transit.filter(t=>t.productId===pid).reduce((s,t)=>s+(t.quantity||0)*(p.unitQuantity||1)+(t.customPieces||0),0);return{pieces:rp+cp+tp,unit:p.unit||'件',unitQuantity:p.unitQuantity||1,remark:p.remark||'',isPriority:!!p.isPriority,status:p.status||'green'};}
@@ -1583,8 +1602,7 @@ function getFifoRankMap(zoneId){
 function renderFifoOrderModal(){
   if(!db||!Array.isArray(db.locations)||!Array.isArray(db.products)||!Array.isArray(db.transit)){showToast('数据未加载','info');return;}
   refreshFifoItems();
-  if(fifoCombinedItems.length===0 && fifoMode!=='ship'){showToast('无已用仓位或中转仓产品','info');return;}
-  if(fifoCombinedItems.length===0 && fifoMode==='ship'){showToast('无可用库位产品','info');return;}
+  if(fifoCombinedItems.length===0){showToast('无可用库位产品','info');return;}
   fifoProductLocationCount = {};
   fifoCombinedItems.forEach(item=>{const pid = item.productId; fifoProductLocationCount[pid] = (fifoProductLocationCount[pid] || 0) + 1;});
 
@@ -1623,6 +1641,7 @@ function renderFifoOrderModal(){
     '<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">'+
       '<button class="btn btn-sm '+modeCls('normal')+'" onclick="setFifoMode(\'normal\')">📋 普通模式</button>'+
       '<button class="btn btn-sm '+modeCls('ship')+'" onclick="setFifoMode(\'ship\')">🚚 发货模式</button>'+
+      '<button class="btn btn-sm '+modeCls('hand')+'" onclick="setFifoMode(\'hand\')">📝 记手账模式</button>'+
     '</div>'+
     '<div class="form-group"><label>分组方式</label><select id="fifoGroupSelect" onchange="fifoGroupBy=this.value;updateFifoContent()"><option value="name"'+(fifoGroupBy==='name'?' selected':'')+'>按名称</option><option value="model"'+(fifoGroupBy==='model'?' selected':'')+'>按型号</option></select></div>'+
     '<div class="form-group"><label>仓库区域（不选=全部）</label>'+
@@ -1706,7 +1725,8 @@ function refreshFifoItems(){
       inboundTime: loc.inboundTime || null
     });
   });
-  if(fifoMode !== 'ship'){
+  // hand 模式和 ship 模式都不显示中转仓
+  if(fifoMode !== 'ship' && fifoMode !== 'hand'){
     db.transit.filter(t=>t.batchNo).forEach(t=>{
       fifoCombinedItems.push({
         productId: t.productId, batchNo: t.batchNo, locationType:'transit', locationId: t.id,
@@ -1741,7 +1761,8 @@ function updateFifoContent(){
   const combinedItems = fifoCombinedItems || [];
   if(combinedItems.length===0){container.innerHTML='<p style="color:#5f6368;text-align:center;padding:16px;">无数据</p>';return;}
 
-  if(fifoMode==='ship'){
+  // ========== 发货模式 / 记手账模式：紧凑行 ==========
+  if(fifoMode==='ship' || fifoMode==='hand'){
     let items = combinedItems.filter(item=>{
       if(selectedProductFilters.size>0 && !selectedProductFilters.has(item.productId)) return false;
       return true;
@@ -1774,22 +1795,34 @@ function updateFifoContent(){
       const statusTag=effSt==='green'?'🟢':(effSt==='yellow'?'🟡':'🔴');
       const priorityTag=item.priorityFlag?'<span style="color:#d32f2f;font-weight:600;">【先】</span>':(p.isPriority?'<span style="color:#ff5722;">【产先】</span>':'');
       const ticketTag=item.ticketAttached?'<span style="color:#e91e63;">🎫</span>':'';
-      const priorityLabel = item.priorityFlag ? '取消先发' : '先发标识';
-      const ticketLabel = item.ticketAttached ? '取消贴票' : '贴票标识';
-      const priorityCls = item.priorityFlag ? 'btn-outline' : 'btn-primary';
-      const ticketCls = item.ticketAttached ? 'btn-outline' : 'btn-primary';
+      const handTag=item.handAccount?'<span style="color:#ff9800;">账</span>':'';
+
+      let actionHtml='';
+      if(fifoMode==='ship'){
+        const priorityLabel = item.priorityFlag ? '取消先发' : '先发标识';
+        const ticketLabel = item.ticketAttached ? '取消贴票' : '贴票标识';
+        const priorityCls = item.priorityFlag ? 'btn-outline' : 'btn-primary';
+        const ticketCls = item.ticketAttached ? 'btn-outline' : 'btn-primary';
+        actionHtml =
+          `<button class="btn btn-sm ${priorityCls}" onclick="togglePriorityFlagInline(${item.locationId})">${priorityLabel}</button>`+
+          `<button class="btn btn-sm ${ticketCls}" onclick="toggleTicketAttachedInline(${item.locationId})">${ticketLabel}</button>`+
+          `<button class="btn btn-sm btn-warning" onclick="fifoShipOut(${item.locationId},false)">发货</button>`;
+      }else{
+        // hand 模式
+        const handLabel = item.handAccount ? '取消手账' : '手账标识';
+        const handCls = item.handAccount ? 'btn-outline' : 'btn-primary';
+        actionHtml = `<button class="btn btn-sm ${handCls}" onclick="toggleHandAccountInline(${item.locationId})">${handLabel}</button>`;
+      }
 
       html += `<div class="fifo-ship-row">
         <div class="fs-info">
-          <span class="fs-name">${statusTag} ${ticketTag} ${priorityTag} ${p.name||'未知产品'}</span>
+          <span class="fs-name">${statusTag} ${handTag} ${ticketTag} ${priorityTag} ${p.name||'未知产品'}</span>
           <span class="fs-batch">批次:${item.batchNo||'-'}</span>
           <span class="fs-loc">${locText}</span>
           <span class="fs-qty">${qs}</span>
         </div>
         <div class="fs-actions">
-          <button class="btn btn-sm ${priorityCls}" onclick="togglePriorityFlagInline(${item.locationId})">${priorityLabel}</button>
-          <button class="btn btn-sm ${ticketCls}" onclick="toggleTicketAttachedInline(${item.locationId})">${ticketLabel}</button>
-          <button class="btn btn-sm btn-warning" onclick="fifoShipOut(${item.locationId},false)">发货</button>
+          ${actionHtml}
         </div>
       </div>`;
     });
@@ -1798,6 +1831,7 @@ function updateFifoContent(){
     return;
   }
 
+  // ========== 普通模式（保持原样） ==========
   const grouped={};
   combinedItems.forEach(item=>{
     const p=db.products.find(x=>x.id===item.productId);
