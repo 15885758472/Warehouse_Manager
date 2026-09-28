@@ -78,7 +78,7 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 .btn-info{background:#2196f3;color:#fff}
 .btn-sm{padding:3px 6px;font-size:9px;border-radius:3px}
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:12px}
-.modal{background:#fff;border-radius:var(--radius);padding:16px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto}
+.modal{background:#fff;border-radius:var(--radius);padding:16px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto}
 .modal h2{font-size:16px;margin-bottom:12px}
 .form-group{margin-bottom:10px}
 .form-group label{display:block;font-size:11px;font-weight:500;margin-bottom:3px;color:var(--text-secondary)}
@@ -1157,10 +1157,10 @@ function refreshRecordTable(){
     const target=r.type==='迁移'?((r.targetZoneName||'')+' '+(r.targetLocationLabel||'')):'-';
     return '<tr><td><button class="btn btn-danger btn-sm" onclick="deleteRecord('+r.id+')">删除</button> <button class="btn btn-warning btn-sm" onclick="revokeRecord('+r.id+')">撤回</button></td><td style="color:'+color+';font-weight:600">'+r.type+'</td><td>'+r.productName+'</td><td>'+r.productModel+'</td><td>'+qs+'</td><td>'+r.zoneName+'</td><td>'+r.locationLabel+'</td><td>'+r.batchNo+'</td><td>'+target+'</td><td>'+(r.remark||'-')+'</td><td>'+new Date(r.timestamp).toLocaleString()+'</td></tr>';
   }).join('');
-  wrap.innerHTML = '<p>共 '+filtered.length+' 条记录（保留最近 '+RECORD_KEEP_DAYS+' 天）</p>'+
-    '<div style="overflow:auto;max-height:calc(85vh - 460px);">'+
-      '<table class="records-table"><thead><tr><th>操作</th><th>类型</th><th>产品</th><th>型号</th><th>数量</th><th>区域</th><th>仓位</th><th>批次</th><th>去向</th><th>备注</th><th>时间</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    '</div>';
+  wrap.innerHTML = '<p style="margin:4px 0;">共 '+filtered.length+' 条记录（保留最近 '+RECORD_KEEP_DAYS+' 天）</p>'+
+  '<div style="overflow:auto;max-height:55vh;min-height:240px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;">'+
+    '<table class="records-table"><thead><tr><th>操作</th><th>类型</th><th>产品</th><th>型号</th><th>数量</th><th>区域</th><th>仓位</th><th>批次</th><th>去向</th><th>备注</th><th>时间</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+  '</div>';
 }
 function applyRecordDateFilter(){
   recordStartDate = getCalendarValue('recStartCal') || '';
