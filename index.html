@@ -131,133 +131,40 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
 
 /* ==================== 手机端 ==================== */
 @media(max-width:767px){
-  /* 底部工具栏：限制高度 + 内部滚动 */
-  .right-panel{
-    max-height:160px;
-    padding:5px 6px;
-    gap:4px;
-    align-items:stretch;
-  }
-  .right-section{
-    min-width:160px;
-    max-width:200px;
-    padding:0;
-    gap:0;
-    max-height:100%;
-    overflow-y:auto;
-    overflow-x:hidden;
-    -webkit-overflow-scrolling:touch;
-    scrollbar-width:none;
-    position:relative;
-  }
+  .right-panel{max-height:160px;padding:5px 6px;gap:4px;align-items:stretch;}
+  .right-section{min-width:160px;max-width:200px;padding:0;gap:0;max-height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;position:relative;}
   .right-section::-webkit-scrollbar{display:none;}
-  .right-section h3{
-    font-size:10px;
-    margin:0;
-    padding:6px 8px;
-    position:sticky;
-    top:0;
-    z-index:10;
-    background:#f8f9fa;
-    border-bottom:1px solid var(--border);
-    box-shadow:0 1px 0 #f8f9fa;
-  }
+  .right-section h3{font-size:10px;margin:0;padding:6px 8px;position:sticky;top:0;z-index:10;background:#f8f9fa;border-bottom:1px solid var(--border);box-shadow:0 1px 0 #f8f9fa;}
   .right-section > .btn,
-  .right-section > div:not(.smart-select-cards){
-    margin:0 6px;
-  }
+  .right-section > div:not(.smart-select-cards){margin:0 6px;}
   .right-section > .btn:first-of-type,
-  .right-section > div:first-of-type{
-    margin-top:6px;
-  }
+  .right-section > div:first-of-type{margin-top:6px;}
   .right-section > .btn:last-of-type,
-  .right-section > div:last-of-type{
-    margin-bottom:6px;
-  }
+  .right-section > div:last-of-type{margin-bottom:6px;}
   .right-panel .btn{padding:5px 8px;font-size:11px;min-height:28px;}
   .right-panel .btn-sm{padding:4px 6px;font-size:10px;min-height:24px;}
   .product-list{max-height:60px;}
 
-  /* 手机端：强制所有筛选产品的卡片隐藏，显示下拉多选 */
   .smart-select-cards{display:none !important;}
   select.smart-sort-target-multi,
   select#fifoProductFilter,
   select#recProductSelect,
   select#shipProductFilterSelect{
-    display:block !important;
-    width:100% !important;
-    box-sizing:border-box;
-    padding:8px 10px;
-    border:1.5px solid #dadce0;
-    border-radius:6px;
-    font-size:14px;
-    background:#fff;
-    min-height:42px;
-    color:#202124;
+    display:block !important;width:100% !important;box-sizing:border-box;
+    padding:8px 10px;border:1.5px solid #dadce0;border-radius:6px;
+    font-size:14px;background:#fff;min-height:42px;color:#202124;
   }
-  select[multiple].smart-sort-target-multi{
-    height:auto;
-    min-height:72px;
-    max-height:110px;
-    overflow-y:auto;
-  }
+  select[multiple].smart-sort-target-multi{height:auto;min-height:72px;max-height:110px;overflow-y:auto;}
 
-  /* 手机端：记手账模式——超紧凑两行 */
-  .fifo-hand-row{
-    position:relative;
-    padding:5px 8px 5px 8px;
-    padding-right:76px;
-    gap:0;
-    margin-bottom:3px;
-    align-items:center;
-  }
-  .fifo-hand-row .fs-info{
-    display:flex;
-    flex-wrap:wrap;
-    gap:0 8px;
-    width:100%;
-    line-height:1.3;
-    font-size:11px;
-  }
-  .fifo-hand-row .fs-name{
-    display:block;
-    width:100%;
-    font-size:12px;
-    line-height:1.25;
-    margin-bottom:1px;
-  }
+  .fifo-hand-row{position:relative;padding:5px 8px 5px 8px;padding-right:76px;gap:0;margin-bottom:3px;align-items:center;}
+  .fifo-hand-row .fs-info{display:flex;flex-wrap:wrap;gap:0 8px;width:100%;line-height:1.3;font-size:11px;}
+  .fifo-hand-row .fs-name{display:block;width:100%;font-size:12px;line-height:1.25;margin-bottom:1px;}
   .fifo-hand-row .fs-batch,
-  .fifo-hand-row .fs-loc{
-    font-size:10px;
-    color:#5f6368;
-    line-height:1.2;
-  }
-  .fifo-hand-row .fs-qty{
-    font-size:10px;
-    font-weight:600;
-    color:#1a73e8;
-  }
-  .fifo-hand-row .fs-actions{
-    position:absolute;
-    right:6px;
-    top:50%;
-    transform:translateY(-50%);
-    width:auto;
-    padding:0;
-    margin:0;
-    border:none;
-    flex:0 0 auto;
-    display:flex;
-  }
-  .fifo-hand-row .fs-actions .btn{
-    padding:3px 8px;
-    font-size:10px;
-    min-height:22px;
-    line-height:1;
-    border-radius:4px;
-  }
+  .fifo-hand-row .fs-loc{font-size:10px;color:#5f6368;line-height:1.2;}
+  .fifo-hand-row .fs-qty{font-size:10px;font-weight:600;color:#1a73e8;}
+  .fifo-hand-row .fs-actions{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:auto;padding:0;margin:0;border:none;flex:0 0 auto;display:flex;}
+  .fifo-hand-row .fs-actions .btn{padding:3px 8px;font-size:10px;min-height:22px;line-height:1;border-radius:4px;}
 
-  /* 其它手机端通用 */
   .btn{padding:8px 12px;font-size:13px;min-height:36px;}
   .btn-sm{padding:6px 10px;font-size:12px;min-height:32px;}
   .form-group input,.form-group select,.form-group textarea{font-size:16px;padding:10px;}
@@ -272,33 +179,16 @@ body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;backgroun
   .fifo-ship-row .fs-actions{width:100%;justify-content:flex-end;margin-top:4px;padding-top:6px;border-top:1px dashed var(--border);}
   .fifo-ship-row .fs-actions .btn{flex:1 1 auto;justify-content:center;}
 
-  /* 手机端 hand 行覆盖通用 .fifo-ship-row 的 actions 样式 */
-  .fifo-hand-row .fs-actions{
-    width:auto !important;
-    margin-top:0 !important;
-    padding-top:0 !important;
-    border-top:none !important;
-    justify-content:flex-end !important;
-  }
+  .fifo-hand-row .fs-actions{width:auto !important;margin-top:0 !important;padding-top:0 !important;border-top:none !important;justify-content:flex-end !important;}
 
-  /* 弹窗内所有两列布局在手机端自动变单列 */
-  .modal div[style*="grid-template-columns:1fr 1fr"]{
-    grid-template-columns:1fr !important;
-  }
-
-  /* 日历组件紧凑，防止超宽 */
+  .modal div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr !important;}
   .cal-wrap{padding:6px;}
   .cal-head{gap:4px;margin-bottom:6px;}
   .cal-head select{padding:5px 6px;font-size:12px;min-width:0;flex:1 1 0;}
   .cal-grid{gap:2px;}
   .cal-value{font-size:11px;margin-top:4px;}
-
-  /* 弹窗内的 select 防止超宽 */
   .modal select,
-  .modal input[type="date"]{
-    max-width:100%;
-    box-sizing:border-box;
-  }
+  .modal input[type="date"]{max-width:100%;box-sizing:border-box;}
 }
 
 /* ==================== 桌面端 ==================== */
@@ -421,6 +311,8 @@ const dataRef = cdb.collection('warehouse').doc('data');
 let watcher = null;
 let authReady = false;
 let authReadyResolve = null;
+// 记录本地已知的云端最新时间戳：写入时同步抬高，轮询时只有云端比它新才覆盖本地
+let lastCloudUpdatedAt = 0;
 const authReadyPromise = new Promise(resolve => { authReadyResolve = resolve; });
 
 auth.onLoginStateChanged(() => { /* 可选监听 */ });
@@ -464,11 +356,9 @@ let shipProductFilters = new Set();
 const RECORD_KEEP_DAYS = 30;
 
 function createDefaultDB(){const d={zones:[],locations:[],products:[],records:[],dailyStats:[],dailyBatchStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};const bz={id:1,name:'成品区',rows:34,cols:5,isBase:true,createdAt:new Date().toISOString(),rowDetails:Array(34).fill(5)};d.zones.push(bz);d.nextZoneId=2;for(let r=1;r<=34;r++)for(let c=1;c<=5;c++)d.locations.push({id:d.nextLocationId++,zoneId:1,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,inboundTime:null,productStatus:null,ticketAttached:false});return d;}
-// 递归把 CloudBase 的 ISODate 对象 {$date:"..."} 还原成 ISO 字符串
 // 递归把 CloudBase 的 Date 对象 / ISODate 包装还原成 ISO 字符串
 function restoreCloudBaseDates(obj){
   if(obj === null || obj === undefined) return obj;
-  // JS Date 对象 → ISO 字符串
   if(obj instanceof Date){
     try{ return obj.toISOString(); }catch(e){ return null; }
   }
@@ -476,14 +366,12 @@ function restoreCloudBaseDates(obj){
     return obj.map(restoreCloudBaseDates);
   }
   if(typeof obj === 'object'){
-    // {$date: "..."} 或 {$date: Date}
     if(obj.$date !== undefined){
       if(typeof obj.$date === 'string') return obj.$date;
       if(obj.$date instanceof Date){
         try{ return obj.$date.toISOString(); }catch(e){ return null; }
       }
     }
-    // {$numberLong: "1234567890"} (MongoDB 时间戳)
     if(obj.$numberLong !== undefined && obj.$numberLong !== null){
       const n = parseInt(obj.$numberLong);
       if(!isNaN(n)) return new Date(n).toISOString();
@@ -531,21 +419,26 @@ function pruneOldRecords(targetDb){
 }
 async function readCloudData(){
   const res = await dataRef.get();
-  // CloudBase 返回格式：{ data: [ { _id, content, ... } ] }
   if(res && res.data && res.data.length > 0){
-    return res.data[0].content || null;
+    const doc = res.data[0];
+    const ts = doc.updatedAt || 0;
+    // 读取时同步抬高已知时间戳，避免初始化阶段被自己的旧数据覆盖
+    if(ts > lastCloudUpdatedAt) lastCloudUpdatedAt = ts;
+    return doc.content || null;
   }
   return null;
 }
 async function writeCloudData(payload){
-  return dataRef.set({ content: payload, updatedAt: Date.now() });
+  const ts = Date.now();
+  // 关键修复：本地写入前先记录时间戳，轮询时不会再把这次写入当成"云端更新"覆盖回来
+  if(ts > lastCloudUpdatedAt) lastCloudUpdatedAt = ts;
+  return dataRef.set({ content: payload, updatedAt: ts });
 }
 
 async function initFromFirebase(){
   let retryCount = 0;
   const maxRetry = 3;
   const attemptTimeoutMs = 30000;
-  // 等待匿名登录完成
   try{ await authReadyPromise; }catch(e){}
   function tryConnect(){
     updateSyncBadge(false);
@@ -612,22 +505,27 @@ async function initFromFirebase(){
   }
   tryConnect();
 }
-let lastCloudUpdatedAt = 0;
 
+// 轮询：只有云端时间戳严格大于本地已知时间戳时才覆盖，避免自我覆盖导致操作回滚
 async function pollCloudData(){
   try{
     const res = await dataRef.get();
     if(res && res.data && res.data.length > 0){
       const doc = res.data[0];
       const cloudUpdatedAt = doc.updatedAt || 0;
-      // 只有云端比本地更新时才覆盖
       if(cloudUpdatedAt > lastCloudUpdatedAt){
         lastCloudUpdatedAt = cloudUpdatedAt;
-        db = ensureCompleteDB(doc.content || null);
-        updateProductLocationCountCache();
-        try{ updateDailyStatsIfNeeded(); }catch(e){}
-        try{ updateDailyBatchStatsIfNeeded(); }catch(e){}
-        renderAll();
+        const newDb = ensureCompleteDB(doc.content || null);
+        // 内容一致时不再重新渲染，避免滚动位置丢失、页面"跳回最左侧"
+        let same = false;
+        try{ same = (JSON.stringify(newDb) === JSON.stringify(db)); }catch(e){ same = false; }
+        if(!same){
+          db = newDb;
+          updateProductLocationCountCache();
+          try{ updateDailyStatsIfNeeded(); }catch(e){}
+          try{ updateDailyBatchStatsIfNeeded(); }catch(e){}
+          renderAll();
+        }
         updateSyncBadge(true);
       }else{
         updateSyncBadge(true);
@@ -642,22 +540,17 @@ async function pollCloudData(){
 }
 
 function startRealtimeListener(){
-  // 关闭可能存在的旧 watcher
   try{
     if(watcher){ watcher.close().catch(()=>{}); watcher = null; }
   }catch(e){}
-  // 启动定时轮询（每 10 秒）
   if(window._pollTimer) clearInterval(window._pollTimer);
   window._pollTimer = setInterval(pollCloudData, 10000);
-  // 立即拉一次
   pollCloudData();
-  // 页面回到前台时立即刷新
   document.addEventListener('visibilitychange', ()=>{
     if(document.visibilityState === 'visible'){
       pollCloudData();
     }
   });
-  // 每 6 小时清理超期记录
   setInterval(()=>{
     if(!db || !Array.isArray(db.records)) return;
     const before = db.records.length;
@@ -670,9 +563,7 @@ function updateSyncBadge(online){const b=document.getElementById('syncBadge');if
 function saveDB(newDb){
   db = ensureCompleteDB(newDb);
   pruneOldRecords(db);
-  // 立即本地渲染，用户操作后立刻看到效果（不需要等轮询）
   try{ renderAll(); }catch(e){ console.error('renderAll error:', e); }
-  // 异步写云端（不阻塞 UI）
   writeCloudData(db).catch(err=>{
     console.warn('保存失败', err);
     showToast('保存失败','error');
@@ -710,7 +601,37 @@ function showAddZoneModal(){openModal('<h2>添加区域</h2><div class="form-gro
 function addZone(){const name=document.getElementById('newZoneName').value.trim();const rows=parseInt(document.getElementById('newZoneRows').value);const cols=parseInt(document.getElementById('newZoneCols').value);const detailsStr=document.getElementById('newZoneRowDetails')?.value.trim();if(!name||!rows||!cols){showToast('请填写完整','error');return;}const nd=JSON.parse(JSON.stringify(db));const zone={id:nd.nextZoneId++,name,rows,cols,isBase:false,createdAt:new Date().toISOString(),rowDetails:[]};if(detailsStr){const arr=detailsStr.split(',').map(Number);for(let i=0;i<rows;i++)zone.rowDetails[i]=arr[i]||cols;}else{zone.rowDetails=Array(rows).fill(cols);}nd.zones.push(zone);for(let r=1;r<=rows;r++){const rowCols=zone.rowDetails[r-1];for(let c=1;c<=rowCols;c++){nd.locations.push({id:nd.nextLocationId++,zoneId:zone.id,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,inboundTime:null,productStatus:null,ticketAttached:false});}}currentZoneId=zone.id;saveDB(nd);closeModal();showToast('已添加','success');}
 function showEditZoneModal(zoneId){const zone=db.zones.find(z=>z.id===zoneId);if(!zone)return;const detailsStr=zone.rowDetails?zone.rowDetails.join(','):'';openModal(`<h2>编辑区域</h2><div class="form-group"><label>名称</label><input id="editZoneName" value="${zone.name}"></div><div class="form-group"><label>排数</label><input type="number" id="editZoneRows" value="${zone.rows}" min="1"></div><div class="form-group"><label>每排托数（逗号分隔，如 10,10,3）</label><input id="editZoneRowDetails" value="${detailsStr}"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveEditZone(${zoneId})">保存</button></div>`);}
 function saveEditZone(zoneId){const nd=JSON.parse(JSON.stringify(db));const zone=nd.zones.find(z=>z.id===zoneId);if(!zone)return;const newName=document.getElementById('editZoneName').value.trim();const newRows=parseInt(document.getElementById('editZoneRows').value);const detailsStr=document.getElementById('editZoneRowDetails').value.trim();if(!newName||!newRows||newRows<1){showToast('请输入有效信息','error');return;}const newRowDetails=[];if(detailsStr){const arr=detailsStr.split(',').map(Number);for(let i=0;i<newRows;i++)newRowDetails[i]=arr[i]||zone.cols;}else{for(let i=0;i<newRows;i++)newRowDetails[i]=zone.cols;}const oldLocs=nd.locations.filter(l=>l.zoneId===zoneId);for(const loc of oldLocs){const rowCols=newRowDetails[loc.rowNum-1]||0;if(loc.status==='used'&&loc.colNum>rowCols){showToast(`第${loc.rowNum}排有产品超出新托数，请先迁移`,'error');return;}}zone.name=newName;zone.rows=newRows;zone.rowDetails=newRowDetails;nd.locations=nd.locations.filter(l=>{if(l.zoneId!==zoneId)return true;const rowCols=newRowDetails[l.rowNum-1]||0;if(l.rowNum>newRows||l.colNum>rowCols){if(l.status==='used')return true;return false;}return true;});for(let r=1;r<=newRows;r++){const rowCols=newRowDetails[r-1]||0;for(let c=1;c<=rowCols;c++){if(!nd.locations.some(l=>l.zoneId===zoneId&&l.rowNum===r&&l.colNum===c)){nd.locations.push({id:nd.nextLocationId++,zoneId,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,inboundTime:null,productStatus:null,ticketAttached:false});}}}saveDB(nd);closeModal();renderAll();showToast('区域已更新','success');}
-function renderGrid(){const container=document.getElementById('gridContainer');if(!container||!db)return;const sl=container.scrollLeft,st=container.scrollTop;const zone=db.zones.find(z=>z.id===currentZoneId);if(!zone){container.innerHTML='<div>请选择区域</div>';return;}const locations=db.locations.filter(l=>l.zoneId===zone.id);document.getElementById('currentZoneTitle').textContent=zone.name;document.getElementById('currentZoneInfo').textContent=zone.isBase?('A侧'+Math.ceil(zone.rows/2)+'排 + B侧'+Math.floor(zone.rows/2)+'排 × '+zone.cols+'托'):(zone.rows+'排 × 自定义托数');const rankMap=getFifoRankMap(zone.id);if(zone.isBase){const half=Math.ceil(zone.rows/2);container.innerHTML='<div class="grid-side-by-side">'+renderGridTable(locations.filter(l=>l.rowNum<=half),zone,rankMap)+renderGridTable(locations.filter(l=>l.rowNum>half),zone,rankMap)+'</div>';}else{container.innerHTML=renderGridTable(locations,zone,rankMap);}requestAnimationFrame(()=>{container.scrollLeft=sl;container.scrollTop=st;});}
+
+// ==================== 渲染网格（关键修复：保持横向滚动位置） ====================
+function renderGrid(){
+  const container=document.getElementById('gridContainer');
+  if(!container||!db)return;
+  // 修复1：同时保存外层容器和内层横向滚动容器的位置
+  const prevOuterLeft=container.scrollLeft;
+  const prevOuterTop=container.scrollTop;
+  const prevInnerEl=container.querySelector('.grid-side-by-side');
+  const prevInnerLeft=prevInnerEl?prevInnerEl.scrollLeft:0;
+
+  const zone=db.zones.find(z=>z.id===currentZoneId);
+  if(!zone){container.innerHTML='<div>请选择区域</div>';return;}
+  const locations=db.locations.filter(l=>l.zoneId===zone.id);
+  document.getElementById('currentZoneTitle').textContent=zone.name;
+  document.getElementById('currentZoneInfo').textContent=zone.isBase?('A侧'+Math.ceil(zone.rows/2)+'排 + B侧'+Math.floor(zone.rows/2)+'排 × '+zone.cols+'托'):(zone.rows+'排 × 自定义托数');
+  const rankMap=getFifoRankMap(zone.id);
+  if(zone.isBase){
+    const half=Math.ceil(zone.rows/2);
+    container.innerHTML='<div class="grid-side-by-side">'+renderGridTable(locations.filter(l=>l.rowNum<=half),zone,rankMap)+renderGridTable(locations.filter(l=>l.rowNum>half),zone,rankMap)+'</div>';
+  }else{
+    container.innerHTML=renderGridTable(locations,zone,rankMap);
+  }
+  // 修复1：恢复滚动位置，包含内层横向滚动
+  requestAnimationFrame(()=>{
+    container.scrollLeft=prevOuterLeft;
+    container.scrollTop=prevOuterTop;
+    const inner=container.querySelector('.grid-side-by-side');
+    if(inner) inner.scrollLeft=prevInnerLeft;
+  });
+}
 function renderGridTable(locs,zone,rankMap){if(locs.length===0)return'';const rows=[...new Set(locs.map(l=>l.rowNum))].sort((a,b)=>a-b);let html='<div class="grid-table">';rows.forEach(r=>{const rowCols=zone.rowDetails?(zone.rowDetails[r-1]||zone.cols):zone.cols;const displayCols=getDisplayColArray({...zone,cols:rowCols},r);html+='<div class="grid-row"><div class="grid-row-label">'+getRowDisplayLabel(zone,r)+'</div>';for(let idx=0;idx<displayCols.length;idx++){const oc=displayCols[idx];const loc=locs.find(l=>l.rowNum===r&&l.colNum===oc);if(loc){let style='',rankBadge='',newBadge='',yesterdayBadge='',handBadge='',ticketBadge='',transferBadge='',priorityFlagBadge='',priorityProductBadge='',remarkBadge='',cbHtml='';if(loc.status==='used'){const info=rankMap[loc.id];const effStatus=getLocationEffectiveStatus(loc);const colors=getStatusColors(effStatus);style='background-color:'+colors.bg+';border-color:'+colors.border+';color:'+colors.text+';';if(info){rankBadge='<span class="fifo-rank">#'+(info.rank+1)+'/'+info.total+'</span>';}const updatedDate = loc.updatedAt ? (typeof loc.updatedAt === 'string' ? loc.updatedAt.split('T')[0] : (loc.updatedAt instanceof Date ? loc.updatedAt.toISOString().split('T')[0] : null)) : null;if(updatedDate){const today=new Date().toISOString().split('T')[0];const yesterday=new Date(Date.now()-86400000).toISOString().split('T')[0];if(updatedDate===today)newBadge='<span class="new-badge">今</span>';else if(updatedDate===yesterday)yesterdayBadge='<span class="yesterday-badge">昨</span>';}if(loc.handAccount)handBadge='<span class="hand-badge">账</span>';if(loc.ticketAttached)ticketBadge='<span class="ticket-badge">票</span>';if(loc.transferFlag)transferBadge='<span class="transfer-badge">转</span>';if(loc.priorityFlag)priorityFlagBadge='<span class="priority-flag-badge">先</span>';if(loc.remark)remarkBadge='<span class="remark-badge">备</span>';}if(locationBatchMode)cbHtml='<input type="checkbox" class="select-checkbox"'+(selectedLocations.has(loc.id)?' checked':'')+' onclick="toggleLocationSelect('+loc.id+',event)">';let label='',batchInfo='',qtyInfo='';if(loc.status==='used'&&loc.productId){const p=db.products.find(x=>x.id===loc.productId);label=p?p.name:'未知产品';if(p&&p.isPriority)priorityProductBadge='<span class="priority-badge">产先</span>';const batchDate=loc.batchNo?String(loc.batchNo).slice(5).replace('-','/'):'';batchInfo=batchDate;if(loc.customPieces>0)qtyInfo=loc.customPieces+'件';else qtyInfo=loc.quantity>0?loc.quantity+(p?.unit||'件'):'';}else if(loc.status==='unavailable')label='🚫';else label='托'+(idx+1);const click=locationBatchMode?'toggleLocationSelect('+loc.id+',event)':'handleCellClick('+loc.id+')';const cmenu=locationBatchMode?'':'handleCellRightClick('+loc.id+');return false;';html+='<div class="cell status-'+loc.status+'" style="'+style+'" onclick="'+click+'" oncontextmenu="'+cmenu+'">'+cbHtml+rankBadge+newBadge+yesterdayBadge+handBadge+ticketBadge+transferBadge+priorityFlagBadge+priorityProductBadge+remarkBadge+'<span class="cell-label">'+label+'</span>'+(qtyInfo?'<span class="cell-qty">'+qtyInfo+'</span>':'')+(batchInfo?'<span class="cell-batch">'+batchInfo+'</span>':'')+'</div>';}else{html+='<div class="cell" style="border-style:dashed;opacity:.3;">托'+(idx+1)+'</div>';}}html+='</div>';});html+='</div>';return html;}
 
 // ==================== 产品列表 ====================
@@ -730,7 +651,6 @@ function showProductDetail(id){const p=db.products.find(x=>x.id===id);if(!p)retu
 function showEditProductModal(id){const p=db.products.find(x=>x.id===id);if(!p)return;openModal('<h2>✏️ 编辑产品</h2><div class="form-group"><label>名称</label><input id="editName" value="'+(p.name||'')+'"></div><div class="form-group"><label>型号</label><input id="editModel" value="'+(p.model||'')+'"></div><div class="form-group"><label>单位</label><input id="editUnit" value="'+(p.unit||'件')+'"></div><div class="form-group"><label>单位数量</label><input type="number" id="editUnitQuantity" value="'+p.unitQuantity+'"></div><div class="form-group"><label>备注</label><textarea id="editRemark">'+(p.remark||'')+'</textarea></div><div class="form-group"><label>默认状态</label><select id="editStatus"><option value="green"'+(p.status==='green'?' selected':'')+'>🟢 绿色（优先）</option><option value="yellow"'+(p.status==='yellow'?' selected':'')+'>🟡 黄色</option><option value="red"'+(p.status==='red'?' selected':'')+'>🔴 红色（最后）</option></select></div><div class="form-group"><label>先发标识</label><input type="checkbox" id="editPriority"'+(p.isPriority?' checked':'')+'></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="updateProduct('+id+')">保存</button></div>');}
 function updateProduct(id){const nd=JSON.parse(JSON.stringify(db));const p=nd.products.find(x=>x.id===id);p.name=document.getElementById('editName').value.trim();p.model=document.getElementById('editModel').value.trim();p.unit=document.getElementById('editUnit').value.trim();p.unitQuantity=parseInt(document.getElementById('editUnitQuantity').value)||1;p.remark=document.getElementById('editRemark').value.trim();p.status=document.getElementById('editStatus').value;p.isPriority=document.getElementById('editPriority')?.checked||false;saveDB(nd);closeModal();showToast('已更新','success');}
 function deleteProduct(id){if(db.locations.some(l=>l.productId===id&&l.status==='used')||db.transit.some(t=>t.productId===id)){showToast('已存储','error');return;}if(!confirm('删除？'))return;const nd=JSON.parse(JSON.stringify(db));nd.products=nd.products.filter(x=>x.id!==id);saveDB(nd);showToast('已删除','success');}
-
 // ==================== 库位批量操作 ====================
 function toggleLocationBatchMode(){locationBatchMode=!locationBatchMode;if(!locationBatchMode){selectedLocations.clear();document.getElementById('locationBatchToolbar').classList.remove('active');}else document.getElementById('locationBatchToolbar').classList.add('active');renderGrid();}
 function toggleLocationSelect(id,ev){if(ev)ev.stopPropagation();if(selectedLocations.has(id))selectedLocations.delete(id);else selectedLocations.add(id);renderGrid();}
@@ -939,7 +859,6 @@ function confirmReplaceWithNewProduct(lid){
   loc.productStatus=null; loc.ticketAttached=false;
   saveDB(nd);closeModal();showToast('替换成功','success');
 }
-swapWithAnotherLocation
 function confirmSwapProducts(lid1){
   const lid2=parseInt(document.getElementById('swapTargetLoc').value);
   if(!lid2){showToast('请选择交换库位','error');return;}
@@ -1019,7 +938,6 @@ function updateMigrateRowList(){
   if(zoneId){
     const zone = db.zones.find(z=>z.id===parseInt(zoneId));
     if(zone){
-      // 只列出该区域中有空库位的排
       const rowsWithEmpty = new Set(
         db.locations
           .filter(l=>l.zoneId===zone.id && l.status==='normal')
@@ -1064,7 +982,6 @@ function updateSwapRowList(){
     const zone = db.zones.find(z=>z.id===parseInt(zoneId));
     if(zone){
       const lid = window._swapLid;
-      // 只列出该区域中有"已用库位（且不是当前库位）"的排
       const rowsWithUsed = new Set(
         db.locations
           .filter(l=>l.zoneId===zone.id && l.status==='used' && l.id!==lid)
@@ -1131,6 +1048,7 @@ function toggleTransitSelect(id){if(selectedTransitItems.has(id))selectedTransit
 function clearAllTransit(){if(!db||!Array.isArray(db.transit)||db.transit.length===0){showToast('中转仓为空','info');return;}if(!confirm('确定清空中转仓所有记录？'))return;const nd=JSON.parse(JSON.stringify(db));nd.transit=[];saveDB(nd);closeModal();showToast('已清空中转仓','success');}
 function batchClearSelectedTransit(){if(selectedTransitItems.size===0){showToast('请先勾选中转仓条目','error');return;}if(!confirm('确定清空选中的中转仓条目？'))return;const nd=JSON.parse(JSON.stringify(db));nd.transit=nd.transit.filter(t=>!selectedTransitItems.has(t.id));selectedTransitItems.clear();saveDB(nd);renderTransitList();showToast('已批量清空','success');}
 function transitTransfer(transitId){const t=db.transit.find(x=>x.id===transitId);if(!t){showToast('记录不存在','error');return;}const emptyLocs=sortLocationsForDisplay(db.locations.filter(l=>l.status==='normal'));if(emptyLocs.length===0){showToast('没有空库位','error');return;}let opts=emptyLocs.map(l=>{const zone=db.zones.find(z=>z.id===l.zoneId);return '<option value="'+l.id+'">'+zone?.name+' '+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托</option>';}).join('');openModal('<h2>🔄 中转转移</h2><p>选择目标库位</p><div class="form-group"><select id="transitTargetLoc">'+opts+'</select></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="confirmTransitTransfer('+transitId+')">确认转移</button></div>');}
+// 修复4：中转 → 库内迁移时确保写入记录
 function confirmTransitTransfer(transitId){
   const targetId=parseInt(document.getElementById('transitTargetLoc').value);
   if(!targetId){showToast('请选择目标','error');return;}
@@ -1144,7 +1062,10 @@ function confirmTransitTransfer(transitId){
   const ndst=nd.locations.find(l=>l.id===targetId);
   ndst.status='used';ndst.productId=t.productId;ndst.batchNo=t.batchNo;ndst.quantity=t.quantity;ndst.customPieces=t.customPieces;ndst.remark=t.remark;ndst.handAccount=t.handAccount;ndst.updatedAt=new Date().toISOString();ndst.transferFlag=true;ndst.priorityFlag=t.priorityFlag||false;ndst.inboundTime=t.inboundTime||null;ndst.productStatus=t.productStatus||null;ndst.ticketAttached=!!t.ticketAttached;
   nd.transit=nd.transit.filter(x=>x.id!==transitId);
-  addRecord(nd,'中转转移',product,ndst,zone,t.quantity,t.customPieces,'中转仓转移至库位',null,null,ndst.id);
+  // 保证 records 数组存在，并正确写入一条“中转转移”记录
+  if(!Array.isArray(nd.records)) nd.records=[];
+  const rec = addRecord(nd,'中转转移',product,ndst,zone,t.quantity,t.customPieces,'中转仓转移至库位',null,null,ndst.id);
+  if(rec){ rec.sourceTransitId = transitId; rec.batchNo = t.batchNo || rec.batchNo; }
   saveDB(nd);closeModal();showToast('转移成功','success');
 }
 function transitShipOut(transitId){const t=db.transit.find(x=>x.id===transitId);if(!t){showToast('记录不存在','error');return;}const product=db.products.find(p=>p.id===t.productId);if(!product){showToast('产品不存在','error');return;}if(!confirm('确认直接发货？'))return;const nd=JSON.parse(JSON.stringify(db));nd.transit=nd.transit.filter(x=>x.id!==transitId);const pseudoLoc={rowNum:0,colNum:0,batchNo:t.batchNo,quantity:t.quantity,customPieces:t.customPieces,remark:t.remark,handAccount:t.handAccount,transferFlag:t.transferFlag,priorityFlag:t.priorityFlag};addRecord(nd,'发货',product,pseudoLoc,{name:'中转仓'},t.quantity,t.customPieces,'中转仓发货',null,null,null);saveDB(nd);closeModal();showToast('发货成功','success');}
@@ -1338,7 +1259,26 @@ function revokeRecord(recordId){
 }
 
 // ==================== 每日统计 ====================
-function updateDailyStatsIfNeeded(){if(!db)return;const today=new Date().toISOString().split('T')[0];if(!db.dailyStats)db.dailyStats=[];const items=getDailyStatsItems();const last=db.dailyStats[db.dailyStats.length-1];if(last&&last.date===today){last.items=items;if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);saveDB(db);return;}db.dailyStats.push({date:today,items:items});if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);saveDB(db);}
+// 修复2：加入脏检查，避免每 10 秒轮询都触发一次写云端
+function updateDailyStatsIfNeeded(){
+  if(!db)return;
+  const today=new Date().toISOString().split('T')[0];
+  if(!db.dailyStats)db.dailyStats=[];
+  const items=getDailyStatsItems();
+  const last=db.dailyStats[db.dailyStats.length-1];
+  if(last&&last.date===today){
+    let changed=false;
+    try{ changed = JSON.stringify(last.items)!==JSON.stringify(items); }catch(e){ changed=true; }
+    if(!changed) return;
+    last.items=items;
+    if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);
+    saveDB(db);
+    return;
+  }
+  db.dailyStats.push({date:today,items:items});
+  if(db.dailyStats.length>14)db.dailyStats=db.dailyStats.slice(-14);
+  saveDB(db);
+}
 function getDailyStatsItems(){
   const nameMap=new Map();
   db.products.forEach(p=>{
@@ -1408,6 +1348,9 @@ function updateDailyBatchStatsIfNeeded(){
   const items=getDailyBatchStatsItems();
   const last=db.dailyBatchStats[db.dailyBatchStats.length-1];
   if(last&&last.date===today){
+    let changed=false;
+    try{ changed = JSON.stringify(last.items)!==JSON.stringify(items); }catch(e){ changed=true; }
+    if(!changed) return;
     last.items=items;
     if(db.dailyBatchStats.length>14)db.dailyBatchStats=db.dailyBatchStats.slice(-14);
     saveDB(db);
@@ -2000,7 +1943,6 @@ function refreshFifoItems(){
       inboundTime: loc.inboundTime || null
     });
   });
-  // hand 模式和 ship 模式都不显示中转仓
   if(fifoMode !== 'ship' && fifoMode !== 'hand'){
     db.transit.filter(t=>t.batchNo).forEach(t=>{
       fifoCombinedItems.push({
@@ -2254,6 +2196,8 @@ function fifoShipOut(lid, isTransit){
   showToast('发货成功','success');
   updateFifoContent();
 }
+
+// 修复3：FIFO 迁移界面升级（区域/排 筛选 + 目标库位下拉），与主迁移界面体验一致
 function fifoMigrate(lid){
   if(!db||!Array.isArray(db.locations))return;
   const loc=db.locations.find(l=>l.id===lid);
@@ -2262,17 +2206,58 @@ function fifoMigrate(lid){
   if(emptyLocs.length===0){showToast('没有空库位','error');return;}
   const curZone=db.zones.find(z=>z.id===loc.zoneId);
   const curProduct=db.products.find(p=>p.id===loc.productId);
-  let opts=emptyLocs.map(l=>{
-    const zone=db.zones.find(z=>z.id===l.zoneId);
-    return `<option value="${l.id}">${zone?.name} ${getRowDisplayLabel(zone,l.rowNum)}排${getDisplayColNumber(zone,l.colNum)}托</option>`;
-  }).join('');
+  let zoneOpts='<option value="">全部区域</option>';
+  db.zones.forEach(z=>{ zoneOpts+='<option value="'+z.id+'">'+z.name+'</option>'; });
   openModal(
     '<h2>🔄 FIFO 迁移</h2>'+
     '<p style="font-size:12px;color:#5f6368;">从 <b>'+(curZone?.name||'')+' '+getRowDisplayLabel(curZone,loc.rowNum)+'排'+getDisplayColNumber(curZone,loc.colNum)+'托</b> 迁移：'+(curProduct?.name||'未知产品')+'</p>'+
-    '<div class="form-group"><label>目标库位</label><select id="fifoMigrateTarget">'+opts+'</select></div>'+
+    '<div class="form-group"><label>仓库区域</label><select id="fifoMigrateZoneFilter" onchange="updateFifoMigrateRowList()">'+zoneOpts+'</select></div>'+
+    '<div class="form-group"><label>排</label><select id="fifoMigrateRowFilter" onchange="updateFifoMigrateTargetList()" disabled><option value="">全部排</option></select></div>'+
+    '<div class="form-group"><label>目标库位</label><select id="fifoMigrateTarget"></select></div>'+
     '<div class="form-actions"><button class="btn btn-outline" onclick="renderFifoOrderModal()">取消</button>'+
     '<button class="btn btn-primary" onclick="confirmFifoMigrate('+lid+')">确认迁移</button></div>'
   );
+  updateFifoMigrateRowList();
+}
+function updateFifoMigrateRowList(){
+  const zoneId = document.getElementById('fifoMigrateZoneFilter')?.value;
+  const rowSel = document.getElementById('fifoMigrateRowFilter');
+  if(!rowSel) return;
+  let rowOpts = '<option value="">全部排</option>';
+  if(zoneId){
+    const zone = db.zones.find(z=>z.id===parseInt(zoneId));
+    if(zone){
+      const rowsWithEmpty = new Set(
+        db.locations.filter(l=>l.zoneId===zone.id && l.status==='normal').map(l=>l.rowNum)
+      );
+      [...rowsWithEmpty].sort((a,b)=>a-b).forEach(r=>{
+        rowOpts += '<option value="'+r+'">'+getRowDisplayLabel(zone,r)+'</option>';
+      });
+    }
+    rowSel.disabled = false;
+  }else{
+    rowSel.disabled = true;
+  }
+  rowSel.innerHTML = rowOpts;
+  updateFifoMigrateTargetList();
+}
+function updateFifoMigrateTargetList(){
+  const zoneId = document.getElementById('fifoMigrateZoneFilter')?.value;
+  const rowNum = document.getElementById('fifoMigrateRowFilter')?.value;
+  const targetSel = document.getElementById('fifoMigrateTarget');
+  if(!targetSel) return;
+  let locs = db.locations.filter(l=>l.status==='normal');
+  if(zoneId) locs = locs.filter(l=>l.zoneId===parseInt(zoneId));
+  if(rowNum) locs = locs.filter(l=>l.rowNum===parseInt(rowNum));
+  locs = sortLocationsForDisplay(locs);
+  if(locs.length===0){
+    targetSel.innerHTML = '<option value="">（无匹配空库位）</option>';
+    return;
+  }
+  targetSel.innerHTML = locs.map(l=>{
+    const zone = db.zones.find(z=>z.id===l.zoneId);
+    return '<option value="'+l.id+'">'+zone.name+' '+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托</option>';
+  }).join('');
 }
 function confirmFifoMigrate(lid){
   const targetId=parseInt(document.getElementById('fifoMigrateTarget').value);
