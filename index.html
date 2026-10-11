@@ -40,7 +40,8 @@ body.guest-mode #btnImportProducts,
 body.guest-mode #btnImportData,
 body.guest-mode #btnClearLocalCache,
 body.guest-mode #btnBackupManager,
-body.guest-mode #smartSortSection{display:none !important;}
+body.guest-mode #smartSortSection,
+body.guest-mode #transitSection{display:none !important;}
 .main-container{display:flex;flex-direction:column;height:calc(100vh - 52px);overflow:hidden}
 .left-panel{background:var(--card-bg);border-bottom:1px solid var(--border);padding:6px 8px;flex-shrink:0;display:flex;flex-direction:column;gap:4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .left-panel::-webkit-scrollbar{display:none}
@@ -345,7 +346,7 @@ body.guest-mode #smartSortSection{display:none !important;}
       <button class="btn btn-outline btn-sm" id="btnProductManager">📋 产品总览</button>
       <button class="btn btn-outline btn-sm" id="btnShipList">🚚 发货清单</button>
     </div>
-    <div class="right-section"><h3>🚚 中转仓</h3><button class="btn btn-outline btn-sm" id="btnShowTransit">查看中转仓</button></div>
+    <div class="right-section" id="transitSection"><h3>🚚 中转仓</h3><button class="btn btn-outline btn-sm" id="btnShowTransit">查看中转仓</button></div>
     <div class="right-section" id="smartSortSection"><h3>🧹 智能排序</h3><button class="btn btn-outline btn-sm" id="btnSmartSort">开始排序</button></div>
     <div class="right-section"><h3>💾 数据</h3><div style="display:flex;gap:4px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" id="btnExportExcel">Excel</button><button class="btn btn-outline btn-sm" id="btnExportProducts">产品</button><button class="btn btn-outline btn-sm" id="btnImportProducts">导入</button><button class="btn btn-outline btn-sm" id="btnExportData">备份</button><button class="btn btn-outline btn-sm" id="btnImportData">恢复</button><button class="btn btn-outline btn-sm" id="btnBackupManager" title="每日备份管理">备份管理</button><button class="btn btn-outline btn-sm" id="btnClearLocalCache" title="清除本地缓存">清缓存</button></div></div>
   </aside>
@@ -482,7 +483,7 @@ let selectedFifoZones = new Set();
 let fifoMode = 'normal';
 let addProductReturnTo = null;
 let replaceReturnLocId = null;
-let pmKeyword='', pmStatusFilter='all', pmSortBy='name';
+let pmKeyword='', pmStatusFilter='all', pmSortBy='created_asc';
 let pmDetailSortBy = 'default';
 let shipStartDate='', shipEndDate='';
 let shipProductFilters = new Set();
@@ -1883,7 +1884,7 @@ function showProductManager(){
         '<option value="red"'+(pmStatusFilter==='red'?' selected':'')+'>🔴 红色</option>'+
       '</select>'+
       '<select id="pmSort" onchange="pmSortBy=this.value;renderProductManagerList();" style="padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;">'+
-        '<option value="name"'+(pmSortBy==='name'?' selected':'')+'>按名称</option>'+
+        '<option value="created_asc"'+(pmSortBy==='created_asc'?' selected':'')+'>按时间↑</option>'+
         '<option value="pieces_desc"'+(pmSortBy==='pieces_desc'?' selected':'')+'>件数↓</option>'+
         '<option value="pieces_asc"'+(pmSortBy==='pieces_asc'?' selected':'')+'>件数↑</option>'+
         '<option value="loc_desc"'+(pmSortBy==='loc_desc'?' selected':'')+'>库位数↓</option>'+
@@ -1905,7 +1906,7 @@ function showProductManager(){
   renderProductManagerList();
   pmUpdateBatchUI();
 }
-function pmClearFilter(){ pmKeyword=''; pmStatusFilter='all'; pmSortBy='name'; const s=document.getElementById('pmSearch'); if(s) s.value=''; const st=document.getElementById('pmStatus'); if(st) st.value='all'; const so=document.getElementById('pmSort'); if(so) so.value='name'; renderProductManagerList(); }
+function pmClearFilter(){ pmKeyword=''; pmStatusFilter='all'; pmSortBy='created_asc'; const s=document.getElementById('pmSearch'); if(s) s.value=''; const st=document.getElementById('pmStatus'); if(st) st.value='all'; const so=document.getElementById('pmSort'); if(so) so.value='created_asc'; renderProductManagerList(); }
 function pmGetFilteredList(){
   const kw=(pmKeyword||'').trim().toLowerCase();
   let list=db.products.filter(p=>{ if(pmStatusFilter!=='all' && (p.status||'green')!==pmStatusFilter) return false; if(!kw) return true; const hay=((p.name||'')+' '+(p.model||'')+' '+(p.remark||'')).toLowerCase(); return hay.indexOf(kw)>-1; });
