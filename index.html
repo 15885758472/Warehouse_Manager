@@ -40,8 +40,7 @@ body.guest-mode #btnImportProducts,
 body.guest-mode #btnImportData,
 body.guest-mode #btnClearLocalCache,
 body.guest-mode #btnBackupManager,
-body.guest-mode #smartSortSection,
-body.guest-mode #transitSection{display:none !important;}
+body.guest-mode #smartSortSection{display:none !important;}
 .main-container{display:flex;flex-direction:column;height:calc(100vh - 52px);overflow:hidden}
 .left-panel{background:var(--card-bg);border-bottom:1px solid var(--border);padding:6px 8px;flex-shrink:0;display:flex;flex-direction:column;gap:4px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .left-panel::-webkit-scrollbar{display:none}
@@ -294,7 +293,7 @@ body.guest-mode #transitSection{display:none !important;}
 <header class="header">
   <div class="header-left"><div class="logo-icon">📦</div><h1>仓库管理系统</h1></div>
   <div class="header-stats" id="headerStats">
-    <span class="version-badge" id="versionBadge" title="点击查看更新日志">v2.1.0</span>
+    <span class="version-badge" id="versionBadge" title="点击查看更新日志">v2.1.1</span>
     <span class="guest-badge" id="guestBadge"></span>
     <button class="btn btn-sm btn-primary" id="btnLogin" onclick="showLoginModal()">登录</button>
     <button class="btn btn-sm btn-outline" id="btnLogout" onclick="doLogout()">退出管理</button>
@@ -346,7 +345,7 @@ body.guest-mode #transitSection{display:none !important;}
       <button class="btn btn-outline btn-sm" id="btnProductManager">📋 产品总览</button>
       <button class="btn btn-outline btn-sm" id="btnShipList">🚚 发货清单</button>
     </div>
-    <div class="right-section" id="transitSection"><h3>🚚 中转仓</h3><button class="btn btn-outline btn-sm" id="btnShowTransit">查看中转仓</button></div>
+    <div class="right-section"><h3>🚚 中转仓</h3><button class="btn btn-outline btn-sm" id="btnShowTransit">查看中转仓</button></div>
     <div class="right-section" id="smartSortSection"><h3>🧹 智能排序</h3><button class="btn btn-outline btn-sm" id="btnSmartSort">开始排序</button></div>
     <div class="right-section"><h3>💾 数据</h3><div style="display:flex;gap:4px;flex-wrap:wrap;"><button class="btn btn-outline btn-sm" id="btnExportExcel">Excel</button><button class="btn btn-outline btn-sm" id="btnExportProducts">产品</button><button class="btn btn-outline btn-sm" id="btnImportProducts">导入</button><button class="btn btn-outline btn-sm" id="btnExportData">备份</button><button class="btn btn-outline btn-sm" id="btnImportData">恢复</button><button class="btn btn-outline btn-sm" id="btnBackupManager" title="每日备份管理">备份管理</button><button class="btn btn-outline btn-sm" id="btnClearLocalCache" title="清除本地缓存">清缓存</button></div></div>
   </aside>
@@ -355,8 +354,9 @@ body.guest-mode #transitSection{display:none !important;}
 <div class="toast-container" id="toastContainer"></div>
 <script>
 // ==================== 版本信息 ====================
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.1.1';
 const APP_UPDATE_LOG = [
+  { v: '2.1.1', date: '2026-10-12', note: '修复先发标记丢失：云端时间戳单调递增；轮询不再覆盖未同步改动；页面隐藏/卸载时自动flush；写入失败自动重试' },
   { v: '2.1.0', date: '2026-10-11', note: '直连模式 + Base64 密码混淆存储；所有业务功能完整保留' },
   { v: '2.0.1', date: '2026-10-11', note: '云函数安全加固' },
   { v: '1.0.9', date: '2026-10-10', note: '游客隐藏中转仓/智能排序；每日统计/批次统计排序优化；一键发货按先发日期分组；普通模式显示手账状态' },
@@ -392,14 +392,16 @@ function checkAdminPassword(input) { try { return input === atob(_PWD_ENC); } ca
 
 async function cloudReadData() {
   const res = await dataRef.get();
-  if (res && res.data && res.data.length > 0) {
-    const doc = res.data[0];
-    return { content: doc.content, updatedAt: doc.updatedAt };
-  }
-  return null;
+  if (!res || !res.data) return null;
+  const arr = Array.isArray(res.data) ? res.data : [res.data];
+  if (arr.length === 0) return null;
+  const doc = arr[0];
+  if (!doc) return null;
+  return { content: doc.content, updatedAt: doc.updatedAt || 0 };
 }
+// 【修复1】云端时间戳单调递增：保证客户端时钟偏差/回拨时仍能正确排序
 async function cloudWriteData(payload) {
-  const ts = Date.now();
+  const ts = Math.max(Date.now(), (lastCloudUpdatedAt || 0) + 1);
   saveLocalDB(payload);
   await dataRef.set({ content: payload, updatedAt: ts });
   return { code: 0, updatedAt: ts };
@@ -457,13 +459,22 @@ function writeCloudDataDebounced(payload){
     _cloudWriteTimer = null;
     const p = _pendingCloudDb; _pendingCloudDb = null;
     if(!p) return;
-    writeCloudData(p).catch(err=>{ console.warn('云端保存失败：', err); showToast('云端保存失败：'+err.message,'error'); });
+    writeCloudData(p).catch(err=>{
+      console.warn('云端保存失败：', err);
+      showToast('云端保存失败：'+err.message,'error');
+      // 【修复5】写入失败时保留待写入内容，下次轮询/保存时自动重试
+      if(!_pendingCloudDb) _pendingCloudDb = p;
+    });
   }, 800);
 }
 function flushCloudWriteNow(){
   if(_cloudWriteTimer){ clearTimeout(_cloudWriteTimer); _cloudWriteTimer = null; }
   const p = _pendingCloudDb; _pendingCloudDb = null;
-  if(p) writeCloudData(p).catch(()=>{});
+  if(!p) return Promise.resolve();
+  return writeCloudData(p).catch(err=>{
+    console.warn('flush云端保存失败：', err);
+    if(!_pendingCloudDb) _pendingCloudDb = p;
+  });
 }
 
 // ==================== 全局状态 ====================
@@ -483,7 +494,7 @@ let selectedFifoZones = new Set();
 let fifoMode = 'normal';
 let addProductReturnTo = null;
 let replaceReturnLocId = null;
-let pmKeyword='', pmStatusFilter='all', pmSortBy='created_asc';
+let pmKeyword='', pmStatusFilter='all', pmSortBy='name';
 let pmDetailSortBy = 'default';
 let shipStartDate='', shipEndDate='';
 let shipProductFilters = new Set();
@@ -581,7 +592,7 @@ function ensureCompleteDB(data){
   if(!data.nextTransitId)data.nextTransitId=1;
   data.products.forEach(p=>{if(!p.unit)p.unit='件';if(!p.remark)p.remark='';if(p.isPriority===undefined)p.isPriority=false;if(!p.status)p.status='green';if(!p.createdAt)p.createdAt=new Date().toISOString();});
   data.locations.forEach(l=>{if(!l.remark)l.remark='';if(l.customPieces===undefined)l.customPieces=0;if(l.handAccount===undefined)l.handAccount=false;if(l.transferFlag===undefined)l.transferFlag=false;if(l.priorityFlag===undefined)l.priorityFlag=false;if(l.priorityFlagDate===undefined)l.priorityFlagDate=null;if(l.inboundTime===undefined)l.inboundTime=null;if(l.productStatus===undefined)l.productStatus=null;if(l.ticketAttached===undefined)l.ticketAttached=false;});
-  data.transit.forEach(t=>{if(t.priorityFlagDate===undefined)t.priorityFlagDate=null;if(t.inboundTime===undefined)t.inboundTime=null;if(t.productStatus===undefined)t.productStatus=null;if(t.handAccount===undefined)t.handAccount=false;if(t.updatedAt===undefined)t.updatedAt=null;});
+  data.transit.forEach(t=>{if(t.priorityFlagDate===undefined)t.priorityFlagDate=null;if(t.inboundTime===undefined)t.inboundTime=null;if(t.productStatus===undefined)t.productStatus=null;if(t.handAccount===undefined)t.handAccount=false;if(t.updatedAt===undefined)t.updatedAt=null;if(t.priorityFlag===undefined)t.priorityFlag=false;if(t.transferFlag===undefined)t.transferFlag=false;if(t.ticketAttached===undefined)t.ticketAttached=false;});
   data.zones.forEach(z=>{if(!z.rowDetails)z.rowDetails=Array(z.rows).fill(z.cols);if(!Array.isArray(z.rowLabels))z.rowLabels=Array(z.rows).fill('');while(z.rowLabels.length<z.rows)z.rowLabels.push('');});
   return data;
 }
@@ -617,7 +628,11 @@ async function initFromCloud(){
         const cloudContent = r ? r.content : null;
         const cloudTs = r ? (r.updatedAt || 0) : 0;
         if(cloudTs > 0 && cloudTs >= localTs){ db = ensureCompleteDB(cloudContent); lastCloudUpdatedAt = cloudTs; }
-        else if(localTs > 0 && localTs > cloudTs && localRaw){ db = ensureCompleteDB(localRaw); }
+        else if(localTs > 0 && localTs > cloudTs && localRaw){
+          db = ensureCompleteDB(localRaw);
+          // 【修复2】本地新于云端时，记录云端时间戳，避免首次轮询用远端旧数据覆盖本地未同步的改动
+          lastCloudUpdatedAt = cloudTs || 0;
+        }
         else { db = ensureCompleteDB(cloudContent || localRaw || null); if(cloudTs) lastCloudUpdatedAt = cloudTs; }
         pruneOldRecords(db);
         isDBLoaded = true;
@@ -640,8 +655,18 @@ async function initFromCloud(){
 
 async function pollCloudData(){
   try{
+    // 【修复3】本地有挂起写入时，先推送并给一点完成时间，避免被远端旧数据覆盖
+    if(_pendingCloudDb || _cloudWriteTimer){
+      await flushCloudWriteNow();
+      await new Promise(r => setTimeout(r, 400));
+    }
     const r = await cloudReadData();
     if(r && r.updatedAt > lastCloudUpdatedAt){
+      // 二次确认：如果还有未同步的本地改动，跳过本次覆盖
+      if(_pendingCloudDb || _cloudWriteTimer){
+        updateSyncBadge(true);
+        return;
+      }
       lastCloudUpdatedAt = r.updatedAt;
       db = ensureCompleteDB(r.content);
       updateProductLocationCountCache();
@@ -656,9 +681,15 @@ function startRealtimeListener(){
   if(window._pollTimer) clearInterval(window._pollTimer);
   window._pollTimer = setInterval(pollCloudData, 60000);
   pollCloudData();
-  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'visible'){ pollCloudData(); } });
-  setInterval(()=>{ if(!db || !Array.isArray(db.records)) return; const before = db.records.length; const nd = JSON.parse(JSON.stringify(db)); pruneOldRecords(nd); if(nd.records.length < before) saveDB(nd); }, 6*60*60*1000);
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible'){ pollCloudData(); }
+    // 【修复4】切后台/隐藏页面时立刻推送未写入的改动
+    else { flushCloudWriteNow(); }
+  });
+  // 【修复4】页面卸载时兜底（beforeunload 对异步不可靠，加上 pagehide）
   window.addEventListener('beforeunload', flushCloudWriteNow);
+  window.addEventListener('pagehide', flushCloudWriteNow);
+  setInterval(()=>{ if(!db || !Array.isArray(db.records)) return; const before = db.records.length; const nd = JSON.parse(JSON.stringify(db)); pruneOldRecords(nd); if(nd.records.length < before) saveDB(nd); }, 6*60*60*1000);
 }
 function updateSyncBadge(online){const b=document.getElementById('syncBadge');if(!b)return;if(online){b.textContent='🟢 已同步';b.className='sync-badge online';}else{b.textContent='🔴 离线';b.className='sync-badge offline';}}
 
@@ -689,7 +720,6 @@ function saveDB(newDb){
   try{ renderAll(); }catch(e){}
   try{ refreshActiveModal(); }catch(e){}
   writeCloudDataDebounced(db);
-  cloudBackup();
 }
 
 // ==================== 通用工具 ====================
@@ -876,6 +906,9 @@ function showEditProductModal(id){if(IS_GUEST){showToast('访客模式无法修�
 function updateProduct(id){const nd=JSON.parse(JSON.stringify(db));const p=nd.products.find(x=>x.id===id);p.name=document.getElementById('editName').value.trim();p.model=document.getElementById('editModel').value.trim();p.unit=document.getElementById('editUnit').value.trim();p.unitQuantity=parseInt(document.getElementById('editUnitQuantity').value)||1;p.remark=document.getElementById('editRemark').value.trim();p.status=document.getElementById('editStatus').value;p.isPriority=document.getElementById('editPriority')?.checked||false;saveDB(nd);closeModal();showToast('已更新','success');}
 function deleteProduct(id){if(IS_GUEST){showToast('访客模式无法修改','error');return;}if(db.locations.some(l=>l.productId===id&&l.status==='used')||db.transit.some(t=>t.productId===id)){showToast('已存储','error');return;}if(!confirm('删除？'))return;const nd=JSON.parse(JSON.stringify(db));nd.products=nd.products.filter(x=>x.id!==id);saveDB(nd);showToast('已删除','success');}
 
+// ===== 第一段到此结束 =====
+// 下方注释行仅作为切分标记，实际代码请与第二段拼接
+// ==================== 库位批量操作 ====================
 // ==================== 库位批量操作 ====================
 function toggleLocationBatchMode(){
   if(IS_GUEST){showToast('访客模式无法修改','error');return;}
@@ -1884,7 +1917,7 @@ function showProductManager(){
         '<option value="red"'+(pmStatusFilter==='red'?' selected':'')+'>🔴 红色</option>'+
       '</select>'+
       '<select id="pmSort" onchange="pmSortBy=this.value;renderProductManagerList();" style="padding:8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;">'+
-        '<option value="created_asc"'+(pmSortBy==='created_asc'?' selected':'')+'>按时间↑</option>'+
+        '<option value="name"'+(pmSortBy==='name'?' selected':'')+'>按名称</option>'+
         '<option value="pieces_desc"'+(pmSortBy==='pieces_desc'?' selected':'')+'>件数↓</option>'+
         '<option value="pieces_asc"'+(pmSortBy==='pieces_asc'?' selected':'')+'>件数↑</option>'+
         '<option value="loc_desc"'+(pmSortBy==='loc_desc'?' selected':'')+'>库位数↓</option>'+
@@ -1906,7 +1939,7 @@ function showProductManager(){
   renderProductManagerList();
   pmUpdateBatchUI();
 }
-function pmClearFilter(){ pmKeyword=''; pmStatusFilter='all'; pmSortBy='created_asc'; const s=document.getElementById('pmSearch'); if(s) s.value=''; const st=document.getElementById('pmStatus'); if(st) st.value='all'; const so=document.getElementById('pmSort'); if(so) so.value='created_asc'; renderProductManagerList(); }
+function pmClearFilter(){ pmKeyword=''; pmStatusFilter='all'; pmSortBy='name'; const s=document.getElementById('pmSearch'); if(s) s.value=''; const st=document.getElementById('pmStatus'); if(st) st.value='all'; const so=document.getElementById('pmSort'); if(so) so.value='name'; renderProductManagerList(); }
 function pmGetFilteredList(){
   const kw=(pmKeyword||'').trim().toLowerCase();
   let list=db.products.filter(p=>{ if(pmStatusFilter!=='all' && (p.status||'green')!==pmStatusFilter) return false; if(!kw) return true; const hay=((p.name||'')+' '+(p.model||'')+' '+(p.remark||'')).toLowerCase(); return hay.indexOf(kw)>-1; });
@@ -2795,8 +2828,8 @@ function showZoneSortModal(){ if(IS_GUEST){showToast('访客模式无法修改',
 let draggedZoneId = null;
 function initZoneDragEvents(){const items = document.querySelectorAll('.zone-sort-item');items.forEach(item=>{item.addEventListener('dragstart', onZoneDragStart);item.addEventListener('dragover', onZoneDragOver);item.addEventListener('drop', onZoneDrop);item.addEventListener('dragend', onZoneDragEnd);});}
 function onZoneDragStart(e){draggedZoneId = e.target.dataset.zoneId;e.target.classList.add('dragging');e.dataTransfer.effectAllowed = 'move';e.dataTransfer.setData('text/plain', draggedZoneId);}
-function onZoneDragOver(e){e.preventDefault();e.dataTransfer.dropEffect = 'move';const target = e.target.closest('.zone-sort-item');if(!target) return;const container = document.getElementById('zoneSortList');const items = [...container.querySelectorAll('.zone-sort-item:not(.dragging)')];const afterElement = items.find(item => {const rect = item.getBoundingClientRect();return e.clientY < rect.top + rect.height / 2;});if(afterElement == null){container.appendChild(document.querySelector('.dragging'));}else{container.insertBefore(document.querySelector('.dragging'), afterElement);}}
-function onZoneDrop(e){e.preventDefault();const target = e.target.closest('.zone-sort-item');if(!target) return;const container = document.getElementById('zoneSortList');const dragging = document.querySelector('.dragging');if(dragging && target !== dragging){const items = [...container.querySelectorAll('.zone-sort-item:not(.dragging)')];const afterElement = items.find(item => {const rect = item.getBoundingClientRect();return e.clientY < rect.top + rect.height / 2;});if(afterElement == null){container.appendChild(dragging);}else{container.insertBefore(dragging, afterElement);}}}
+function onZoneDragOver(e){e.preventDefault();e.dataTransfer.dropEffect = 'move';const target = e.target.closest('.zone-sort-item');if(!target) return;const container = document.getElementById('zoneSortList');if(!container) return;const dragging = container.querySelector('.dragging');if(!dragging) return;const items = [...container.querySelectorAll('.zone-sort-item:not(.dragging)')];const afterElement = items.find(item => {const rect = item.getBoundingClientRect();return e.clientY < rect.top + rect.height / 2;});if(afterElement == null){container.appendChild(dragging);}else{container.insertBefore(dragging, afterElement);}}
+function onZoneDrop(e){e.preventDefault();const target = e.target.closest('.zone-sort-item');if(!target) return;const container = document.getElementById('zoneSortList');if(!container) return;const dragging = container.querySelector('.dragging');if(!dragging) return;if(target !== dragging){const items = [...container.querySelectorAll('.zone-sort-item:not(.dragging)')];const afterElement = items.find(item => {const rect = item.getBoundingClientRect();return e.clientY < rect.top + rect.height / 2;});if(afterElement == null){container.appendChild(dragging);}else{container.insertBefore(dragging, afterElement);}}}
 function onZoneDragEnd(e){e.target.classList.remove('dragging');draggedZoneId = null;}
 function saveZoneOrder(){const container = document.getElementById('zoneSortList');if(!container) return;const items = [...container.querySelectorAll('.zone-sort-item')];const newOrder = items.map(item=>parseInt(item.dataset.zoneId));const nd = JSON.parse(JSON.stringify(db));nd.zones = newOrder.map(id=>db.zones.find(z=>z.id===id)).filter(Boolean);saveDB(nd);closeModal();renderZoneList();showToast('区域顺序已保存','success');}
 
