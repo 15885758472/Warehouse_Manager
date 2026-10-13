@@ -504,8 +504,8 @@ let pmKeyword='', pmStatusFilter='all', pmSortBy='name';
 let pmDetailSortBy = 'default';
 let shipStartDate='', shipEndDate='';
 let shipProductFilters = new Set();
-let shipShowFlagDate = true;
-let shipShowBatchDate = false;
+let shipShowFlagDate = false;   // 按标识日期分组：默认关闭
+let shipShowBatchDate = true;   // 位置后显示批次日期：默认开启
 let batchStatsProductFilter = 'all';
 let lastCloudUpdatedAt = 0;
 const RECORD_KEEP_DAYS = 120;
@@ -1148,7 +1148,94 @@ function pmUpdateBatchUI(){ const toolbar = document.getElementById('pmBatchTool
 function showProductManagerDetail(id){ const p=db.products.find(x=>x.id===id); if(!p){showToast('产品不存在','error');return;} const info=getProductDisplayInfo(id); const locsBase = db.locations.filter(l=>l.productId===id && l.status==='used'); let locs = locsBase.slice(); if(pmDetailSortBy==='batch_asc'){ locs.sort((a,b)=>(a.batchNo||'').localeCompare(b.batchNo||'')); } else if(pmDetailSortBy==='batch_desc'){ locs.sort((a,b)=>(b.batchNo||'').localeCompare(a.batchNo||'')); } else { locs = sortLocationsForDisplay(locs); } const transits=db.transit.filter(t=>t.productId===id); const statusText=p.status==='green'?'🟢 绿色':(p.status==='yellow'?'🟡 黄色':'🔴 红色'); let locHtml=''; if(locsBase.length>0){ locHtml='<div style="max-height:200px;overflow-y:auto;margin-top:6px;"><table class="records-table"><thead><tr><th>区域</th><th>仓位</th><th>批次</th><th>数量</th><th>先发日期</th></tr></thead><tbody>'; locs.forEach(l=>{ const zone=db.zones.find(z=>z.id===l.zoneId); const qs = l.customPieces>0 ? l.customPieces+'件' : l.quantity+(p.unit||'件'); const flagDate = l.priorityFlag ? (l.priorityFlagDate||'-') : ''; locHtml+='<tr><td>'+(zone?.name||'-')+'</td><td>'+getRowDisplayLabel(zone,l.rowNum)+'排'+getDisplayColNumber(zone,l.colNum)+'托</td><td>'+(l.batchNo||'-')+'</td><td>'+qs+'</td><td>'+(flagDate||'-')+'</td></tr>'; }); locHtml+='</tbody></table></div>'; }else{ locHtml='<p style="color:#5f6368;margin-top:6px;">暂无库位存放</p>'; } let transitHtml=''; if(transits.length>0){ transitHtml='<div style="max-height:160px;overflow-y:auto;margin-top:6px;"><table class="records-table"><thead><tr><th>批次</th><th>数量</th><th>备注</th></tr></thead><tbody>'; transits.forEach(t=>{ const qs = t.customPieces>0 ? t.customPieces+'件' : t.quantity+(p.unit||'件'); transitHtml+='<tr><td>'+(t.batchNo||'-')+'</td><td>'+qs+'</td><td>'+(t.remark||'-')+'</td></tr>'; }); transitHtml+='</tbody></table></div>'; }else{ transitHtml='<p style="color:#5f6368;margin-top:6px;">暂无中转仓存放</p>'; } openModal('<h2>📦 '+(p.name||'未知产品')+'</h2><div style="background:#f8f9fa;padding:10px;border-radius:6px;margin-bottom:10px;"><p>型号:'+(p.model||'-')+' | 单位:'+(p.unit||'件')+' | 单位数量:'+(p.unitQuantity||1)+'</p><p>默认状态:'+statusText+' | 先发标识:'+(p.isPriority?'是':'否')+'</p><p>备注:'+(p.remark||'-')+'</p><p>创建时间:'+(p.createdAt?new Date(p.createdAt).toLocaleString():'未知')+'</p><p>总件数:<b>'+info.pieces+'</b> | 库位存放:'+locsBase.length+' | 中转仓:'+transits.length+'</p></div><h3 style="font-size:13px;margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;"><span>📍 库位明细</span><select onchange="pmDetailSortBy=this.value;showProductManagerDetail('+p.id+')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;width:auto;background:#fff;cursor:pointer;"><option value="default"'+(pmDetailSortBy==='default'?' selected':'')+'>默认顺序（按位置）</option><option value="batch_asc"'+(pmDetailSortBy==='batch_asc'?' selected':'')+'>按批次号 ↑</option><option value="batch_desc"'+(pmDetailSortBy==='batch_desc'?' selected':'')+'>按批次号 ↓</option></select></h3>'+locHtml+'<h3 style="font-size:13px;margin-top:12px;">🚚 中转仓明细</h3>'+transitHtml+'<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" onclick="showProductManager()">返回总览</button><button class="btn btn-outline" onclick="closeModal()">关闭</button>'+(IS_GUEST?'':'<button class="btn btn-primary" onclick="showEditProductModal('+p.id+')">编辑产品</button>')+'</div>'); }
 
 // ==================== 发货清单 ====================
-function showShipListModal(){ if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;} let productCards = ''; db.products.forEach(p=>{ const active = shipProductFilters.has(p.id) ? ' active' : ''; const st = getStatusTagStyle(p.status||'green'); productCards += `<div class="smart-select-card${active}" data-spid="${p.id}" style="display:flex;align-items:center;gap:6px;padding:6px 10px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${st.fg};flex-shrink:0;"></span><span>${p.name||'未知产品'}</span><span style="color:#5f6368;font-size:11px;">${p.model||''}</span></div>`; }); let productOptions = ''; db.products.forEach(p=>{ const active = shipProductFilters.has(p.id) ? ' selected' : ''; productOptions += `<option value="${p.id}"${active}>${p.name||'未知产品'}(${p.model||'无型号'})</option>`; }); openModal('<h2>🚚 发货清单</h2><p style="font-size:12px;color:#5f6368;margin-bottom:8px;">只统计带"先发标记"的库位产品。</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;"><div><label style="font-size:11px;color:#5f6368;display:block;margin-bottom:4px;">标识起始日期</label>'+buildCalendarHtml('shipStartCal', shipStartDate||null, !!shipStartDate)+'</div><div><label style="font-size:11px;color:#5f6368;display:block;margin-bottom:4px;">标识结束日期</label>'+buildCalendarHtml('shipEndCal', shipEndDate||null, !!shipEndDate)+'</div></div><div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;"><button class="btn btn-sm btn-outline" onclick="applyShipDateFilter()">应用日期筛选</button><button class="btn btn-sm btn-outline" onclick="clearShipDateFilter()">清空日期</button></div><div class="form-group" style="margin-bottom:8px;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;margin-bottom:6px;"><input type="checkbox" id="shipShowFlagDateChk"'+(shipShowFlagDate?' checked':'')+' onchange="shipShowFlagDate=this.checked;renderShipList();" style="width:auto;margin:0;"><span style="font-size:12px;">按标识日期分组显示（早标识的优先）</span></label><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;"><input type="checkbox" id="shipShowBatchDateChk"'+(shipShowBatchDate?' checked':'')+' onchange="shipShowBatchDate=this.checked;renderShipList();" style="width:auto;margin:0;"><span style="font-size:12px;">位置后显示批次日期</span></label></div><div class="form-group"><label>筛选产品（可多选，不选=全部）</label><div class="smart-select-cards" id="shipProductCards" style="max-height:140px;overflow-y:auto;padding:4px;border:1px solid var(--border);border-radius:6px;">'+(productCards || '<span style="color:#5f6368;font-size:12px;">暂无产品</span>')+'</div><select id="shipProductFilterSelect" multiple size="4" class="smart-sort-target-multi" style="display:none;">'+productOptions+'</select></div><div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;"><button class="btn btn-sm btn-outline" onclick="shipClearFilters()">清空全部筛选</button><button class="btn btn-sm btn-primary" onclick="copyShipOutput()">📋 复制文本</button></div><div id="shipOutput" class="ship-output"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>'); document.querySelectorAll('#shipProductCards .smart-select-card').forEach(card=>{ card.addEventListener('click',function(e){ e.stopPropagation(); const pid = parseInt(this.dataset.spid); if(shipProductFilters.has(pid)) shipProductFilters.delete(pid); else shipProductFilters.add(pid); this.classList.toggle('active'); const sel = document.getElementById('shipProductFilterSelect'); if(sel){Array.from(sel.options).forEach(o=>{o.selected=shipProductFilters.has(parseInt(o.value));});} renderShipList(); }); }); const sel = document.getElementById('shipProductFilterSelect'); if(sel){sel.addEventListener('change',function(){ shipProductFilters.clear(); Array.from(this.selectedOptions).forEach(o=>shipProductFilters.add(parseInt(o.value))); document.querySelectorAll('#shipProductCards .smart-select-card').forEach(c=>{ const pid = parseInt(c.dataset.spid); if(shipProductFilters.has(pid)) c.classList.add('active'); else c.classList.remove('active'); }); renderShipList(); });} renderShipList(); }
+function showShipListModal(){
+  if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}
+
+  // ★ 只列出「当前有先发标记库位」的产品
+  const priorityProductIds = new Set();
+  db.locations.forEach(l=>{
+    if(l.status==='used' && l.priorityFlag && l.productId) priorityProductIds.add(l.productId);
+  });
+
+  let productCards = '';
+  db.products.forEach(p=>{
+    if(!priorityProductIds.has(p.id)) return;   // ★ 跳过没有先发标识的产品
+    const active = shipProductFilters.has(p.id) ? ' active' : '';
+    const st = getStatusTagStyle(p.status||'green');
+    productCards += `<div class="smart-select-card${active}" data-spid="${p.id}" style="display:flex;align-items:center;gap:6px;padding:6px 10px;">
+      <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${st.fg};flex-shrink:0;"></span>
+      <span>${p.name||'未知产品'}</span>
+      <span style="color:#5f6368;font-size:11px;">${p.model||''}</span>
+    </div>`;
+  });
+
+  let productOptions = '';
+  db.products.forEach(p=>{
+    if(!priorityProductIds.has(p.id)) return;   // ★ 下拉也过滤
+    const active = shipProductFilters.has(p.id) ? ' selected' : '';
+    productOptions += `<option value="${p.id}"${active}>${p.name||'未知产品'}(${p.model||'无型号'})</option>`;
+  });
+
+  openModal(
+    '<h2>🚚 发货清单</h2>'+
+    '<p style="font-size:12px;color:#5f6368;margin-bottom:8px;">只统计带"先发标记"的库位产品。列号按该排内实际位置显示。</p>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+
+      '<div><label style="font-size:11px;color:#5f6368;display:block;margin-bottom:4px;">标识起始日期</label>'+buildCalendarHtml('shipStartCal', shipStartDate||null, !!shipStartDate)+'</div>'+
+      '<div><label style="font-size:11px;color:#5f6368;display:block;margin-bottom:4px;">标识结束日期</label>'+buildCalendarHtml('shipEndCal', shipEndDate||null, !!shipEndDate)+'</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">'+
+      '<button class="btn btn-sm btn-outline" onclick="applyShipDateFilter()">应用日期筛选</button>'+
+      '<button class="btn btn-sm btn-outline" onclick="clearShipDateFilter()">清空日期</button>'+
+    '</div>'+
+    '<div class="form-group" style="margin-bottom:8px;">'+
+      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;margin-bottom:6px;">'+
+        '<input type="checkbox" id="shipShowFlagDateChk"'+(shipShowFlagDate?' checked':'')+' onchange="shipShowFlagDate=this.checked;renderShipList();" style="width:auto;margin:0;">'+
+        '<span style="font-size:12px;">按标识日期分组显示（早标识的优先）</span>'+
+      '</label>'+
+      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:400;">'+
+        '<input type="checkbox" id="shipShowBatchDateChk"'+(shipShowBatchDate?' checked':'')+' onchange="shipShowBatchDate=this.checked;renderShipList();" style="width:auto;margin:0;">'+
+        '<span style="font-size:12px;">位置后显示批次日期（如 9.1）</span>'+
+      '</label>'+
+    '</div>'+
+    '<div class="form-group"><label>筛选产品（可多选，不选=全部；仅列有先发标识的产品）</label>'+
+      '<div class="smart-select-cards" id="shipProductCards" style="max-height:140px;overflow-y:auto;padding:4px;border:1px solid var(--border);border-radius:6px;">'+
+        (productCards || '<span style="color:#5f6368;font-size:12px;">暂无带先发标识的产品</span>')+
+      '</div>'+
+      '<select id="shipProductFilterSelect" multiple size="4" class="smart-sort-target-multi" style="display:none;">'+productOptions+'</select>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">'+
+      '<button class="btn btn-sm btn-outline" onclick="shipClearFilters()">清空全部筛选</button>'+
+      '<button class="btn btn-sm btn-primary" onclick="copyShipOutput()">📋 复制文本</button>'+
+    '</div>'+
+    '<div id="shipOutput" class="ship-output"></div>'+
+    '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>'
+  );
+
+  document.querySelectorAll('#shipProductCards .smart-select-card').forEach(card=>{
+    card.addEventListener('click',function(e){
+      e.stopPropagation();
+      const pid = parseInt(this.dataset.spid);
+      if(shipProductFilters.has(pid)) shipProductFilters.delete(pid);
+      else shipProductFilters.add(pid);
+      this.classList.toggle('active');
+      const sel = document.getElementById('shipProductFilterSelect');
+      if(sel){Array.from(sel.options).forEach(o=>{o.selected=shipProductFilters.has(parseInt(o.value));});}
+      renderShipList();
+    });
+  });
+
+  const sel = document.getElementById('shipProductFilterSelect');
+  if(sel){sel.addEventListener('change',function(){
+    shipProductFilters.clear();
+    Array.from(this.selectedOptions).forEach(o=>shipProductFilters.add(parseInt(o.value)));
+    document.querySelectorAll('#shipProductCards .smart-select-card').forEach(c=>{
+      const pid = parseInt(c.dataset.spid);
+      if(shipProductFilters.has(pid)) c.classList.add('active'); else c.classList.remove('active');
+    });
+    renderShipList();
+  });}
+  renderShipList();
+}
 function applyShipDateFilter(){ shipStartDate = getCalendarValue('shipStartCal') || ''; shipEndDate = getCalendarValue('shipEndCal') || ''; renderShipList(); }
 function clearShipDateFilter(){ shipStartDate = ''; shipEndDate = ''; showShipListModal(); }
 function shipClearFilters(){ shipStartDate=''; shipEndDate=''; shipProductFilters.clear(); showShipListModal(); }
