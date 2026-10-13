@@ -286,7 +286,7 @@ body.guest-mode .zone-edit-btn,body.guest-mode .zone-delete-btn,body.guest-mode 
 <header class="header">
   <div class="header-left"><div class="logo-icon">📦</div><h1>仓库管理系统</h1></div>
   <div class="header-stats" id="headerStats">
-    <span class="version-badge" id="versionBadge" title="点击查看更新日志">v2.1.4</span>
+    <span class="version-badge" id="versionBadge" title="点击查看更新日志">v2.1.5</span>
     <span class="guest-badge" id="guestBadge"></span>
     <button class="btn btn-sm btn-primary" id="btnLogin" onclick="showLoginModal()">登录</button>
     <button class="btn btn-sm btn-outline" id="btnLogout" onclick="doLogout()">退出管理</button>
@@ -348,14 +348,14 @@ body.guest-mode .zone-edit-btn,body.guest-mode .zone-delete-btn,body.guest-mode 
 <div class="toast-container" id="toastContainer"></div>
 <script>
 // ==================== 版本信息 ====================
-const APP_VERSION = '2.1.4';
+const APP_VERSION = '2.1.5';
 const APP_UPDATE_LOG = [
-  { v: '2.1.4', date: '2026-10-13', note: '发货清单产品筛选只列有先发标识的产品；按标识日期分组默认关闭、批次日期默认开启；所有产品筛选区域支持包含/排除模式' },
-  { v: '2.1.3', date: '2026-10-13', note: '新增🔧云端诊断+强制上传；首次连接时若云端无doc自动推送本地数据' },
-  { v: '2.1.2', date: '2026-10-13', note: '修复跨设备同步：写入队列+超时兜底+持久化重试；watch实时监听+15秒轮询' },
-  { v: '2.1.1', date: '2026-10-12', note: '修复先发标记丢失：云端时间戳单调递增；轮询不再覆盖未同步改动' },
+  { v: '2.1.5', date: '2026-10-13', note: '包含/排除模式改为针对仓库区域（发货清单/记录/FIFO/迁移到此）；产品筛选保持普通多选' },
+  { v: '2.1.4', date: '2026-10-13', note: '发货清单产品筛选只列有先发标识的产品；按标识日期分组默认关闭、批次日期默认开启' },
+  { v: '2.1.3', date: '2026-10-13', note: '新增🔧云端诊断+强制上传' },
+  { v: '2.1.2', date: '2026-10-13', note: '修复跨设备同步' },
+  { v: '2.1.1', date: '2026-10-12', note: '修复先发标记丢失' },
   { v: '2.1.0', date: '2026-10-11', note: '直连模式 + Base64 密码混淆存储' },
-  { v: '1.0.9', date: '2026-10-10', note: '游客隐藏中转仓/智能排序；每日统计/批次统计排序优化' },
   { v: '1.0.0', date: '2026-10-09', note: '基础版本' },
 ];
 function showVersionLog(){
@@ -492,27 +492,29 @@ function flushCloudWriteNow(){
 let db={zones:[],locations:[],products:[],records:[],dailyStats:[],dailyBatchStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
 let currentZoneId=1,batchMode=false,selectedProducts=new Set(),locationBatchMode=false,selectedLocations=new Set(),isDBLoaded=false;
 let recordFilter='all',recordStartDate='',recordEndDate='';
-let recordProductFilters = new Set();
-let recordFilterMode = 'include';                 // ★ 记录产品筛选：包含/排除
-let selectedProductFilters = new Set();
-let fifoFilterMode = 'include';                   // ★ FIFO 产品筛选：包含/排除
+let recordProductFilters = new Set();      // 记录-产品多选
+let recordZoneFilters = new Set();         // 记录-区域多选
+let recordZoneFilterMode = 'include';      // 记录-区域筛选模式
+let selectedProductFilters = new Set();    // FIFO-产品多选
+let selectedFifoZones = new Set();         // FIFO-区域多选
+let fifoZoneFilterMode = 'include';        // FIFO-区域筛选模式
 let transitFilterProduct = 'all';
 let lastBatchNo = '';
 let selectedTransitItems = new Set();
 let fifoCombinedItems = [];
 let fifoProductLocationCount = {};
 let productLocationCountCache = {};
-let selectedFifoZones = new Set();
 let fifoMode = 'normal';
 let addProductReturnTo = null;
 let replaceReturnLocId = null;
 let pmKeyword='', pmStatusFilter='all', pmSortBy='name';
 let pmDetailSortBy = 'default';
 let shipStartDate='', shipEndDate='';
-let shipProductFilters = new Set();
-let shipFilterMode = 'include';                   // ★ 发货清单产品筛选：包含/排除
-let shipShowFlagDate = false;                     // ★ 按标识日期分组：默认关闭
-let shipShowBatchDate = true;                     // ★ 位置后显示批次日期：默认开启
+let shipProductFilters = new Set();        // 发货清单-产品多选
+let shipZoneFilters = new Set();           // 发货清单-区域多选
+let shipZoneFilterMode = 'include';        // 发货清单-区域筛选模式
+let shipShowFlagDate = false;
+let shipShowBatchDate = true;
 let batchStatsProductFilter = 'all';
 let lastCloudUpdatedAt = 0;
 const RECORD_KEEP_DAYS = 120;
@@ -686,7 +688,7 @@ function showEmptyDataGuide(){
     '<div style="display:flex;flex-direction:column;gap:8px;">'+
       (IS_GUEST?'<p style="color:#e65100;font-size:12px;">请先登录管理员再导入或上传。</p>':
       '<button class="btn btn-primary" style="justify-content:center;padding:14px;font-size:14px;" onclick="closeModal();document.getElementById(\'btnImportData\').click()">📁 从备份JSON导入（推荐）</button>'+
-      '<button class="btn btn-outline" style="justify-content:center;padding:14px;font-size:14px;" onclick="closeModal()">使用默认空仓库（不推荐，会丢弃云端数据）</button>')+
+      '<button class="btn btn-outline" style="justify-content:center;padding:14px;font-size:14px;" onclick="closeModal()">使用默认空仓库（不推荐）</button>')+
     '</div>'+
     '<p style="font-size:11px;color:#5f6368;margin-top:10px;">导入后系统会自动把数据推送到云端。</p>');
 }
@@ -941,9 +943,9 @@ function renderZoneList(){
 function onZoneSelectChange(val){ const id=parseInt(val); if(!id||id===currentZoneId)return; currentZoneId=id; renderAll(); }
 function editCurrentZoneMobile(){ if(!currentZoneId){showToast('请先选择区域','error');return;} showEditZoneModal(currentZoneId); }
 function deleteZone(zoneId){if(IS_GUEST){showToast('访客模式无法修改','error');return;}const zone=db.zones.find(z=>z.id===zoneId);if(!zone||zone.isBase){showToast('基础仓位不可删除','error');return;}if(db.locations.some(l=>l.zoneId===zoneId&&l.status==='used')){showToast('有已用仓位','error');return;}if(!confirm('删除区域？'))return;const nd=JSON.parse(JSON.stringify(db));nd.locations=nd.locations.filter(l=>l.zoneId!==zoneId);nd.zones=nd.zones.filter(z=>z.id!==zoneId);if(currentZoneId===zoneId)currentZoneId=nd.zones[0]?.id||null;saveDB(nd);showToast('已删除','success');}
-function showAddZoneModal(){ if(IS_GUEST){showToast('访客模式无法修改','error');return;} openModal('<h2>添加区域</h2><div class="form-group"><label>名称</label><input id="newZoneName" required></div><div class="form-group"><label>排数</label><input type="number" id="newZoneRows" min="1" required></div><div class="form-group"><label>默认托数/排</label><input type="number" id="newZoneCols" min="1" required></div><div class="form-group"><label>每排托数（可选，逗号分隔，如 10,10,5）</label><input id="newZoneRowDetails"></div><div class="form-group"><label>排名称（可选，逗号分隔，每排最多10字）</label><input id="newZoneRowLabels" maxlength="300"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addZone()">确认</button></div>'); }
+function showAddZoneModal(){ if(IS_GUEST){showToast('访客模式无法修改','error');return;} openModal('<h2>添加区域</h2><div class="form-group"><label>名称</label><input id="newZoneName" required></div><div class="form-group"><label>排数</label><input type="number" id="newZoneRows" min="1" required></div><div class="form-group"><label>默认托数/排</label><input type="number" id="newZoneCols" min="1" required></div><div class="form-group"><label>每排托数（可选，逗号分隔）</label><input id="newZoneRowDetails"></div><div class="form-group"><label>排名称（可选，逗号分隔，每排最多10字）</label><input id="newZoneRowLabels" maxlength="300"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="addZone()">确认</button></div>'); }
 function addZone(){const name=document.getElementById('newZoneName').value.trim();const rows=parseInt(document.getElementById('newZoneRows').value);const cols=parseInt(document.getElementById('newZoneCols').value);const detailsStr=document.getElementById('newZoneRowDetails')?.value.trim();const labelsStr=document.getElementById('newZoneRowLabels')?.value.trim();if(!name||!rows||!cols){showToast('请填写完整','error');return;}const nd=JSON.parse(JSON.stringify(db));const zone={id:nd.nextZoneId++,name,rows,cols,isBase:false,createdAt:new Date().toISOString(),rowDetails:[],rowLabels:[]};if(detailsStr){const arr=detailsStr.split(',').map(Number);for(let i=0;i<rows;i++)zone.rowDetails[i]=arr[i]||cols;}else{zone.rowDetails=Array(rows).fill(cols);}if(labelsStr){const arr=labelsStr.split(',').map(s=>s.trim().slice(0,10));for(let i=0;i<rows;i++)zone.rowLabels[i]=arr[i]||'';}else{zone.rowLabels=Array(rows).fill('');}nd.zones.push(zone);for(let r=1;r<=rows;r++){const rowCols=zone.rowDetails[r-1];for(let c=1;c<=rowCols;c++){nd.locations.push({id:nd.nextLocationId++,zoneId:zone.id,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,priorityFlagDate:null,inboundTime:null,productStatus:null,ticketAttached:false});}}currentZoneId=zone.id;saveDB(nd);closeModal();showToast('已添加','success');}
-function showEditZoneModal(zoneId){if(IS_GUEST){showToast('访客模式无法修改','error');return;}const zone=db.zones.find(z=>z.id===zoneId);if(!zone)return;const detailsStr=zone.rowDetails?zone.rowDetails.join(','):'';const labelsStr=zone.rowLabels?zone.rowLabels.join(','):'';openModal(`<h2>编辑区域</h2><div class="form-group"><label>名称</label><input id="editZoneName" value="${zone.name}"></div><div class="form-group"><label>排数</label><input type="number" id="editZoneRows" value="${zone.rows}" min="1"></div><div class="form-group"><label>每排托数（逗号分隔，如 10,10,3）</label><input id="editZoneRowDetails" value="${detailsStr}"></div><div class="form-group"><label>排名称（逗号分隔，每排最多10字）</label><input id="editZoneRowLabels" value="${labelsStr}" maxlength="300"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveEditZone(${zoneId})">保存</button></div>`);}
+function showEditZoneModal(zoneId){if(IS_GUEST){showToast('访客模式无法修改','error');return;}const zone=db.zones.find(z=>z.id===zoneId);if(!zone)return;const detailsStr=zone.rowDetails?zone.rowDetails.join(','):'';const labelsStr=zone.rowLabels?zone.rowLabels.join(','):'';openModal(`<h2>编辑区域</h2><div class="form-group"><label>名称</label><input id="editZoneName" value="${zone.name}"></div><div class="form-group"><label>排数</label><input type="number" id="editZoneRows" value="${zone.rows}" min="1"></div><div class="form-group"><label>每排托数（逗号分隔）</label><input id="editZoneRowDetails" value="${detailsStr}"></div><div class="form-group"><label>排名称（逗号分隔）</label><input id="editZoneRowLabels" value="${labelsStr}" maxlength="300"></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveEditZone(${zoneId})">保存</button></div>`);}
 function saveEditZone(zoneId){const nd=JSON.parse(JSON.stringify(db));const zone=nd.zones.find(z=>z.id===zoneId);if(!zone)return;const newName=document.getElementById('editZoneName').value.trim();const newRows=parseInt(document.getElementById('editZoneRows').value);const detailsStr=document.getElementById('editZoneRowDetails').value.trim();const labelsStr=document.getElementById('editZoneRowLabels')?.value.trim()||'';if(!newName||!newRows||newRows<1){showToast('请输入有效信息','error');return;}const newRowDetails=[];if(detailsStr){const arr=detailsStr.split(',').map(Number);for(let i=0;i<newRows;i++)newRowDetails[i]=arr[i]||zone.cols;}else{for(let i=0;i<newRows;i++)newRowDetails[i]=zone.cols;}const newRowLabels=[];if(labelsStr){const arr=labelsStr.split(',').map(s=>s.trim().slice(0,10));for(let i=0;i<newRows;i++)newRowLabels[i]=arr[i]||'';}else{for(let i=0;i<newRows;i++)newRowLabels[i]='';}const oldLocs=nd.locations.filter(l=>l.zoneId===zoneId);for(const loc of oldLocs){const rowCols=newRowDetails[loc.rowNum-1]||0;if(loc.status==='used'&&loc.colNum>rowCols){showToast(`第${loc.rowNum}排有产品超出新托数，请先迁移`,'error');return;}}zone.name=newName;zone.rows=newRows;zone.rowDetails=newRowDetails;zone.rowLabels=newRowLabels;nd.locations=nd.locations.filter(l=>{if(l.zoneId!==zoneId)return true;const rowCols=newRowDetails[l.rowNum-1]||0;if(l.rowNum>newRows||l.colNum>rowCols){if(l.status==='used')return true;return false;}return true;});for(let r=1;r<=newRows;r++){const rowCols=newRowDetails[r-1]||0;for(let c=1;c<=rowCols;c++){if(!nd.locations.some(l=>l.zoneId===zoneId&&l.rowNum===r&&l.colNum===c)){nd.locations.push({id:nd.nextLocationId++,zoneId,rowNum:r,colNum:c,status:'normal',productId:null,batchNo:null,quantity:0,customPieces:0,remark:'',handAccount:false,updatedAt:null,transferFlag:false,priorityFlag:false,priorityFlagDate:null,inboundTime:null,productStatus:null,ticketAttached:false});}}}saveDB(nd);closeModal();renderAll();showToast('区域已更新','success');}
 
 function renderGrid(){
@@ -1077,7 +1079,6 @@ function showMigrateToEmptyModal(targetLid){
   window._migrateTargetLid=targetLid;
   window._migrateProductFilter=new Set();
   window._migrateZoneFilter=new Set();
-  window._migrateProductFilterMode = window._migrateProductFilterMode || 'include';
   window._migrateZoneFilterMode = window._migrateZoneFilterMode || 'include';
   const usedList=db.locations.filter(l=>l.status==='used' && l.id!==targetLid);
   const transitList=db.transit;
@@ -1092,16 +1093,14 @@ function showMigrateToEmptyModal(targetLid){
   let zoneCards='';
   db.zones.forEach(z=>{ if(!usedZoneIds.has(z.id))return; zoneCards+=`<div class="migrate-filter-card" data-mzid="${z.id}">${z.name}</div>`; });
   if(transitList.length>0){ zoneCards+=`<div class="migrate-filter-card" data-mzid="-1">🚚 中转仓</div>`; }
-  const pmMode = window._migrateProductFilterMode==='exclude' ? 'exclude' : '';
-  const zmMode = window._migrateZoneFilterMode==='exclude' ? 'exclude' : '';
+  const zmModeCls = window._migrateZoneFilterMode==='exclude' ? 'exclude' : '';
   openModal('<h2>🔄 迁移到此库位</h2>'+
     '<p style="font-size:12px;color:#5f6368;margin-bottom:8px;">目标库位：<b>'+tLabel+'</b></p>'+
-    '<div class="form-group"><label style="display:flex;justify-content:space-between;align-items:center;gap:6px;"><span>筛选产品（不选=全部）</span>'+
-      '<button class="btn btn-sm '+(window._migrateProductFilterMode==='exclude'?'btn-danger':'btn-outline')+'" onclick="window._migrateProductFilterMode=window._migrateProductFilterMode===\'exclude\'?\'include\':\'exclude\';showMigrateToEmptyModal('+targetLid+');">'+(window._migrateProductFilterMode==='exclude'?'🚫 排除模式':'✅ 包含模式')+'</button></label>'+
+    '<div class="form-group"><label>筛选产品（不选=全部）</label>'+
       '<div class="migrate-filter-cards" id="migrateProductCards">'+(productCards||'<span style="color:#5f6368;font-size:12px;">无</span>')+'</div></div>'+
     '<div class="form-group"><label style="display:flex;justify-content:space-between;align-items:center;gap:6px;"><span>筛选区域（不选=全部）</span>'+
       '<button class="btn btn-sm '+(window._migrateZoneFilterMode==='exclude'?'btn-danger':'btn-outline')+'" onclick="window._migrateZoneFilterMode=window._migrateZoneFilterMode===\'exclude\'?\'include\':\'exclude\';showMigrateToEmptyModal('+targetLid+');">'+(window._migrateZoneFilterMode==='exclude'?'🚫 排除模式':'✅ 包含模式')+'</button></label>'+
-      '<div class="migrate-filter-cards" id="migrateZoneCards">'+(zoneCards||'<span style="color:#5f6368;font-size:12px;">无</span>')+'</div></div>'+
+      '<div class="migrate-filter-cards '+zmModeCls+'" id="migrateZoneCards">'+(zoneCards||'<span style="color:#5f6368;font-size:12px;">无</span>')+'</div></div>'+
     '<div class="migrate-source-list" id="migrateSourceList"></div>'+
     '<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" onclick="closeModal()">取消</button></div>');
   document.querySelectorAll('#migrateProductCards .migrate-filter-card').forEach(card=>{
@@ -1110,7 +1109,6 @@ function showMigrateToEmptyModal(targetLid){
       const pid=parseInt(this.dataset.mpid);
       if(window._migrateProductFilter.has(pid)) window._migrateProductFilter.delete(pid); else window._migrateProductFilter.add(pid);
       this.classList.toggle('active');
-      if(window._migrateProductFilterMode==='exclude') this.classList.toggle('exclude', window._migrateProductFilter.has(pid));
       renderMigrateSourceList();
     });
   });
@@ -1124,6 +1122,9 @@ function showMigrateToEmptyModal(targetLid){
       renderMigrateSourceList();
     });
   });
+  if(window._migrateZoneFilterMode==='exclude'){
+    document.querySelectorAll('#migrateZoneCards .migrate-filter-card').forEach(c=>{ if(c.classList.contains('active')) c.classList.add('exclude'); });
+  }
   renderMigrateSourceList();
 }
 function renderMigrateSourceList(){
@@ -1132,7 +1133,6 @@ function renderMigrateSourceList(){
   const targetLid=window._migrateTargetLid;
   const pf=window._migrateProductFilter||new Set();
   const zf=window._migrateZoneFilter||new Set();
-  const pmMode = window._migrateProductFilterMode||'include';
   const zmMode = window._migrateZoneFilterMode||'include';
   if(!targetLid) return;
   let items=[];
@@ -1142,8 +1142,8 @@ function renderMigrateSourceList(){
   db.transit.forEach(t=>{
     items.push({type:'transit', id:t.id, productId:t.productId, zoneId:-1, rowNum:0, colNum:0, batchNo:t.batchNo, quantity:t.quantity, customPieces:t.customPieces, remark:t.remark, handAccount:t.handAccount, priorityFlag:t.priorityFlag, priorityFlagDate:t.priorityFlagDate||null, ticketAttached:t.ticketAttached, productStatus:t.productStatus, inboundTime:t.inboundTime, transferFlag:t.transferFlag});
   });
-  items = items.filter(it => filterMatch(it.productId, pf, pmMode));
-  items = items.filter(it => filterMatch(it.zoneId,    zf, zmMode));
+  if(pf.size>0) items=items.filter(it=>pf.has(it.productId));
+  items = items.filter(it => filterMatch(it.zoneId, zf, zmMode));
   const productOrder=new Map();
   db.products.forEach((p,idx)=>productOrder.set(p.id,idx));
   items.sort((a,b)=>{
@@ -1241,19 +1241,35 @@ function showRecords(){
   if(!db||!Array.isArray(db.records)||db.records.length===0){showToast('暂无记录','info');return;}
   const productNames=[...new Set(db.products.map(p=>p.name||'未知产品'))];
   let productCards = '';
-  productNames.forEach((n,i)=>{ const active = recordProductFilters.has(n); const enc = encodeURIComponent(n); productCards += `<div class="${filterCardCls(active, recordFilterMode)}" data-rpn="${enc}" style="padding:6px 10px;">${n}</div>`; });
+  productNames.forEach((n,i)=>{ const active = recordProductFilters.has(n) ? ' active' : ''; const enc = encodeURIComponent(n); productCards += `<div class="smart-select-card${active}" data-rpn="${enc}" style="padding:6px 10px;">${n}</div>`; });
   let productOptions = '';
   productNames.forEach(n=>{ const enc = encodeURIComponent(n); const active = recordProductFilters.has(n) ? ' selected' : ''; productOptions += `<option value="${enc}"${active}>${n}</option>`; });
+
+  // ★ 区域筛选
+  const recordZoneNames = [...new Set(db.records.map(r=>r.zoneName).filter(Boolean))];
+  let zoneCards = '';
+  recordZoneNames.forEach((zn)=>{ const active = recordZoneFilters.has(zn); const enc = encodeURIComponent(zn); zoneCards += `<div class="${filterCardCls(active, recordZoneFilterMode)}" data-rzn="${enc}" style="padding:6px 10px;">${zn}</div>`; });
+  let zoneOptions = '';
+  recordZoneNames.forEach(zn=>{ const enc = encodeURIComponent(zn); const active = recordZoneFilters.has(zn) ? ' selected' : ''; zoneOptions += `<option value="${enc}"${active}>${zn}</option>`; });
+
   openModal('<h2>📋 出入库记录（保留 4 个月）</h2>'+
     '<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:8px;">'+
       '<div class="form-group" style="margin:0;"><label>类型</label><select onchange="recordFilter=this.value;refreshRecordTable();"><option value="all"'+(recordFilter==='all'?' selected':'')+'>全部</option><option value="入库"'+(recordFilter==='入库'?' selected':'')+'>入库</option><option value="出库"'+(recordFilter==='出库'?' selected':'')+'>出库</option><option value="发货"'+(recordFilter==='发货'?' selected':'')+'>发货</option><option value="迁移"'+(recordFilter==='迁移'?' selected':'')+'>迁移</option><option value="加入中转仓"'+(recordFilter==='加入中转仓'?' selected':'')+'>加入中转仓</option><option value="中转转移"'+(recordFilter==='中转转移'?' selected':'')+'>中转转移</option><option value="替换产品"'+(recordFilter==='替换产品'?' selected':'')+'>替换产品</option><option value="交换位置"'+(recordFilter==='交换位置'?' selected':'')+'>交换位置</option><option value="删除产品"'+(recordFilter==='删除产品'?' selected':'')+'>删除产品</option></select></div>'+
-      '<div class="form-group" style="margin:0;">'+
-        '<label style="display:flex;justify-content:space-between;align-items:center;gap:6px;"><span>产品（不选=全部）</span>'+
-        '<button class="btn btn-sm '+(recordFilterMode==='exclude'?'btn-danger':'btn-outline')+'" onclick="recordFilterMode=recordFilterMode===\'exclude\'?\'include\':\'exclude\';showRecords();">'+(recordFilterMode==='exclude'?'🚫 排除模式':'✅ 包含模式')+'</button></label>'+
+      '<div class="form-group" style="margin:0;"><label>产品（可多选，不选=全部）</label>'+
         '<div class="smart-select-cards" id="recProductCards" style="max-height:140px;overflow-y:auto;padding:4px;border:1px solid var(--border);border-radius:6px;">'+
           (productCards || '<span style="color:#5f6368;font-size:12px;">暂无产品</span>')+
         '</div>'+
         '<select id="recProductSelect" multiple size="4" class="smart-sort-target-multi" style="display:none;">'+productOptions+'</select>'+
+      '</div>'+
+      '<div class="form-group" style="margin:0;">'+
+        '<label style="display:flex;justify-content:space-between;align-items:center;gap:6px;">'+
+          '<span>仓库区域（不选=全部）</span>'+
+          '<button class="btn btn-sm '+(recordZoneFilterMode==='exclude'?'btn-danger':'btn-outline')+'" onclick="recordZoneFilterMode=recordZoneFilterMode===\'exclude\'?\'include\':\'exclude\';showRecords();">'+(recordZoneFilterMode==='exclude'?'🚫 排除模式':'✅ 包含模式')+'</button>'+
+        '</label>'+
+        '<div class="smart-select-cards" id="recZoneCards" style="max-height:140px;overflow-y:auto;padding:4px;border:1px solid var(--border);border-radius:6px;">'+
+          (zoneCards || '<span style="color:#5f6368;font-size:12px;">暂无区域</span>')+
+        '</div>'+
+        '<select id="recZoneSelect" multiple size="4" class="smart-sort-target-multi" style="display:none;">'+zoneOptions+'</select>'+
       '</div>'+
     '</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+
@@ -1264,15 +1280,17 @@ function showRecords(){
       '<button class="btn btn-sm btn-outline" onclick="applyRecordDateFilter()">应用日期筛选</button>'+
       '<button class="btn btn-sm btn-outline" onclick="clearRecordDateFilter()">清空日期</button>'+
       '<button class="btn btn-sm btn-outline" onclick="clearRecordProductFilters()">清空产品</button>'+
+      '<button class="btn btn-sm btn-outline" onclick="clearRecordZoneFilters()">清空区域</button>'+
     '</div>'+
     '<div id="recTableWrap"></div>'+
     '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
+
   document.querySelectorAll('#recProductCards .smart-select-card').forEach(card=>{
     card.addEventListener('click',function(e){
       e.stopPropagation();
       const n = decodeURIComponent(this.dataset.rpn);
       if(recordProductFilters.has(n)) recordProductFilters.delete(n); else recordProductFilters.add(n);
-      this.className = filterCardCls(recordProductFilters.has(n), recordFilterMode);
+      this.classList.toggle('active');
       const sel = document.getElementById('recProductSelect');
       if(sel){Array.from(sel.options).forEach(o=>{o.selected=recordProductFilters.has(decodeURIComponent(o.value));});}
       refreshRecordTable();
@@ -1284,10 +1302,33 @@ function showRecords(){
     Array.from(this.selectedOptions).forEach(o=>recordProductFilters.add(decodeURIComponent(o.value)));
     document.querySelectorAll('#recProductCards .smart-select-card').forEach(c=>{
       const n = decodeURIComponent(c.dataset.rpn);
-      c.className = filterCardCls(recordProductFilters.has(n), recordFilterMode);
+      if(recordProductFilters.has(n)) c.classList.add('active'); else c.classList.remove('active');
     });
     refreshRecordTable();
   });}
+
+  document.querySelectorAll('#recZoneCards .smart-select-card').forEach(card=>{
+    card.addEventListener('click',function(e){
+      e.stopPropagation();
+      const zn = decodeURIComponent(this.dataset.rzn);
+      if(recordZoneFilters.has(zn)) recordZoneFilters.delete(zn); else recordZoneFilters.add(zn);
+      this.className = filterCardCls(recordZoneFilters.has(zn), recordZoneFilterMode);
+      const sel = document.getElementById('recZoneSelect');
+      if(sel){Array.from(sel.options).forEach(o=>{o.selected=recordZoneFilters.has(decodeURIComponent(o.value));});}
+      refreshRecordTable();
+    });
+  });
+  const selZ = document.getElementById('recZoneSelect');
+  if(selZ){selZ.addEventListener('change',function(){
+    recordZoneFilters.clear();
+    Array.from(this.selectedOptions).forEach(o=>recordZoneFilters.add(decodeURIComponent(o.value)));
+    document.querySelectorAll('#recZoneCards .smart-select-card').forEach(c=>{
+      const zn = decodeURIComponent(c.dataset.rzn);
+      c.className = filterCardCls(recordZoneFilters.has(zn), recordZoneFilterMode);
+    });
+    refreshRecordTable();
+  });}
+
   refreshRecordTable();
 }
 function refreshRecordTable(){
@@ -1299,7 +1340,8 @@ function refreshRecordTable(){
     const ds=d.toISOString().split('T')[0];
     if(recordStartDate && ds<recordStartDate) return false;
     if(recordEndDate && ds>recordEndDate) return false;
-    if(!filterMatch(r.productName, recordProductFilters, recordFilterMode)) return false;
+    if(recordProductFilters.size>0 && !recordProductFilters.has(r.productName)) return false;
+    if(!filterMatch(r.zoneName, recordZoneFilters, recordZoneFilterMode)) return false;
     return true;
   }).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
   let rows=filtered.map(r=>{
@@ -1316,7 +1358,8 @@ function refreshRecordTable(){
 }
 function applyRecordDateFilter(){ recordStartDate = getCalendarValue('recStartCal') || ''; recordEndDate = getCalendarValue('recEndCal') || ''; refreshRecordTable(); }
 function clearRecordDateFilter(){ recordStartDate = ''; recordEndDate = ''; showRecords(); }
-function clearRecordProductFilters(){ recordProductFilters.clear(); document.querySelectorAll('#recProductCards .smart-select-card').forEach(c=>c.classList.remove('active','exclude-mode')); const sel = document.getElementById('recProductSelect'); if(sel){Array.from(sel.options).forEach(o=>o.selected=false);} refreshRecordTable(); }
+function clearRecordProductFilters(){ recordProductFilters.clear(); document.querySelectorAll('#recProductCards .smart-select-card').forEach(c=>c.classList.remove('active')); const sel = document.getElementById('recProductSelect'); if(sel){Array.from(sel.options).forEach(o=>o.selected=false);} refreshRecordTable(); }
+function clearRecordZoneFilters(){ recordZoneFilters.clear(); document.querySelectorAll('#recZoneCards .smart-select-card').forEach(c=>c.classList.remove('active','exclude-mode')); const sel = document.getElementById('recZoneSelect'); if(sel){Array.from(sel.options).forEach(o=>o.selected=false);} refreshRecordTable(); }
 function deleteRecord(recordId){if(IS_GUEST){showToast('访客模式无法修改','error');return;}if(!db||!Array.isArray(db.records))return;if(!confirm('确定删除这条记录吗？'))return;const nd=JSON.parse(JSON.stringify(db));nd.records=nd.records.filter(r=>r.id!==recordId);saveDB(nd);showToast('记录已删除','success');refreshRecordTable();}
 function revokeRecord(recordId){ if(IS_GUEST){showToast('访客模式无法修改','error');return;} if(!db||!Array.isArray(db.records))return; const rec=db.records.find(r=>r.id===recordId); if(!rec){showToast('记录不存在','error');return;} if(!confirm('确定撤回该操作？'))return; const nd=JSON.parse(JSON.stringify(db)); if(rec.type==='入库'){ const loc=nd.locations.find(l=>l.id===rec.locationId); if(!loc){showToast('库位不存在','error');return;} if(loc.status==='used' && loc.productId===rec.productId){ loc.status='normal';loc.productId=null;loc.batchNo=null;loc.quantity=0;loc.customPieces=0;loc.remark='';loc.handAccount=false;loc.updatedAt=null;loc.transferFlag=false;loc.priorityFlag=false;loc.priorityFlagDate=null;loc.inboundTime=null;loc.productStatus=null;loc.ticketAttached=false; nd.records=nd.records.filter(r=>r.id!==recordId); saveDB(nd);showToast('已撤回入库操作','success');refreshRecordTable(); }else if(loc.status==='normal'){ showToast('库位已清空，无需撤回','info'); }else{ showToast('库位状态与记录不符，无法撤回','error'); } return; } if(rec.type==='出库' || rec.type==='发货'){ const loc=nd.locations.find(l=>l.id===rec.locationId); if(!loc){showToast('库位不存在','error');return;} const product=nd.products.find(p=>p.id===rec.productId); if(!product){showToast('产品不存在','error');return;} const isCustom = rec.customPieces>0; if(loc.status==='normal'){ loc.status='used';loc.productId=rec.productId;loc.batchNo=rec.batchNo || new Date().toISOString().slice(0,10); if(isCustom){loc.quantity=0;loc.customPieces=rec.customPieces;} else{loc.quantity=rec.quantity;loc.customPieces=0;} loc.updatedAt=new Date().toISOString();loc.productStatus=null; if(!loc.inboundTime) loc.inboundTime=rec.timestamp; }else if(loc.status==='used' && loc.productId===rec.productId){ if(isCustom) loc.customPieces += rec.customPieces; else loc.quantity += rec.quantity; }else{ showToast('库位状态与记录不符，无法撤回','error'); return; } nd.records=nd.records.filter(r=>r.id!==recordId); saveDB(nd);showToast('已撤回','success');refreshRecordTable(); return; } if(rec.type==='迁移'){ if(!rec.sourceLocationId){showToast('该迁移记录缺少源库位信息，无法撤回','error');return;} const dstLoc=nd.locations.find(l=>l.id===rec.locationId); const srcLoc=nd.locations.find(l=>l.id===rec.sourceLocationId); if(!dstLoc||!srcLoc){showToast('库位不存在','error');return;} if(dstLoc.status!=='used'||dstLoc.productId!==rec.productId){ showToast('目标库位状态已变，无法撤回','error');return; } if(srcLoc.status!=='normal'){ showToast('源库位已被占用，无法撤回','error');return; } srcLoc.status='used';srcLoc.productId=dstLoc.productId;srcLoc.batchNo=dstLoc.batchNo;srcLoc.quantity=dstLoc.quantity;srcLoc.customPieces=dstLoc.customPieces;srcLoc.remark=dstLoc.remark;srcLoc.handAccount=dstLoc.handAccount;srcLoc.transferFlag=dstLoc.transferFlag;srcLoc.priorityFlag=dstLoc.priorityFlag;srcLoc.priorityFlagDate=dstLoc.priorityFlagDate||null;srcLoc.inboundTime=dstLoc.inboundTime;srcLoc.productStatus=dstLoc.productStatus;srcLoc.ticketAttached=dstLoc.ticketAttached;srcLoc.updatedAt=new Date().toISOString(); dstLoc.status='normal';dstLoc.productId=null;dstLoc.batchNo=null;dstLoc.quantity=0;dstLoc.customPieces=0;dstLoc.remark='';dstLoc.handAccount=false;dstLoc.updatedAt=null;dstLoc.transferFlag=false;dstLoc.priorityFlag=false;dstLoc.priorityFlagDate=null;dstLoc.inboundTime=null;dstLoc.productStatus=null;dstLoc.ticketAttached=false; nd.records=nd.records.filter(r=>r.id!==recordId); saveDB(nd);showToast('已撤回迁移','success');refreshRecordTable(); return; } showToast('该类型记录不支持撤回','error'); }
 
@@ -1357,18 +1400,22 @@ function showShipListModal(){
 
   // ★ 只列出「当前有先发标记库位」的产品
   const priorityProductIds = new Set();
+  const activeZoneIds = new Set();
   db.locations.forEach(l=>{
-    if(l.status==='used' && l.priorityFlag && l.productId) priorityProductIds.add(l.productId);
+    if(l.status==='used' && l.priorityFlag && l.productId){
+      priorityProductIds.add(l.productId);
+      activeZoneIds.add(l.zoneId);
+    }
   });
-  // ★ 清理已不在先发列表里的筛选残留
   [...shipProductFilters].forEach(pid=>{ if(!priorityProductIds.has(pid)) shipProductFilters.delete(pid); });
+  [...shipZoneFilters].forEach(zid=>{ if(!activeZoneIds.has(zid)) shipZoneFilters.delete(zid); });
 
   let productCards = '';
   db.products.forEach(p=>{
     if(!priorityProductIds.has(p.id)) return;
-    const active = shipProductFilters.has(p.id);
+    const active = shipProductFilters.has(p.id) ? ' active' : '';
     const st = getStatusTagStyle(p.status||'green');
-    productCards += `<div class="${filterCardCls(active, shipFilterMode)}" data-spid="${p.id}" style="display:flex;align-items:center;gap:6px;padding:6px 10px;">
+    productCards += `<div class="smart-select-card${active}" data-spid="${p.id}" style="display:flex;align-items:center;gap:6px;padding:6px 10px;">
       <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${st.fg};flex-shrink:0;"></span>
       <span>${p.name||'未知产品'}</span>
       <span style="color:#5f6368;font-size:11px;">${p.model||''}</span>
@@ -1381,6 +1428,16 @@ function showShipListModal(){
     const active = shipProductFilters.has(p.id) ? ' selected' : '';
     productOptions += `<option value="${p.id}"${active}>${p.name||'未知产品'}(${p.model||'无型号'})</option>`;
   });
+
+  // ★ 区域筛选
+  let zoneCards = '';
+  db.zones.forEach(z=>{
+    if(!activeZoneIds.has(z.id)) return;
+    const active = shipZoneFilters.has(z.id);
+    zoneCards += `<div class="${filterCardCls(active, shipZoneFilterMode)}" data-szid="${z.id}" style="padding:6px 10px;">${z.name}</div>`;
+  });
+  let zoneOptions = '';
+  db.zones.forEach(z=>{ if(!activeZoneIds.has(z.id)) return; const active = shipZoneFilters.has(z.id) ? ' selected' : ''; zoneOptions += `<option value="${z.id}"${active}>${z.name}</option>`; });
 
   openModal(
     '<h2>🚚 发货清单</h2>'+
@@ -1403,15 +1460,21 @@ function showShipListModal(){
         '<span style="font-size:12px;">位置后显示批次日期（如 9.1）</span>'+
       '</label>'+
     '</div>'+
-    '<div class="form-group">'+
-      '<label style="display:flex;justify-content:space-between;align-items:center;gap:6px;">'+
-        '<span>筛选产品（不选=全部；仅列有先发标识的产品）</span>'+
-        '<button class="btn btn-sm '+(shipFilterMode==='exclude'?'btn-danger':'btn-outline')+'" onclick="shipFilterMode=shipFilterMode===\'exclude\'?\'include\':\'exclude\';showShipListModal();">'+(shipFilterMode==='exclude'?'🚫 排除模式':'✅ 包含模式')+'</button>'+
-      '</label>'+
+    '<div class="form-group"><label>筛选产品（可多选，不选=全部；仅列有先发标识的产品）</label>'+
       '<div class="smart-select-cards" id="shipProductCards" style="max-height:140px;overflow-y:auto;padding:4px;border:1px solid var(--border);border-radius:6px;">'+
         (productCards || '<span style="color:#5f6368;font-size:12px;">暂无带先发标识的产品</span>')+
       '</div>'+
       '<select id="shipProductFilterSelect" multiple size="4" class="smart-sort-target-multi" style="display:none;">'+productOptions+'</select>'+
+    '</div>'+
+    '<div class="form-group">'+
+      '<label style="display:flex;justify-content:space-between;align-items:center;gap:6px;">'+
+        '<span>筛选仓库区域（不选=全部）</span>'+
+        '<button class="btn btn-sm '+(shipZoneFilterMode==='exclude'?'btn-danger':'btn-outline')+'" onclick="shipZoneFilterMode=shipZoneFilterMode===\'exclude\'?\'include\':\'exclude\';showShipListModal();">'+(shipZoneFilterMode==='exclude'?'🚫 排除模式':'✅ 包含模式')+'</button>'+
+      '</label>'+
+      '<div class="smart-select-cards" id="shipZoneCards" style="max-height:140px;overflow-y:auto;padding:4px;border:1px solid var(--border);border-radius:6px;">'+
+        (zoneCards || '<span style="color:#5f6368;font-size:12px;">暂无有先发标识的区域</span>')+
+      '</div>'+
+      '<select id="shipZoneSelect" multiple size="4" class="smart-sort-target-multi" style="display:none;">'+zoneOptions+'</select>'+
     '</div>'+
     '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">'+
       '<button class="btn btn-sm btn-outline" onclick="shipClearFilters()">清空全部筛选</button>'+
@@ -1426,28 +1489,50 @@ function showShipListModal(){
       e.stopPropagation();
       const pid = parseInt(this.dataset.spid);
       if(shipProductFilters.has(pid)) shipProductFilters.delete(pid); else shipProductFilters.add(pid);
-      this.className = filterCardCls(shipProductFilters.has(pid), shipFilterMode);
+      this.classList.toggle('active');
       const sel = document.getElementById('shipProductFilterSelect');
       if(sel){Array.from(sel.options).forEach(o=>{o.selected=shipProductFilters.has(parseInt(o.value));});}
       renderShipList();
     });
   });
-
   const sel = document.getElementById('shipProductFilterSelect');
   if(sel){sel.addEventListener('change',function(){
     shipProductFilters.clear();
     Array.from(this.selectedOptions).forEach(o=>shipProductFilters.add(parseInt(o.value)));
     document.querySelectorAll('#shipProductCards .smart-select-card').forEach(c=>{
       const pid = parseInt(c.dataset.spid);
-      c.className = filterCardCls(shipProductFilters.has(pid), shipFilterMode);
+      if(shipProductFilters.has(pid)) c.classList.add('active'); else c.classList.remove('active');
     });
     renderShipList();
   });}
+
+  document.querySelectorAll('#shipZoneCards .smart-select-card').forEach(card=>{
+    card.addEventListener('click',function(e){
+      e.stopPropagation();
+      const zid = parseInt(this.dataset.szid);
+      if(shipZoneFilters.has(zid)) shipZoneFilters.delete(zid); else shipZoneFilters.add(zid);
+      this.className = filterCardCls(shipZoneFilters.has(zid), shipZoneFilterMode);
+      const sel = document.getElementById('shipZoneSelect');
+      if(sel){Array.from(sel.options).forEach(o=>{o.selected=shipZoneFilters.has(parseInt(o.value));});}
+      renderShipList();
+    });
+  });
+  const selZ = document.getElementById('shipZoneSelect');
+  if(selZ){selZ.addEventListener('change',function(){
+    shipZoneFilters.clear();
+    Array.from(this.selectedOptions).forEach(o=>shipZoneFilters.add(parseInt(o.value)));
+    document.querySelectorAll('#shipZoneCards .smart-select-card').forEach(c=>{
+      const zid = parseInt(c.dataset.szid);
+      c.className = filterCardCls(shipZoneFilters.has(zid), shipZoneFilterMode);
+    });
+    renderShipList();
+  });}
+
   renderShipList();
 }
 function applyShipDateFilter(){ shipStartDate = getCalendarValue('shipStartCal') || ''; shipEndDate = getCalendarValue('shipEndCal') || ''; renderShipList(); }
 function clearShipDateFilter(){ shipStartDate = ''; shipEndDate = ''; showShipListModal(); }
-function shipClearFilters(){ shipStartDate=''; shipEndDate=''; shipProductFilters.clear(); showShipListModal(); }
+function shipClearFilters(){ shipStartDate=''; shipEndDate=''; shipProductFilters.clear(); shipZoneFilters.clear(); showShipListModal(); }
 function buildShipRowColsText(zone, rowLocs){
   if(!rowLocs || rowLocs.length === 0) return '';
   const rowNum = rowLocs[0].rowNum;
@@ -1471,7 +1556,8 @@ function buildShipOutput(){
   db.locations.filter(l=>l.status==='used' && l.priorityFlag).forEach(loc=>{
     const p = db.products.find(x=>x.id===loc.productId);
     if(!p) return;
-    if(!filterMatch(p.id, shipProductFilters, shipFilterMode)) return;
+    if(shipProductFilters.size>0 && !shipProductFilters.has(p.id)) return;
+    if(!filterMatch(loc.zoneId, shipZoneFilters, shipZoneFilterMode)) return;
     const flagDate = loc.priorityFlagDate || ((loc.inboundTime || loc.updatedAt || '').slice(0,10)) || '未记录';
     if(shipStartDate && flagDate < shipStartDate) return;
     if(shipEndDate && flagDate > shipEndDate) return;
@@ -1550,16 +1636,20 @@ function renderFifoOrderModal(){
   if(fifoCombinedItems.length===0){showToast('无可用库位产品','info');return;}
   fifoProductLocationCount = {};
   fifoCombinedItems.forEach(item=>{const pid = item.productId; fifoProductLocationCount[pid] = (fifoProductLocationCount[pid] || 0) + 1;});
+
+  // 区域卡片
   let zoneCardsHtml = '';
   let zoneOptionsHtml = '';
-  db.zones.forEach(z=>{ const active = selectedFifoZones.has(z.id) ? ' active' : ''; zoneCardsHtml += `<div class="smart-select-card${active}" data-zid="${z.id}" style="padding:4px 10px;font-size:12px;">${z.name}</div>`; const sel = selectedFifoZones.has(z.id) ? ' selected' : ''; zoneOptionsHtml += `<option value="${z.id}"${sel}>${z.name}</option>`; });
+  db.zones.forEach(z=>{ const active = selectedFifoZones.has(z.id); const cls = filterCardCls(active, fifoZoneFilterMode); zoneCardsHtml += `<div class="${cls}" data-zid="${z.id}" style="padding:4px 10px;font-size:12px;">${z.name}</div>`; const sel = selectedFifoZones.has(z.id) ? ' selected' : ''; zoneOptionsHtml += `<option value="${z.id}"${sel}>${z.name}</option>`; });
+
+  // 产品卡片
   let productCards = '';
   const usedProductIds = new Set(fifoCombinedItems.map(it=>it.productId));
   db.products.forEach(p=>{
     if(!usedProductIds.has(p.id)) return;
     const st = getStatusTagStyle(p.status||'green');
-    const active = selectedProductFilters.has(p.id);
-    productCards += `<div class="${filterCardCls(active, fifoFilterMode)}" data-pid="${p.id}" style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${st.fg};flex-shrink:0;"></span><span>${p.name||'未知产品'}</span><span style="color:#5f6368;font-size:11px;">${p.model||''}</span>${p.isPriority?'<span style="color:#ff5722;font-size:10px;">【产先】</span>':''}</div>`;
+    const active = selectedProductFilters.has(p.id) ? ' active' : '';
+    productCards += `<div class="smart-select-card${active}" data-pid="${p.id}" style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${st.fg};flex-shrink:0;"></span><span>${p.name||'未知产品'}</span><span style="color:#5f6368;font-size:11px;">${p.model||''}</span>${p.isPriority?'<span style="color:#ff5722;font-size:10px;">【产先】</span>':''}</div>`;
   });
   let productOptions = '';
   db.products.forEach(p=>{ if(!usedProductIds.has(p.id)) return; const active = selectedProductFilters.has(p.id) ? ' selected' : ''; productOptions += `<option value="${p.id}"${active}>${p.name||'未知产品'}${p.isPriority?'【产先】':''}(${p.model||'无型号'})</option>`; });
@@ -1569,15 +1659,15 @@ function renderFifoOrderModal(){
        (IS_GUEST ? '' : '<button class="btn btn-sm '+modeCls('hand')+'" onclick="setFifoMode(\'hand\')">📝 记手账模式</button>');
   openModal('<h2>⏱️ FIFO排序</h2>'+
     '<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">'+modeButtons+'</div>'+
-    '<div class="form-group"><label>仓库区域（不选=全部）</label>'+
+    '<div class="form-group">'+
+      '<label style="display:flex;justify-content:space-between;align-items:center;gap:6px;">'+
+        '<span>仓库区域（不选=全部）</span>'+
+        '<button class="btn btn-sm '+(fifoZoneFilterMode==='exclude'?'btn-danger':'btn-outline')+'" onclick="fifoZoneFilterMode=fifoZoneFilterMode===\'exclude\'?\'include\':\'exclude\';renderFifoOrderModal();">'+(fifoZoneFilterMode==='exclude'?'🚫 排除模式':'✅ 包含模式')+'</button>'+
+      '</label>'+
       '<div class="smart-select-cards" id="fifoZoneCards">'+zoneCardsHtml+'</div>'+
       '<select id="fifoZoneSelect" multiple size="4" class="smart-sort-target-multi" style="display:none;">'+zoneOptionsHtml+'</select>'+
     '</div>'+
-    '<div class="form-group">'+
-      '<label style="display:flex;justify-content:space-between;align-items:center;gap:6px;">'+
-        '<span>筛选产品（不选=全部）</span>'+
-        '<button class="btn btn-sm '+(fifoFilterMode==='exclude'?'btn-danger':'btn-outline')+'" onclick="fifoFilterMode=fifoFilterMode===\'exclude\'?\'include\':\'exclude\';renderFifoOrderModal();">'+(fifoFilterMode==='exclude'?'🚫 排除模式':'✅ 包含模式')+'</button>'+
-      '</label>'+
+    '<div class="form-group"><label>筛选产品（可多选，不选=全部）</label>'+
       '<div class="smart-select-cards" id="fifoProductCards" style="max-height:140px;overflow-y:auto;padding:4px;border:1px solid var(--border);border-radius:6px;">'+
         (productCards || '<span style="color:#5f6368;font-size:12px;">暂无产品</span>')+
       '</div>'+
@@ -1586,44 +1676,38 @@ function renderFifoOrderModal(){
     '</div>'+
     '<div id="fifoContent"></div>'+
     '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
-  document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(card=>{ card.addEventListener('click',function(e){ e.stopPropagation(); const zid = parseInt(this.dataset.zid); if(selectedFifoZones.has(zid)) selectedFifoZones.delete(zid); else selectedFifoZones.add(zid); this.classList.toggle('active'); const selZ = document.getElementById('fifoZoneSelect'); if(selZ){Array.from(selZ.options).forEach(o=>{o.selected=selectedFifoZones.has(parseInt(o.value));});} refreshFifoItems(); updateFifoContent(); }); });
+
+  document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(card=>{ card.addEventListener('click',function(e){ e.stopPropagation(); const zid = parseInt(this.dataset.zid); if(selectedFifoZones.has(zid)) selectedFifoZones.delete(zid); else selectedFifoZones.add(zid); this.className = filterCardCls(selectedFifoZones.has(zid), fifoZoneFilterMode); const selZ = document.getElementById('fifoZoneSelect'); if(selZ){Array.from(selZ.options).forEach(o=>{o.selected=selectedFifoZones.has(parseInt(o.value));});} refreshFifoItems(); updateFifoContent(); }); });
   const selZone = document.getElementById('fifoZoneSelect');
-  if(selZone){selZone.addEventListener('change',function(){ selectedFifoZones.clear(); Array.from(this.selectedOptions).forEach(o=>selectedFifoZones.add(parseInt(o.value))); document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(c=>{ const zid = parseInt(c.dataset.zid); if(selectedFifoZones.has(zid)) c.classList.add('active'); else c.classList.remove('active'); }); refreshFifoItems(); updateFifoContent(); });}
-  document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(card=>{
-    card.addEventListener('click',function(e){
-      e.stopPropagation();
-      const pid = parseInt(this.dataset.pid);
-      if(selectedProductFilters.has(pid)) selectedProductFilters.delete(pid); else selectedProductFilters.add(pid);
-      this.className = filterCardCls(selectedProductFilters.has(pid), fifoFilterMode);
-      updateFifoContent();
-    });
-  });
+  if(selZone){selZone.addEventListener('change',function(){ selectedFifoZones.clear(); Array.from(this.selectedOptions).forEach(o=>selectedFifoZones.add(parseInt(o.value))); document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(c=>{ const zid = parseInt(c.dataset.zid); c.className = filterCardCls(selectedFifoZones.has(zid), fifoZoneFilterMode); }); refreshFifoItems(); updateFifoContent(); });}
+  document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(card=>{ card.addEventListener('click',function(e){ e.stopPropagation(); const pid = parseInt(this.dataset.pid); if(selectedProductFilters.has(pid)) selectedProductFilters.delete(pid); else selectedProductFilters.add(pid); this.classList.toggle('active'); updateFifoContent(); }); });
   const sel = document.getElementById('fifoProductFilter');
-  if(sel){sel.addEventListener('change',function(){
-    selectedProductFilters.clear();
-    Array.from(this.selectedOptions).forEach(o=>{if(o.value!=='all') selectedProductFilters.add(parseInt(o.value));});
-    document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(c=>{
-      const pid = parseInt(c.dataset.pid);
-      c.className = filterCardCls(selectedProductFilters.has(pid), fifoFilterMode);
-    });
-    updateFifoContent();
-  });}
+  if(sel){sel.addEventListener('change',function(){ selectedProductFilters.clear(); Array.from(this.selectedOptions).forEach(o=>{if(o.value!=='all') selectedProductFilters.add(parseInt(o.value));}); document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(c=>{ const pid = parseInt(c.dataset.pid); if(selectedProductFilters.has(pid)) c.classList.add('active'); else c.classList.remove('active'); }); updateFifoContent(); });}
   updateFifoContent();
 }
 function setFifoMode(mode){ if(IS_GUEST && mode === 'hand'){ showToast('访客模式仅可查看普通与发货模式','error'); return; } fifoMode = mode; renderFifoOrderModal(); }
-function refreshFifoItems(){ fifoCombinedItems = []; const zoneFilter = selectedFifoZones.size === 0 ? null : selectedFifoZones; db.locations.filter(l=>l.status==='used' && l.batchNo).forEach(loc=>{ if(zoneFilter && !zoneFilter.has(loc.zoneId)) return; fifoCombinedItems.push({ productId: loc.productId, batchNo: loc.batchNo, locationType: 'location', locationId: loc.id, zoneId: loc.zoneId, rowNum: loc.rowNum, colNum: loc.colNum, quantity: loc.quantity, customPieces: loc.customPieces, handAccount: loc.handAccount, priorityFlag: loc.priorityFlag, priorityFlagDate: loc.priorityFlagDate || null, transferFlag: loc.transferFlag, remark: loc.remark, locStatus: loc.productStatus||null, ticketAttached: !!loc.ticketAttached, inboundTime: loc.inboundTime || null }); }); if(fifoMode !== 'ship' && fifoMode !== 'hand'){ db.transit.filter(t=>t.batchNo).forEach(t=>{ fifoCombinedItems.push({ productId: t.productId, batchNo: t.batchNo, locationType:'transit', locationId: t.id, zoneId: null, rowNum: 0, colNum: 0, quantity: t.quantity, customPieces: t.customPieces, handAccount: t.handAccount, priorityFlag: t.priorityFlag, priorityFlagDate: t.priorityFlagDate||null, transferFlag: t.transferFlag, remark: t.remark, locStatus: t.productStatus||null, ticketAttached: !!t.ticketAttached, inboundTime: t.inboundTime || null }); }); } }
-function fifoClearFilter(){ selectedProductFilters.clear(); selectedFifoZones.clear(); const sel = document.getElementById('fifoProductFilter'); if(sel){Array.from(sel.options).forEach(o=>{o.selected=false;});} const selZ = document.getElementById('fifoZoneSelect'); if(selZ){Array.from(selZ.options).forEach(o=>{o.selected=false;});} document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(c=>c.classList.remove('active','exclude-mode')); document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(c=>c.classList.remove('active')); refreshFifoItems(); updateFifoContent(); }
+function refreshFifoItems(){
+  fifoCombinedItems = [];
+  db.locations.filter(l=>l.status==='used' && l.batchNo).forEach(loc=>{
+    if(!filterMatch(loc.zoneId, selectedFifoZones, fifoZoneFilterMode)) return;
+    fifoCombinedItems.push({ productId: loc.productId, batchNo: loc.batchNo, locationType: 'location', locationId: loc.id, zoneId: loc.zoneId, rowNum: loc.rowNum, colNum: loc.colNum, quantity: loc.quantity, customPieces: loc.customPieces, handAccount: loc.handAccount, priorityFlag: loc.priorityFlag, priorityFlagDate: loc.priorityFlagDate || null, transferFlag: loc.transferFlag, remark: loc.remark, locStatus: loc.productStatus||null, ticketAttached: !!loc.ticketAttached, inboundTime: loc.inboundTime || null });
+  });
+  if(fifoMode !== 'ship' && fifoMode !== 'hand'){
+    if(!filterMatch(-1, selectedFifoZones, fifoZoneFilterMode)) return; // 中转仓用 zoneId=-1 表示
+    db.transit.filter(t=>t.batchNo).forEach(t=>{
+      fifoCombinedItems.push({ productId: t.productId, batchNo: t.batchNo, locationType:'transit', locationId: t.id, zoneId: null, rowNum: 0, colNum: 0, quantity: t.quantity, customPieces: t.customPieces, handAccount: t.handAccount, priorityFlag: t.priorityFlag, priorityFlagDate: t.priorityFlagDate||null, transferFlag: t.transferFlag, remark: t.remark, locStatus: t.productStatus||null, ticketAttached: !!t.ticketAttached, inboundTime: t.inboundTime || null });
+    });
+  }
+}
+function fifoClearFilter(){ selectedProductFilters.clear(); selectedFifoZones.clear(); const sel = document.getElementById('fifoProductFilter'); if(sel){Array.from(sel.options).forEach(o=>{o.selected=false;});} const selZ = document.getElementById('fifoZoneSelect'); if(selZ){Array.from(selZ.options).forEach(o=>{o.selected=false;});} document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(c=>c.classList.remove('active')); document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(c=>{ c.classList.remove('active','exclude-mode'); }); refreshFifoItems(); updateFifoContent(); }
 function updateFifoContent(){
   const container=document.getElementById('fifoContent');
   if(!container)return;
-  document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(c=>{ const pid = parseInt(c.dataset.pid); c.className = filterCardCls(selectedProductFilters.has(pid), fifoFilterMode); });
+  document.querySelectorAll('#fifoProductCards .smart-select-card').forEach(c=>{ const pid = parseInt(c.dataset.pid); if(selectedProductFilters.has(pid)) c.classList.add('active'); else c.classList.remove('active'); });
   const combinedItems = fifoCombinedItems || [];
   if(combinedItems.length===0){container.innerHTML='<p style="color:#5f6368;text-align:center;padding:16px;">无数据</p>';return;}
   if(fifoMode==='ship' || fifoMode==='hand'){
-    let items = combinedItems.filter(item=>{
-      if(!filterMatch(item.productId, selectedProductFilters, fifoFilterMode)) return false;
-      return true;
-    });
+    let items = combinedItems.filter(item=>{ if(selectedProductFilters.size>0 && !selectedProductFilters.has(item.productId)) return false; return true; });
     if(items.length===0){container.innerHTML='<p style="text-align:center;padding:16px;">无匹配产品</p>';return;}
     const orderMap = new Map();
     db.products.forEach((p,idx)=>{ if(!orderMap.has(p.id)) orderMap.set(p.id, idx); });
@@ -1688,7 +1772,7 @@ function updateFifoContent(){
   combinedItems.forEach(item=>{
     const p=db.products.find(x=>x.id===item.productId);
     if(!p)return;
-    if(!filterMatch(p.id, selectedProductFilters, fifoFilterMode))return;
+    if(selectedProductFilters.size>0 && !selectedProductFilters.has(p.id))return;
     const key=p.name||'未知产品';
     if(!grouped[key])grouped[key]=[];
     grouped[key].push({item,p});
@@ -1788,8 +1872,8 @@ function onZoneDragEnd(e){e.target.classList.remove('dragging');draggedZoneId = 
 function saveZoneOrder(){const container = document.getElementById('zoneSortList');if(!container) return;const items = [...container.querySelectorAll('.zone-sort-item')];const newOrder = items.map(item=>parseInt(item.dataset.zoneId));const nd = JSON.parse(JSON.stringify(db));nd.zones = newOrder.map(id=>db.zones.find(z=>z.id===id)).filter(Boolean);saveDB(nd);closeModal();renderZoneList();showToast('区域顺序已保存','success');}
 
 // ==================== 每日备份管理 ====================
-function showBackupManager(){ if(IS_GUEST){showToast('访客模式无法查看备份管理','error');return;} const keys = []; for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); if(k && k.startsWith(LS_DAILY_BACKUP_PREFIX)) keys.push(k); } const dates = keys.map(k=>k.replace(LS_DAILY_BACKUP_PREFIX,'')).sort().reverse(); if(dates.length === 0){ openModal('<h2>📦 每日备份</h2><p style="color:#5f6368;font-size:12px;">暂无备份记录。系统会在每天首次保存数据时自动生成快照，保留最近 '+BACKUP_KEEP_DAYS+' 天。</p><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>'); return; } let rows = dates.map(d=>{ let sizeInfo = ''; try{ const s = localStorage.getItem(LS_DAILY_BACKUP_PREFIX+d); sizeInfo = s ? Math.round(s.length/1024)+' KB' : ''; }catch(e){} return '<tr><td>'+d+'</td><td>'+sizeInfo+'</td><td style="white-space:nowrap;"><button class="btn btn-sm btn-primary" onclick="restoreBackup(\''+d+'\')">恢复</button> <button class="btn btn-sm btn-outline" onclick="downloadBackup(\''+d+'\')">下载</button> <button class="btn btn-sm btn-danger" onclick="deleteBackup(\''+d+'\')">删除</button></td></tr>'; }).join(''); openModal('<h2>📦 每日备份</h2><p style="font-size:12px;color:#5f6368;margin-bottom:8px;">系统每天自动生成一次快照，最多保留 '+BACKUP_KEEP_DAYS+' 天。</p><div style="overflow:auto;max-height:50vh;"><table class="records-table"><thead><tr><th>日期</th><th>大小</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>'); }
-function restoreBackup(dateStr){ if(IS_GUEST){showToast('访客模式无法修改','error');return;} if(!confirm('恢复到 '+dateStr+' 的备份？当前数据将被覆盖。'))return; try{ const raw = localStorage.getItem(LS_DAILY_BACKUP_PREFIX + dateStr); if(!raw){showToast('备份不存在','error');return;} const today = new Date().toISOString().split('T')[0]; try{ localStorage.setItem(LS_DAILY_BACKUP_PREFIX + today, JSON.stringify(db)); }catch(e){} const restored = JSON.parse(raw); saveDB(restored); closeModal(); renderAll(); showToast('已恢复到 '+dateStr+' 的数据','success'); }catch(e){ console.error(e); showToast('恢复失败：'+e.message,'error'); } }
+function showBackupManager(){ if(IS_GUEST){showToast('访客模式无法查看备份管理','error');return;} const keys = []; for(let i=0;i<localStorage.length;i++){ const k = localStorage.key(i); if(k && k.startsWith(LS_DAILY_BACKUP_PREFIX)) keys.push(k); } const dates = keys.map(k=>k.replace(LS_DAILY_BACKUP_PREFIX,'')).sort().reverse(); if(dates.length === 0){ openModal('<h2>📦 每日备份</h2><p style="color:#5f6368;font-size:12px;">暂无备份记录。</p><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>'); return; } let rows = dates.map(d=>{ let sizeInfo = ''; try{ const s = localStorage.getItem(LS_DAILY_BACKUP_PREFIX+d); sizeInfo = s ? Math.round(s.length/1024)+' KB' : ''; }catch(e){} return '<tr><td>'+d+'</td><td>'+sizeInfo+'</td><td style="white-space:nowrap;"><button class="btn btn-sm btn-primary" onclick="restoreBackup(\''+d+'\')">恢复</button> <button class="btn btn-sm btn-outline" onclick="downloadBackup(\''+d+'\')">下载</button> <button class="btn btn-sm btn-danger" onclick="deleteBackup(\''+d+'\')">删除</button></td></tr>'; }).join(''); openModal('<h2>📦 每日备份</h2><p style="font-size:12px;color:#5f6368;margin-bottom:8px;">系统每天自动生成一次快照。</p><div style="overflow:auto;max-height:50vh;"><table class="records-table"><thead><tr><th>日期</th><th>大小</th><th>操作</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>'); }
+function restoreBackup(dateStr){ if(IS_GUEST){showToast('访客模式无法修改','error');return;} if(!confirm('恢复到 '+dateStr+' 的备份？'))return; try{ const raw = localStorage.getItem(LS_DAILY_BACKUP_PREFIX + dateStr); if(!raw){showToast('备份不存在','error');return;} const restored = JSON.parse(raw); saveDB(restored); closeModal(); renderAll(); showToast('已恢复到 '+dateStr+' 的数据','success'); }catch(e){ console.error(e); showToast('恢复失败：'+e.message,'error'); } }
 function downloadBackup(dateStr){ try{ const raw = localStorage.getItem(LS_DAILY_BACKUP_PREFIX + dateStr); if(!raw){showToast('备份不存在','error');return;} const blob = new Blob([raw], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'backup_'+dateStr+'.json'; a.click(); showToast('下载成功','success'); }catch(e){ showToast('下载失败','error'); } }
 function deleteBackup(dateStr){ if(IS_GUEST){showToast('访客模式无法修改','error');return;} if(!confirm('删除 '+dateStr+' 的备份？'))return; localStorage.removeItem(LS_DAILY_BACKUP_PREFIX + dateStr); showBackupManager(); showToast('已删除','success'); }
 
@@ -1798,7 +1882,6 @@ function exportExcel(){if(!db||!Array.isArray(db.products)||db.products.length==
 function exportProductsData(){if(!db||!Array.isArray(db.products)||db.products.length===0){showToast('无产品','info');return;}const blob=new Blob([JSON.stringify(db.products,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='products_'+new Date().toISOString().slice(0,10)+'.json';a.click();showToast('导出成功','success');}
 function importProductsData(file){if(IS_GUEST){showToast('访客模式无法修改','error');return;}if(!db||!Array.isArray(db.products)){showToast('数据未加载','info');return;}const reader=new FileReader();reader.onload=e=>{try{const products=JSON.parse(e.target.result);if(!Array.isArray(products)){showToast('需要数组','error');return;}const nd=JSON.parse(JSON.stringify(db));let added=0;products.forEach(item=>{if(!item.name||!item.unit)return;if(nd.products.some(p=>p.name===item.name&&(p.model||'')===(item.model||'')))return;nd.products.push({id:nd.nextProductId++,name:item.name,model:item.model||'',unit:item.unit,unitQuantity:item.unitQuantity||1,remark:item.remark||'',status:item.status||'green',isPriority:!!item.isPriority,createdAt:item.createdAt||new Date().toISOString()});added++;});saveDB(nd);showToast('导入'+added+'个','success');}catch(err){showToast('解析失败','error');}};reader.readAsText(file);}
 function exportData(){if(!db||!Array.isArray(db.zones)){showToast('数据未加载','info');return;}const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();showToast('导出成功','success');}
-
 function importData(file){
   if(IS_GUEST){showToast('访客模式无法修改','error');return;}
   if(!db||!Array.isArray(db.zones)){showToast('数据未加载','info');return;}
@@ -1807,7 +1890,7 @@ function importData(file){
     try{
       const imported=JSON.parse(e.target.result);
       if(!imported.zones||!imported.locations||!imported.products){showToast('格式错误','error');return;}
-      if(!confirm('确认用该备份文件覆盖当前数据？\n\n导入后会自动推送到云端，请确保已登录管理员。'))return;
+      if(!confirm('确认用该备份文件覆盖当前数据？\n\n导入后会自动推送到云端。'))return;
       db = ensureCompleteDB(imported);
       pruneOldRecords(db);
       updateProductLocationCountCache();
