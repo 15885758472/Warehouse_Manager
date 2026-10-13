@@ -293,7 +293,7 @@ body.guest-mode #smartSortSection{display:none !important;}
 <header class="header">
   <div class="header-left"><div class="logo-icon">📦</div><h1>仓库管理系统</h1></div>
   <div class="header-stats" id="headerStats">
-    <span class="version-badge" id="versionBadge" title="点击查看更新日志">v2.1.1</span>
+    <span class="version-badge" id="versionBadge" title="点击查看更新日志">v2.1.2</span>
     <span class="guest-badge" id="guestBadge"></span>
     <button class="btn btn-sm btn-primary" id="btnLogin" onclick="showLoginModal()">登录</button>
     <button class="btn btn-sm btn-outline" id="btnLogout" onclick="doLogout()">退出管理</button>
@@ -354,8 +354,9 @@ body.guest-mode #smartSortSection{display:none !important;}
 <div class="toast-container" id="toastContainer"></div>
 <script>
 // ==================== 版本信息 ====================
-const APP_VERSION = '2.1.1';
+const APP_VERSION = '2.1.2';
 const APP_UPDATE_LOG = [
+  { v: '2.1.2', date: '2026-10-13', note: '修复跨设备同步：写入队列+超时兜底+持久化重试；watch实时监听+15秒轮询；本地新于云端时自动推送；启动时补发未同步改动' },
   { v: '2.1.1', date: '2026-10-12', note: '修复先发标记丢失：云端时间戳单调递增；轮询不再覆盖未同步改动；页面隐藏/卸载时自动flush；写入失败自动重试' },
   { v: '2.1.0', date: '2026-10-11', note: '直连模式 + Base64 密码混淆存储；所有业务功能完整保留' },
   { v: '2.0.1', date: '2026-10-11', note: '云函数安全加固' },
@@ -399,7 +400,7 @@ async function cloudReadData() {
   if (!doc) return null;
   return { content: doc.content, updatedAt: doc.updatedAt || 0 };
 }
-// 【修复1】云端时间戳单调递增：保证客户端时钟偏差/回拨时仍能正确排序
+// 云端时间戳单调递增：保证客户端时钟偏差/回拨时仍能正确排序
 async function cloudWriteData(payload) {
   const ts = Math.max(Date.now(), (lastCloudUpdatedAt || 0) + 1);
   saveLocalDB(payload);
@@ -420,11 +421,15 @@ function clearSessionPwd(){ _adminPwd = null; try{ sessionStorage.removeItem(SS_
 const LS_KEY = 'warehouse_db_cache_v2';
 const LS_TS_KEY = 'warehouse_db_cache_ts_v2';
 const LS_DAILY_BACKUP_PREFIX = 'warehouse_daily_backup_v1_';
+const LS_PENDING_KEY = 'warehouse_pending_write_v1';   // ★ 未同步写入的持久化
 const BACKUP_KEEP_DAYS = 30;
+
 let _localWriteTimer = null;
 let _pendingLocalDb = null;
 let _cloudWriteTimer = null;
 let _pendingCloudDb = null;
+let _cloudWriteQueue = Promise.resolve();   // ★ 串行写入队列
+let _cloudRetryTimer = null;                // ★ 失败重试定时器
 
 function saveLocalDB(targetDb){ try{ localStorage.setItem(LS_KEY, JSON.stringify(targetDb)); localStorage.setItem(LS_TS_KEY, String(Date.now())); }catch(e){} }
 function doDailyBackup(targetDb){
@@ -446,35 +451,66 @@ function saveLocalDBDebounced(targetDb){
     if(p){ saveLocalDB(p); doDailyBackup(p); }
   }, 200);
 }
+
 async function writeCloudData(payload){
   saveLocalDB(payload);
   const r = await cloudWriteData(payload);
   if (r.updatedAt > lastCloudUpdatedAt) lastCloudUpdatedAt = r.updatedAt;
   return r;
 }
+
+// ★ 持久化未同步 payload 到 localStorage，下次打开页面可补发
+function persistPendingWrite(payload){
+  try{
+    if(payload) localStorage.setItem(LS_PENDING_KEY, JSON.stringify(payload));
+    else localStorage.removeItem(LS_PENDING_KEY);
+  }catch(e){}
+}
+function readPendingWrite(){
+  try{ const s = localStorage.getItem(LS_PENDING_KEY); return s ? JSON.parse(s) : null; }catch(e){ return null; }
+}
+
+// ★ 失败重试调度（指数退避，最多 30 秒一次）
+function scheduleCloudRetry(delay){
+  if(_cloudRetryTimer) return;
+  _cloudRetryTimer = setTimeout(()=>{
+    _cloudRetryTimer = null;
+    flushCloudWriteNow();
+  }, delay || 3000);
+}
+
+// ★ 写入防抖：不重置定时器，最多等 150ms 必发；连续操作时不会无限推迟
 function writeCloudDataDebounced(payload){
   _pendingCloudDb = payload;
-  if(_cloudWriteTimer) clearTimeout(_cloudWriteTimer);
-  _cloudWriteTimer = setTimeout(()=>{
-    _cloudWriteTimer = null;
-    const p = _pendingCloudDb; _pendingCloudDb = null;
-    if(!p) return;
-    writeCloudData(p).catch(err=>{
-      console.warn('云端保存失败：', err);
-      showToast('云端保存失败：'+err.message,'error');
-      // 【修复5】写入失败时保留待写入内容，下次轮询/保存时自动重试
-      if(!_pendingCloudDb) _pendingCloudDb = p;
-    });
-  }, 800);
+  persistPendingWrite(payload);
+  if(_cloudWriteTimer) return;
+  _cloudWriteTimer = setTimeout(flushCloudWriteNow, 150);
 }
+
+// ★ 立即发送：串行队列 + 10 秒超时；失败保留待重试
 function flushCloudWriteNow(){
   if(_cloudWriteTimer){ clearTimeout(_cloudWriteTimer); _cloudWriteTimer = null; }
-  const p = _pendingCloudDb; _pendingCloudDb = null;
-  if(!p) return Promise.resolve();
-  return writeCloudData(p).catch(err=>{
-    console.warn('flush云端保存失败：', err);
-    if(!_pendingCloudDb) _pendingCloudDb = p;
+  const p = _pendingCloudDb;
+  _pendingCloudDb = null;
+  if(!p){ return _cloudWriteQueue; }
+
+  _cloudWriteQueue = _cloudWriteQueue.then(async ()=>{
+    try{
+      await Promise.race([
+        writeCloudData(p),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('写入超时（10秒）')), 10000))
+      ]);
+      // 成功：队列里没有更新的 pending，则清除本地持久化
+      if(!_pendingCloudDb){ persistPendingWrite(null); }
+    }catch(err){
+      console.warn('云端保存失败：', err);
+      showToast('云端保存失败：'+(err.message||err),'error');
+      // 保留最新 payload 供重试（不覆盖更新的 pending）
+      if(!_pendingCloudDb){ _pendingCloudDb = p; persistPendingWrite(p); }
+      scheduleCloudRetry(3000);
+    }
   });
+  return _cloudWriteQueue;
 }
 
 // ==================== 全局状态 ====================
@@ -612,6 +648,12 @@ async function initFromCloud(){
     if(!loginState){ await auth.signInAnonymously(); }
   }catch(e){ console.warn('匿名登录失败：', e); }
 
+  // ★ 读取本地未同步的 pending payload，待会优先推送
+  const pendingRaw = readPendingWrite();
+  if(pendingRaw){
+    try{ _pendingCloudDb = pendingRaw; }catch(e){}
+  }
+
   let retryCount = 0;
   const maxRetry = 3;
   function tryConnect(){
@@ -627,11 +669,15 @@ async function initFromCloud(){
       try{
         const cloudContent = r ? r.content : null;
         const cloudTs = r ? (r.updatedAt || 0) : 0;
-        if(cloudTs > 0 && cloudTs >= localTs){ db = ensureCompleteDB(cloudContent); lastCloudUpdatedAt = cloudTs; }
-        else if(localTs > 0 && localTs > cloudTs && localRaw){
+        if(cloudTs > 0 && cloudTs >= localTs && !_pendingCloudDb){
+          db = ensureCompleteDB(cloudContent); lastCloudUpdatedAt = cloudTs;
+        }
+        else if(localTs > 0 && (localTs > cloudTs || _pendingCloudDb) && localRaw){
+          // ★ 本地新于云端（或有未同步改动）：用本地数据，并主动推送到云端
           db = ensureCompleteDB(localRaw);
-          // 【修复2】本地新于云端时，记录云端时间戳，避免首次轮询用远端旧数据覆盖本地未同步的改动
           lastCloudUpdatedAt = cloudTs || 0;
+          _pendingCloudDb = db;
+          persistPendingWrite(db);
         }
         else { db = ensureCompleteDB(cloudContent || localRaw || null); if(cloudTs) lastCloudUpdatedAt = cloudTs; }
         pruneOldRecords(db);
@@ -639,7 +685,17 @@ async function initFromCloud(){
         updateProductLocationCountCache();
         try{ updateDailyStatsIfNeeded(); }catch(e){}
         try{ updateDailyBatchStatsIfNeeded(); }catch(e){}
-        saveLocalDB(db); renderAll(); startRealtimeListener(); updateSyncBadge(true);
+        saveLocalDB(db);
+        try{ renderAll(); }catch(e){ console.error('渲染错误：', e); }
+        // ★ startRealtimeListener 移出 try，避免被渲染异常跳过
+        startRealtimeListener();
+        updateSyncBadge(true);
+        // ★ 有未同步改动，立刻推送
+        if(_pendingCloudDb){
+          flushCloudWriteNow().then(()=>{
+            if(!_pendingCloudDb) showToast('已同步本地未上传的改动','success');
+          });
+        }
         showToast('已连接云端','success');
       }catch(e){ console.error('初始化错误：',e); updateSyncBadge(true); }
     }).catch(err=>{
@@ -655,10 +711,10 @@ async function initFromCloud(){
 
 async function pollCloudData(){
   try{
-    // 【修复3】本地有挂起写入时，先推送并给一点完成时间，避免被远端旧数据覆盖
+    // 本地有挂起写入时，先推送并给一点完成时间，避免被远端旧数据覆盖
     if(_pendingCloudDb || _cloudWriteTimer){
       await flushCloudWriteNow();
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 300));
     }
     const r = await cloudReadData();
     if(r && r.updatedAt > lastCloudUpdatedAt){
@@ -677,18 +733,60 @@ async function pollCloudData(){
     }else{ updateSyncBadge(true); }
   }catch(e){ console.warn('轮询失败：', e); updateSyncBadge(false); }
 }
+
+// ★ 实时监听：watch() 优先，失败/不支持则降级为 15 秒轮询
 function startRealtimeListener(){
   if(window._pollTimer) clearInterval(window._pollTimer);
-  window._pollTimer = setInterval(pollCloudData, 60000);
+  if(window._watcher){ try{ window._watcher.close(); }catch(e){} window._watcher = null; }
+
+  // 兜底轮询（15 秒，兼顾后台节流）
+  window._pollTimer = setInterval(pollCloudData, 15000);
+
+  // 尝试 watch 实时监听
+  try{
+    window._watcher = dataRef.watch({
+      onChange: (snapshot)=>{
+        try{
+          let doc = null;
+          if(snapshot && Array.isArray(snapshot.docs) && snapshot.docs.length){
+            doc = snapshot.docs[0];
+          } else if(snapshot && snapshot.data){
+            doc = snapshot.data;
+          }
+          if(!doc) return;
+          let content = doc.content;
+          if(!content && doc.data && doc.data.content) content = doc.data.content;
+          const ts = doc.updatedAt || 0;
+          if(!content) return;
+          if(ts > lastCloudUpdatedAt && !_pendingCloudDb && !_cloudWriteTimer){
+            lastCloudUpdatedAt = ts;
+            db = ensureCompleteDB(content);
+            updateProductLocationCountCache();
+            try{ updateDailyStatsIfNeeded(); }catch(e){}
+            try{ updateDailyBatchStatsIfNeeded(); }catch(e){}
+            saveLocalDB(db); renderAll(); refreshActiveModal();
+            updateSyncBadge(true);
+          }
+        }catch(e){ console.warn('watch 处理失败：', e); }
+      },
+      onError: (err)=>{ console.warn('watch 失败，使用轮询兜底：', err); }
+    });
+  }catch(e){ console.warn('watch 初始化失败，使用轮询兜底：', e); }
+
   pollCloudData();
+
   document.addEventListener('visibilitychange', ()=>{
-    if(document.visibilityState === 'visible'){ pollCloudData(); }
-    // 【修复4】切后台/隐藏页面时立刻推送未写入的改动
-    else { flushCloudWriteNow(); }
+    if(document.visibilityState === 'visible'){
+      pollCloudData();
+      flushCloudWriteNow();
+    }else{
+      // 切后台立刻推送未写入的改动（pending 也已持久化到 localStorage，可下次补发）
+      flushCloudWriteNow();
+    }
   });
-  // 【修复4】页面卸载时兜底（beforeunload 对异步不可靠，加上 pagehide）
   window.addEventListener('beforeunload', flushCloudWriteNow);
   window.addEventListener('pagehide', flushCloudWriteNow);
+  window.addEventListener('online', ()=>{ flushCloudWriteNow(); pollCloudData(); });
   setInterval(()=>{ if(!db || !Array.isArray(db.records)) return; const before = db.records.length; const nd = JSON.parse(JSON.stringify(db)); pruneOldRecords(nd); if(nd.records.length < before) saveDB(nd); }, 6*60*60*1000);
 }
 function updateSyncBadge(online){const b=document.getElementById('syncBadge');if(!b)return;if(online){b.textContent='🟢 已同步';b.className='sync-badge online';}else{b.textContent='🔴 离线';b.className='sync-badge offline';}}
@@ -906,9 +1004,6 @@ function showEditProductModal(id){if(IS_GUEST){showToast('访客模式无法修�
 function updateProduct(id){const nd=JSON.parse(JSON.stringify(db));const p=nd.products.find(x=>x.id===id);p.name=document.getElementById('editName').value.trim();p.model=document.getElementById('editModel').value.trim();p.unit=document.getElementById('editUnit').value.trim();p.unitQuantity=parseInt(document.getElementById('editUnitQuantity').value)||1;p.remark=document.getElementById('editRemark').value.trim();p.status=document.getElementById('editStatus').value;p.isPriority=document.getElementById('editPriority')?.checked||false;saveDB(nd);closeModal();showToast('已更新','success');}
 function deleteProduct(id){if(IS_GUEST){showToast('访客模式无法修改','error');return;}if(db.locations.some(l=>l.productId===id&&l.status==='used')||db.transit.some(t=>t.productId===id)){showToast('已存储','error');return;}if(!confirm('删除？'))return;const nd=JSON.parse(JSON.stringify(db));nd.products=nd.products.filter(x=>x.id!==id);saveDB(nd);showToast('已删除','success');}
 
-// ===== 第一段到此结束 =====
-// 下方注释行仅作为切分标记，实际代码请与第二段拼接
-// ==================== 库位批量操作 ====================
 // ==================== 库位批量操作 ====================
 function toggleLocationBatchMode(){
   if(IS_GUEST){showToast('访客模式无法修改','error');return;}
