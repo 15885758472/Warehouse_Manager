@@ -286,7 +286,7 @@ body.guest-mode .zone-edit-btn,body.guest-mode .zone-delete-btn,body.guest-mode 
 <header class="header">
   <div class="header-left"><div class="logo-icon">📦</div><h1>仓库管理系统</h1></div>
   <div class="header-stats" id="headerStats">
-    <span class="version-badge" id="versionBadge" title="点击查看更新日志">v2.1.5</span>
+    <span class="version-badge" id="versionBadge" title="点击查看更新日志">v2.1.6</span>
     <span class="guest-badge" id="guestBadge"></span>
     <button class="btn btn-sm btn-primary" id="btnLogin" onclick="showLoginModal()">登录</button>
     <button class="btn btn-sm btn-outline" id="btnLogout" onclick="doLogout()">退出管理</button>
@@ -338,6 +338,7 @@ body.guest-mode .zone-edit-btn,body.guest-mode .zone-delete-btn,body.guest-mode 
       <button class="btn btn-outline btn-sm" id="btnShowDailyBatchStats">每日批次统计</button>
       <button class="btn btn-outline btn-sm" id="btnProductManager">📋 产品总览</button>
       <button class="btn btn-outline btn-sm" id="btnShipList">🚚 发货清单</button>
+      <button class="btn btn-outline btn-sm" id="btnCustomStats">📊 自定义统计</button>
     </div>
     <div class="right-section"><h3>🚚 中转仓</h3><button class="btn btn-outline btn-sm" id="btnShowTransit">查看中转仓</button></div>
     <div class="right-section" id="smartSortSection"><h3>🧹 智能排序</h3><button class="btn btn-outline btn-sm" id="btnSmartSort">开始排序</button></div>
@@ -348,10 +349,11 @@ body.guest-mode .zone-edit-btn,body.guest-mode .zone-delete-btn,body.guest-mode 
 <div class="toast-container" id="toastContainer"></div>
 <script>
 // ==================== 版本信息 ====================
-const APP_VERSION = '2.1.5';
+const APP_VERSION = '2.1.6';
 const APP_UPDATE_LOG = [
-  { v: '2.1.5', date: '2026-10-13', note: '包含/排除模式改为针对仓库区域（发货清单/记录/FIFO/迁移到此）；产品筛选保持普通多选' },
-  { v: '2.1.4', date: '2026-10-13', note: '发货清单产品筛选只列有先发标识的产品；按标识日期分组默认关闭、批次日期默认开启' },
+  { v: '2.1.6', date: '2026-10-13', note: '新增📊自定义统计：按区域+排筛选，支持区域合并/区分、批次合计/拆分四种组合；导出CSV/图片' },
+  { v: '2.1.5', date: '2026-10-13', note: '包含/排除模式改为针对仓库区域' },
+  { v: '2.1.4', date: '2026-10-13', note: '发货清单产品筛选只列有先发标识的产品；默认值调整' },
   { v: '2.1.3', date: '2026-10-13', note: '新增🔧云端诊断+强制上传' },
   { v: '2.1.2', date: '2026-10-13', note: '修复跨设备同步' },
   { v: '2.1.1', date: '2026-10-12', note: '修复先发标记丢失' },
@@ -492,12 +494,12 @@ function flushCloudWriteNow(){
 let db={zones:[],locations:[],products:[],records:[],dailyStats:[],dailyBatchStats:[],transit:[],nextZoneId:1,nextLocationId:1,nextProductId:1,nextRecordId:1,nextTransitId:1};
 let currentZoneId=1,batchMode=false,selectedProducts=new Set(),locationBatchMode=false,selectedLocations=new Set(),isDBLoaded=false;
 let recordFilter='all',recordStartDate='',recordEndDate='';
-let recordProductFilters = new Set();      // 记录-产品多选
-let recordZoneFilters = new Set();         // 记录-区域多选
-let recordZoneFilterMode = 'include';      // 记录-区域筛选模式
-let selectedProductFilters = new Set();    // FIFO-产品多选
-let selectedFifoZones = new Set();         // FIFO-区域多选
-let fifoZoneFilterMode = 'include';        // FIFO-区域筛选模式
+let recordProductFilters = new Set();
+let recordZoneFilters = new Set();
+let recordZoneFilterMode = 'include';
+let selectedProductFilters = new Set();
+let selectedFifoZones = new Set();
+let fifoZoneFilterMode = 'include';
 let transitFilterProduct = 'all';
 let lastBatchNo = '';
 let selectedTransitItems = new Set();
@@ -510,12 +512,17 @@ let replaceReturnLocId = null;
 let pmKeyword='', pmStatusFilter='all', pmSortBy='name';
 let pmDetailSortBy = 'default';
 let shipStartDate='', shipEndDate='';
-let shipProductFilters = new Set();        // 发货清单-产品多选
-let shipZoneFilters = new Set();           // 发货清单-区域多选
-let shipZoneFilterMode = 'include';        // 发货清单-区域筛选模式
+let shipProductFilters = new Set();
+let shipZoneFilters = new Set();
+let shipZoneFilterMode = 'include';
 let shipShowFlagDate = false;
 let shipShowBatchDate = true;
 let batchStatsProductFilter = 'all';
+let statSelectedZones = new Set();
+let statSelectedRows  = new Map();
+let statGroupByBatch  = false;
+let statLastResult    = null;
+window.statZoneMode = 'merge';
 let lastCloudUpdatedAt = 0;
 const RECORD_KEEP_DAYS = 120;
 const STATS_KEEP_DAYS = 120;
@@ -848,6 +855,7 @@ function refreshActiveModal(){
     if(document.getElementById('dailyStatsContent')){ const sel = document.getElementById('dailyDateSelect'); if(sel){ const dates = (db.dailyStats||[]).map(d=>d.date).sort((a,b)=>b.localeCompare(a)); const curVal = sel.value; const curOpts = Array.from(sel.options).map(o=>o.value); if(JSON.stringify(curOpts) !== JSON.stringify(dates)){ sel.innerHTML = dates.map(d=>'<option value="'+d+'">'+d+'</option>').join(''); sel.value = dates.includes(curVal) ? curVal : (dates[0]||''); } if(sel.value) showDailyStatsContent(sel.value); } return; }
     if(document.getElementById('dailyBatchStatsContent')){ const sel = document.getElementById('dailyBatchDateSelect'); if(sel){ const dates = (db.dailyBatchStats||[]).map(d=>d.date).sort((a,b)=>b.localeCompare(a)); const curVal = sel.value; const curOpts = Array.from(sel.options).map(o=>o.value); if(JSON.stringify(curOpts) !== JSON.stringify(dates)){ sel.innerHTML = dates.map(d=>'<option value="'+d+'">'+d+'</option>').join(''); sel.value = dates.includes(curVal) ? curVal : (dates[0]||''); } if(sel.value) showDailyBatchStatsContent(sel.value); } return; }
     if(document.getElementById('migrateSourceList')){ renderMigrateSourceList(); return; }
+    if(document.getElementById('statResultWrap')){ renderCustomStats(); return; }
   }catch(e){}
 }
 
@@ -1093,14 +1101,13 @@ function showMigrateToEmptyModal(targetLid){
   let zoneCards='';
   db.zones.forEach(z=>{ if(!usedZoneIds.has(z.id))return; zoneCards+=`<div class="migrate-filter-card" data-mzid="${z.id}">${z.name}</div>`; });
   if(transitList.length>0){ zoneCards+=`<div class="migrate-filter-card" data-mzid="-1">🚚 中转仓</div>`; }
-  const zmModeCls = window._migrateZoneFilterMode==='exclude' ? 'exclude' : '';
   openModal('<h2>🔄 迁移到此库位</h2>'+
     '<p style="font-size:12px;color:#5f6368;margin-bottom:8px;">目标库位：<b>'+tLabel+'</b></p>'+
     '<div class="form-group"><label>筛选产品（不选=全部）</label>'+
       '<div class="migrate-filter-cards" id="migrateProductCards">'+(productCards||'<span style="color:#5f6368;font-size:12px;">无</span>')+'</div></div>'+
     '<div class="form-group"><label style="display:flex;justify-content:space-between;align-items:center;gap:6px;"><span>筛选区域（不选=全部）</span>'+
       '<button class="btn btn-sm '+(window._migrateZoneFilterMode==='exclude'?'btn-danger':'btn-outline')+'" onclick="window._migrateZoneFilterMode=window._migrateZoneFilterMode===\'exclude\'?\'include\':\'exclude\';showMigrateToEmptyModal('+targetLid+');">'+(window._migrateZoneFilterMode==='exclude'?'🚫 排除模式':'✅ 包含模式')+'</button></label>'+
-      '<div class="migrate-filter-cards '+zmModeCls+'" id="migrateZoneCards">'+(zoneCards||'<span style="color:#5f6368;font-size:12px;">无</span>')+'</div></div>'+
+      '<div class="migrate-filter-cards" id="migrateZoneCards">'+(zoneCards||'<span style="color:#5f6368;font-size:12px;">无</span>')+'</div></div>'+
     '<div class="migrate-source-list" id="migrateSourceList"></div>'+
     '<div class="form-actions" style="margin-top:12px;"><button class="btn btn-outline" onclick="closeModal()">取消</button></div>');
   document.querySelectorAll('#migrateProductCards .migrate-filter-card').forEach(card=>{
@@ -1122,9 +1129,6 @@ function showMigrateToEmptyModal(targetLid){
       renderMigrateSourceList();
     });
   });
-  if(window._migrateZoneFilterMode==='exclude'){
-    document.querySelectorAll('#migrateZoneCards .migrate-filter-card').forEach(c=>{ if(c.classList.contains('active')) c.classList.add('exclude'); });
-  }
   renderMigrateSourceList();
 }
 function renderMigrateSourceList(){
@@ -1244,8 +1248,6 @@ function showRecords(){
   productNames.forEach((n,i)=>{ const active = recordProductFilters.has(n) ? ' active' : ''; const enc = encodeURIComponent(n); productCards += `<div class="smart-select-card${active}" data-rpn="${enc}" style="padding:6px 10px;">${n}</div>`; });
   let productOptions = '';
   productNames.forEach(n=>{ const enc = encodeURIComponent(n); const active = recordProductFilters.has(n) ? ' selected' : ''; productOptions += `<option value="${enc}"${active}>${n}</option>`; });
-
-  // ★ 区域筛选
   const recordZoneNames = [...new Set(db.records.map(r=>r.zoneName).filter(Boolean))];
   let zoneCards = '';
   recordZoneNames.forEach((zn)=>{ const active = recordZoneFilters.has(zn); const enc = encodeURIComponent(zn); zoneCards += `<div class="${filterCardCls(active, recordZoneFilterMode)}" data-rzn="${enc}" style="padding:6px 10px;">${zn}</div>`; });
@@ -1397,8 +1399,6 @@ function showProductManagerDetail(id){ const p=db.products.find(x=>x.id===id); i
 // ==================== 发货清单 ====================
 function showShipListModal(){
   if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}
-
-  // ★ 只列出「当前有先发标记库位」的产品
   const priorityProductIds = new Set();
   const activeZoneIds = new Set();
   db.locations.forEach(l=>{
@@ -1421,15 +1421,12 @@ function showShipListModal(){
       <span style="color:#5f6368;font-size:11px;">${p.model||''}</span>
     </div>`;
   });
-
   let productOptions = '';
   db.products.forEach(p=>{
     if(!priorityProductIds.has(p.id)) return;
     const active = shipProductFilters.has(p.id) ? ' selected' : '';
     productOptions += `<option value="${p.id}"${active}>${p.name||'未知产品'}(${p.model||'无型号'})</option>`;
   });
-
-  // ★ 区域筛选
   let zoneCards = '';
   db.zones.forEach(z=>{
     if(!activeZoneIds.has(z.id)) return;
@@ -1627,6 +1624,266 @@ function copyShipOutput(){
   doCopy();
 }
 
+// ==================== 自定义统计 ====================
+window.statZoneMode = window.statZoneMode || 'merge';
+
+function getStatFilteredLocations(){
+  return db.locations.filter(l=>{
+    if(l.status!=='used'||!l.productId) return false;
+    if(!statSelectedZones.has(l.zoneId)) return false;
+    const rowSet = statSelectedRows.get(l.zoneId);
+    if(rowSet && rowSet.size>0 && !rowSet.has(l.rowNum)) return false;
+    return true;
+  });
+}
+function buildStatResult(locs, groupByBatch){
+  const map = new Map();
+  locs.forEach(l=>{
+    const p = db.products.find(x=>x.id===l.productId);
+    if(!p) return;
+    const pieces = l.customPieces>0 ? l.customPieces : (l.quantity||0)*(p.unitQuantity||1);
+    const key = groupByBatch ? (p.id+'|'+(l.batchNo||'-')) : String(p.id);
+    if(!map.has(key)) map.set(key, {p, batchNo: groupByBatch ? (l.batchNo||'-') : '', pieces:0, locs:[]});
+    const e = map.get(key);
+    e.pieces += pieces; e.locs.push(l);
+  });
+  const productOrder = new Map();
+  db.products.forEach((p,idx)=>productOrder.set(p.id,idx));
+  const list = [...map.values()].sort((a,b)=>{
+    const oa = productOrder.has(a.p.id)?productOrder.get(a.p.id):999999;
+    const ob = productOrder.has(b.p.id)?productOrder.get(b.p.id):999999;
+    if(oa!==ob) return oa-ob;
+    return (a.batchNo||'').localeCompare(b.batchNo||'');
+  });
+  let totalPieces = 0, totalLocs = 0;
+  list.forEach(it=>{ totalPieces += it.pieces; totalLocs += it.locs.length; });
+  return { list, totalPieces, totalLocs };
+}
+function renderStatTableHtml(res, groupByBatch){
+  if(res.list.length===0) return '<p style="color:#5f6368;text-align:center;padding:12px;">所选范围内没有已用库位</p>';
+  let rowsHtml = '';
+  res.list.forEach((it, idx)=>{
+    const p = it.p;
+    const locsByZone = new Map();
+    it.locs.forEach(l=>{ if(!locsByZone.has(l.zoneId)) locsByZone.set(l.zoneId, []); locsByZone.get(l.zoneId).push(l); });
+    let locParts = [];
+    db.zones.forEach(z=>{
+      if(!locsByZone.has(z.id)) return;
+      const byRow = new Map();
+      locsByZone.get(z.id).forEach(l=>{ if(!byRow.has(l.rowNum)) byRow.set(l.rowNum, []); byRow.get(l.rowNum).push(l); });
+      const rowStrs = [];
+      [...byRow.keys()].sort((a,b)=>a-b).forEach(r=>{
+        const cols = byRow.get(r).map(l=>getDisplayColNumber(z,l.colNum)).sort((a,b)=>a-b);
+        rowStrs.push(getRowDisplayLabel(z,r)+'排'+cols.join(','));
+      });
+      locParts.push(z.name+' '+rowStrs.join(' / '));
+    });
+    rowsHtml += '<tr><td>'+(idx+1)+'</td><td>'+p.name+'</td><td>'+(p.model||'-')+'</td>'+
+      (groupByBatch?'<td>'+it.batchNo+'</td>':'')+
+      '<td style="font-weight:600;color:#1a73e8;">'+it.pieces+'</td>'+
+      '<td>'+(p.unit||'件')+'</td><td>'+it.locs.length+'</td>'+
+      '<td style="font-size:11px;color:#5f6368;max-width:240px;word-break:break-all;">'+locParts.join('；')+'</td></tr>';
+  });
+  const header = '<tr><th>#</th><th>产品</th><th>型号</th>'+(groupByBatch?'<th>批次</th>':'')+'<th>总件数</th><th>单位</th><th>库位</th><th>位置</th></tr>';
+  return '<div style="font-size:12px;color:#5f6368;margin-bottom:4px;">共 '+res.list.length+' 行 / '+res.totalLocs+' 个库位 / 合计 <b style="color:#1a73e8;">'+res.totalPieces+'</b> 件</div>'+
+    '<div style="overflow:auto;max-height:45vh;"><table class="records-table"><thead>'+header+'</thead><tbody>'+rowsHtml+'</tbody></table></div>';
+}
+function showCustomStats(){
+  if(!db||!Array.isArray(db.locations)){showToast('数据未加载','info');return;}
+  [...statSelectedZones].forEach(zid=>{ if(!db.zones.some(z=>z.id===zid)) statSelectedZones.delete(zid); });
+
+  let zoneCards = '';
+  db.zones.forEach(z=>{
+    const active = statSelectedZones.has(z.id);
+    const usedCount = db.locations.filter(l=>l.zoneId===z.id && l.status==='used').length;
+    zoneCards += `<div class="${filterCardCls(active,'include')}" data-stat-zid="${z.id}" style="padding:6px 12px;">${z.name} <span style="color:#5f6368;font-size:11px;">(${usedCount})</span></div>`;
+  });
+
+  let rowSectionHtml = '';
+  if(statSelectedZones.size>0){
+    Array.from(statSelectedZones).forEach(zid=>{
+      const zone = db.zones.find(z=>z.id===zid);
+      if(!zone) return;
+      const rows = [...new Set(db.locations.filter(l=>l.zoneId===zid).map(l=>l.rowNum))].sort((a,b)=>a-b);
+      const selSet = statSelectedRows.get(zid) || new Set();
+      let rowChips = '';
+      rows.forEach(r=>{
+        const active = selSet.has(r);
+        rowChips += `<div class="smart-select-card${active?' active':''}" data-stat-rid="${r}" data-stat-zid2="${zid}" style="padding:4px 10px;font-size:12px;">${getRowDisplayLabel(zone,r)}</div>`;
+      });
+      rowSectionHtml += `<div style="margin-bottom:8px;">
+        <div style="font-size:11px;color:#5f6368;margin-bottom:4px;display:flex;justify-content:space-between;gap:6px;">
+          <span>${zone.name}</span><span>${selSet.size>0?('已选 '+selSet.size+' 排'):'不选=全部排'}</span>
+        </div>
+        <div class="smart-select-cards" data-zone-rows="${zid}">${rowChips}</div>
+      </div>`;
+    });
+  }
+
+  const zoneMode = window.statZoneMode || 'merge';
+  openModal(
+    '<h2>📊 自定义统计</h2>'+
+    '<p style="font-size:12px;color:#5f6368;margin-bottom:8px;">选择区域和排，统计每个产品的数量（单位数量自动换算为件数）。</p>'+
+    '<div class="form-group"><label>仓库区域（可多选）</label>'+
+      '<div class="smart-select-cards" id="statZoneCards">'+(zoneCards||'<span style="color:#5f6368;font-size:12px;">无</span>')+'</div>'+
+    '</div>'+
+    (statSelectedZones.size>0?'<div class="form-group"><label>选择排（不选=该区域全部排）</label>'+rowSectionHtml+'</div>':'')+
+    '<div class="form-group"><label>区域显示</label>'+
+      '<div style="display:flex;gap:14px;flex-wrap:wrap;">'+
+        '<label style="display:flex;gap:4px;align-items:center;cursor:pointer;font-weight:400;">'+
+          '<input type="radio" name="statZoneMode" '+(zoneMode==='merge'?'checked':'')+' onchange="window.statZoneMode=\'merge\';renderCustomStats();" style="width:auto;margin:0;">'+
+          '<span style="font-size:12px;">合并（所有区域汇总为一张表）</span>'+
+        '</label>'+
+        '<label style="display:flex;gap:4px;align-items:center;cursor:pointer;font-weight:400;">'+
+          '<input type="radio" name="statZoneMode" '+(zoneMode==='separate'?'checked':'')+' onchange="window.statZoneMode=\'separate\';renderCustomStats();" style="width:auto;margin:0;">'+
+          '<span style="font-size:12px;">按区域区分（每个区域一张表）</span>'+
+        '</label>'+
+      '</div>'+
+    '</div>'+
+    '<div class="form-group"><label>批次显示</label>'+
+      '<div style="display:flex;gap:14px;flex-wrap:wrap;">'+
+        '<label style="display:flex;gap:4px;align-items:center;cursor:pointer;font-weight:400;">'+
+          '<input type="radio" name="statGroupByBatch" '+(statGroupByBatch?'':'checked')+' onchange="statGroupByBatch=false;renderCustomStats();" style="width:auto;margin:0;">'+
+          '<span style="font-size:12px;">全部合计</span>'+
+        '</label>'+
+        '<label style="display:flex;gap:4px;align-items:center;cursor:pointer;font-weight:400;">'+
+          '<input type="radio" name="statGroupByBatch" '+(statGroupByBatch?'checked':'')+' onchange="statGroupByBatch=true;renderCustomStats();" style="width:auto;margin:0;">'+
+          '<span style="font-size:12px;">按批次号拆分</span>'+
+        '</label>'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">'+
+      '<button class="btn btn-sm btn-outline" onclick="statClearZones()">清空区域</button>'+
+      '<button class="btn btn-sm btn-outline" onclick="statClearRows()">清空排</button>'+
+      '<button class="btn btn-sm btn-primary" onclick="exportCustomStatsCsv()">📄 导出CSV</button>'+
+      '<button class="btn btn-sm btn-outline" onclick="exportCustomStatsImage()">📷 生成图片</button>'+
+    '</div>'+
+    '<div id="statResultWrap"></div>'+
+    '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>'
+  );
+
+  document.querySelectorAll('#statZoneCards .smart-select-card').forEach(card=>{
+    card.addEventListener('click',function(e){
+      e.stopPropagation();
+      const zid = parseInt(this.dataset.statZid);
+      if(statSelectedZones.has(zid)){
+        statSelectedZones.delete(zid);
+        statSelectedRows.delete(zid);
+      } else {
+        statSelectedZones.add(zid);
+      }
+      showCustomStats();
+    });
+  });
+  document.querySelectorAll('[data-stat-rid]').forEach(card=>{
+    card.addEventListener('click',function(e){
+      e.stopPropagation();
+      const zid = parseInt(this.dataset.statZid2);
+      const rid = parseInt(this.dataset.statRid);
+      if(!statSelectedRows.has(zid)) statSelectedRows.set(zid, new Set());
+      const s = statSelectedRows.get(zid);
+      if(s.has(rid)) s.delete(rid); else s.add(rid);
+      this.classList.toggle('active');
+      const wrap = this.parentElement;
+      const hint = wrap.previousElementSibling;
+      if(hint && hint.querySelector('span:last-child')){
+        hint.querySelector('span:last-child').textContent = s.size>0 ? ('已选 '+s.size+' 排') : '不选=全部排';
+      }
+      renderCustomStats();
+    });
+  });
+  renderCustomStats();
+}
+function statClearZones(){ statSelectedZones.clear(); statSelectedRows.clear(); showCustomStats(); }
+function statClearRows(){ statSelectedRows.clear(); showCustomStats(); }
+function renderCustomStats(){
+  const wrap = document.getElementById('statResultWrap');
+  if(!wrap) return;
+  if(statSelectedZones.size===0){
+    wrap.innerHTML = '<p style="color:#5f6368;text-align:center;padding:16px;">请先选择区域</p>';
+    statLastResult = null; return;
+  }
+  const zoneMode = window.statZoneMode || 'merge';
+  const groupByBatch = !!statGroupByBatch;
+
+  if(zoneMode === 'merge'){
+    const filtered = getStatFilteredLocations();
+    const res = buildStatResult(filtered, groupByBatch);
+    if(res.list.length===0){
+      wrap.innerHTML = '<p style="color:#5f6368;text-align:center;padding:16px;">所选范围内没有已用库位</p>';
+      statLastResult = null; return;
+    }
+    wrap.innerHTML = renderStatTableHtml(res, groupByBatch);
+    statLastResult = { zoneMode:'merge', groupByBatch, res };
+  } else {
+    let sections = [];
+    let grandTotal = 0, grandLocs = 0;
+    Array.from(statSelectedZones).forEach(zid=>{
+      const zone = db.zones.find(z=>z.id===zid);
+      if(!zone) return;
+      const rowSet = statSelectedRows.get(zid);
+      const locs = db.locations.filter(l=>{
+        if(l.status!=='used'||!l.productId) return false;
+        if(l.zoneId!==zid) return false;
+        if(rowSet && rowSet.size>0 && !rowSet.has(l.rowNum)) return false;
+        return true;
+      });
+      const res = buildStatResult(locs, groupByBatch);
+      grandTotal += res.totalPieces;
+      grandLocs += res.totalLocs;
+      sections.push({ zoneName: zone.name, res });
+    });
+    let html = '<div style="font-size:12px;color:#5f6368;margin-bottom:6px;">总计：<b style="color:#1a73e8;">'+grandTotal+'</b> 件 / '+grandLocs+' 个库位（'+statSelectedZones.size+' 个区域）</div>';
+    sections.forEach(sec=>{
+      html += '<h3 style="font-size:13px;margin:12px 0 6px;color:#1a73e8;">📍 '+sec.zoneName+'</h3>' + renderStatTableHtml(sec.res, groupByBatch);
+    });
+    wrap.innerHTML = html;
+    statLastResult = { zoneMode:'separate', groupByBatch, sections, grandTotal, grandLocs };
+  }
+}
+function exportCustomStatsCsv(){
+  if(!statLastResult){ showToast('没有可导出的数据','error'); return; }
+  const r = statLastResult;
+  const esc = v => { const s = String(v==null?'':v).replace(/"/g,'""'); return /[",\n]/.test(s) ? '"'+s+'"' : s; };
+  let csv = '';
+  if(r.zoneMode === 'merge'){
+    csv = '产品名称,型号,'+(r.groupByBatch?'批次,':'')+'总件数,单位,库位数\n';
+    r.res.list.forEach(it=>{
+      const row = [it.p.name, it.p.model||'-'];
+      if(r.groupByBatch) row.push(it.batchNo||'-');
+      row.push(it.pieces); row.push(it.p.unit||'件'); row.push(it.locs.length);
+      csv += row.map(esc).join(',') + '\n';
+    });
+  } else {
+    csv = '区域,产品名称,型号,'+(r.groupByBatch?'批次,':'')+'总件数,单位,库位数\n';
+    r.sections.forEach(sec=>{
+      sec.res.list.forEach(it=>{
+        const row = [sec.zoneName, it.p.name, it.p.model||'-'];
+        if(r.groupByBatch) row.push(it.batchNo||'-');
+        row.push(it.pieces); row.push(it.p.unit||'件'); row.push(it.locs.length);
+        csv += row.map(esc).join(',') + '\n';
+      });
+    });
+  }
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '自定义统计_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  showToast('导出成功','success');
+}
+function exportCustomStatsImage(){
+  const wrap = document.getElementById('statResultWrap');
+  if(!wrap || !wrap.innerText.trim()){ showToast('无内容','error'); return; }
+  html2canvas(wrap, {scale:2, backgroundColor:'#ffffff'}).then(canvas=>{
+    const link = document.createElement('a');
+    link.download = '自定义统计_'+new Date().toISOString().slice(0,10)+'.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('图片已生成','success');
+  }).catch(err=>{ console.error(err); showToast('生成失败','error'); });
+}
+
 // ==================== FIFO排序 ====================
 function getFifoRankMap(zoneId){ if(!db||!Array.isArray(db.locations))return{}; const used=db.locations.filter(l=>l.zoneId===zoneId&&l.status==='used'&&l.batchNo); const pg={}; used.forEach(loc=>{const pid=loc.productId;if(!pid)return;if(!pg[pid])pg[pid]=[];pg[pid].push(loc);}); const rm={}; Object.keys(pg).forEach(pid=>{ const locs=pg[pid]; locs.sort((a,b)=>{ const wa=getStatusWeight(getLocationEffectiveStatus(a)); const wb=getStatusWeight(getLocationEffectiveStatus(b)); if(wa!==wb)return wa-wb; if(a.priorityFlag&&!b.priorityFlag)return -1; if(!a.priorityFlag&&b.priorityFlag)return 1; return (a.batchNo||'').localeCompare(b.batchNo||''); }); locs.forEach((loc,i)=>{rm[loc.id]={rank:i,total:locs.length,productId:parseInt(pid),isPriority:!!(db.products.find(p=>p.id===parseInt(pid))?.isPriority),priorityFlag:loc.priorityFlag};}); }); return rm; }
 function renderFifoOrderModal(){
@@ -1636,13 +1893,9 @@ function renderFifoOrderModal(){
   if(fifoCombinedItems.length===0){showToast('无可用库位产品','info');return;}
   fifoProductLocationCount = {};
   fifoCombinedItems.forEach(item=>{const pid = item.productId; fifoProductLocationCount[pid] = (fifoProductLocationCount[pid] || 0) + 1;});
-
-  // 区域卡片
   let zoneCardsHtml = '';
   let zoneOptionsHtml = '';
   db.zones.forEach(z=>{ const active = selectedFifoZones.has(z.id); const cls = filterCardCls(active, fifoZoneFilterMode); zoneCardsHtml += `<div class="${cls}" data-zid="${z.id}" style="padding:4px 10px;font-size:12px;">${z.name}</div>`; const sel = selectedFifoZones.has(z.id) ? ' selected' : ''; zoneOptionsHtml += `<option value="${z.id}"${sel}>${z.name}</option>`; });
-
-  // 产品卡片
   let productCards = '';
   const usedProductIds = new Set(fifoCombinedItems.map(it=>it.productId));
   db.products.forEach(p=>{
@@ -1676,7 +1929,6 @@ function renderFifoOrderModal(){
     '</div>'+
     '<div id="fifoContent"></div>'+
     '<div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">关闭</button></div>');
-
   document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(card=>{ card.addEventListener('click',function(e){ e.stopPropagation(); const zid = parseInt(this.dataset.zid); if(selectedFifoZones.has(zid)) selectedFifoZones.delete(zid); else selectedFifoZones.add(zid); this.className = filterCardCls(selectedFifoZones.has(zid), fifoZoneFilterMode); const selZ = document.getElementById('fifoZoneSelect'); if(selZ){Array.from(selZ.options).forEach(o=>{o.selected=selectedFifoZones.has(parseInt(o.value));});} refreshFifoItems(); updateFifoContent(); }); });
   const selZone = document.getElementById('fifoZoneSelect');
   if(selZone){selZone.addEventListener('change',function(){ selectedFifoZones.clear(); Array.from(this.selectedOptions).forEach(o=>selectedFifoZones.add(parseInt(o.value))); document.querySelectorAll('#fifoZoneCards .smart-select-card').forEach(c=>{ const zid = parseInt(c.dataset.zid); c.className = filterCardCls(selectedFifoZones.has(zid), fifoZoneFilterMode); }); refreshFifoItems(); updateFifoContent(); });}
@@ -1693,7 +1945,7 @@ function refreshFifoItems(){
     fifoCombinedItems.push({ productId: loc.productId, batchNo: loc.batchNo, locationType: 'location', locationId: loc.id, zoneId: loc.zoneId, rowNum: loc.rowNum, colNum: loc.colNum, quantity: loc.quantity, customPieces: loc.customPieces, handAccount: loc.handAccount, priorityFlag: loc.priorityFlag, priorityFlagDate: loc.priorityFlagDate || null, transferFlag: loc.transferFlag, remark: loc.remark, locStatus: loc.productStatus||null, ticketAttached: !!loc.ticketAttached, inboundTime: loc.inboundTime || null });
   });
   if(fifoMode !== 'ship' && fifoMode !== 'hand'){
-    if(!filterMatch(-1, selectedFifoZones, fifoZoneFilterMode)) return; // 中转仓用 zoneId=-1 表示
+    if(!filterMatch(-1, selectedFifoZones, fifoZoneFilterMode)) return;
     db.transit.filter(t=>t.batchNo).forEach(t=>{
       fifoCombinedItems.push({ productId: t.productId, batchNo: t.batchNo, locationType:'transit', locationId: t.id, zoneId: null, rowNum: 0, colNum: 0, quantity: t.quantity, customPieces: t.customPieces, handAccount: t.handAccount, priorityFlag: t.priorityFlag, priorityFlagDate: t.priorityFlagDate||null, transferFlag: t.transferFlag, remark: t.remark, locStatus: t.productStatus||null, ticketAttached: !!t.ticketAttached, inboundTime: t.inboundTime || null });
     });
@@ -1936,6 +2188,7 @@ function init(){
   document.getElementById('btnClearLocalCache').addEventListener('click',()=>{if(IS_GUEST){showToast('访客模式无法修改','error');return;}try{localStorage.removeItem(LS_KEY);localStorage.removeItem(LS_TS_KEY);showToast('本地缓存已清除，请刷新页面','success');}catch(e){}});
   document.getElementById('btnProductManager').addEventListener('click',showProductManager);
   document.getElementById('btnShipList').addEventListener('click',showShipListModal);
+  document.getElementById('btnCustomStats').addEventListener('click',showCustomStats);
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
   initFromCloud();
 }
